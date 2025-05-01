@@ -1,0 +1,27 @@
+{
+  "name": "defi-stuff",
+  "version": "1.0.0",
+  "description": "General-use project to interact with DeFi protocols across multiple blockchains",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node --esm src/index.ts",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": ["defi", "blockchain", "ethereum", "typescript"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "commander": "^13.1.0",
+    "dotenv": "^16.5.0",
+    "ethers": "^6.13.7"
+  },
+  "devDependencies": {
+    "@types/commander": "^2.12.5",
+    "@types/node": "^22.15.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
