@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import dotenv from 'dotenv';
 import { ping } from './commands/ping.js';
 import { protocols } from './commands/protocols.js';
+import { userProtocol } from './commands/userProtocol.js';
 
 // Load environment variables
 dotenv.config();
@@ -27,6 +28,13 @@ program
   .description('Search for protocols on a specific blockchain')
   .option('-s, --search <term>', 'Search term to filter protocols by name or ID')
   .action(protocols);
+
+program
+  .command('user-protocol <protocol_id>')
+  .description('Get user data for a specific protocol')
+  .option('-a, --address <address>', 'Override the wallet address from environment variables')
+  .option('-j, --json', 'Output raw JSON data for debugging')
+  .action(userProtocol);
 
 // Parse command line arguments
 program.parse();

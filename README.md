@@ -21,7 +21,8 @@ defi-stuff/
 │   │   └── debank/     # Debank API implementation
 │   ├── commands/       # CLI command implementations
 │   │   ├── ping.ts     # Basic ping command
-│   │   └── protocols.ts # Protocol search command
+│   │   ├── protocols.ts # Protocol search command
+│   │   └── userProtocol.ts # User protocol data command
 │   ├── types/          # Type definitions
 │   ├── utils/          # Utility functions
 │   └── index.ts        # Entry point and CLI definitions
@@ -85,6 +86,23 @@ node dist/index.js protocols eth --search uniswap
 
 # List all protocols on Arbitrum
 node dist/index.js protocols arbitrum
+```
+
+- `user-protocol <protocol_id>`: Get user data for a specific protocol
+  - Options:
+    - `-a, --address <address>`: Override the wallet address from environment variables
+    - `-j, --json`: Output raw JSON data for debugging
+  - Note: Requires `WALLET_ADDRESS` to be set in `.env` file if no address is provided
+
+```bash
+# Get user data for Aave on Ethereum
+node dist/index.js user-protocol aave
+
+# Get user data for Uniswap using a specific wallet address
+node dist/index.js user-protocol uniswap_eth --address 0x123456789abcdef...
+
+# Get raw JSON output for debugging
+node dist/index.js user-protocol aave --json
 ```
 
 ## Development
