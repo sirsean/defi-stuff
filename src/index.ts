@@ -3,6 +3,7 @@
 import { Command } from 'commander';
 import dotenv from 'dotenv';
 import { ping } from './commands/ping.js';
+import { protocols } from './commands/protocols.js';
 
 // Load environment variables
 dotenv.config();
@@ -20,6 +21,12 @@ program
   .command('ping')
   .description('Check if the application is running correctly')
   .action(ping);
+
+program
+  .command('protocols <chain>')
+  .description('Search for protocols on a specific blockchain')
+  .option('-s, --search <term>', 'Search term to filter protocols by name or ID')
+  .action(protocols);
 
 // Parse command line arguments
 program.parse();

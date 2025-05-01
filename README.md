@@ -17,10 +17,14 @@ defi-stuff/
 ├── dist/               # Compiled TypeScript output
 ├── node_modules/       # Dependencies
 ├── src/                # Source code
+│   ├── api/            # API clients
+│   │   └── debank/     # Debank API implementation
 │   ├── commands/       # CLI command implementations
-│   │   └── ping.ts     # Basic ping command
-│   ├── index.ts        # Entry point and CLI definitions
-│   └── ...             # Additional modules (upcoming)
+│   │   ├── ping.ts     # Basic ping command
+│   │   └── protocols.ts # Protocol search command
+│   ├── types/          # Type definitions
+│   ├── utils/          # Utility functions
+│   └── index.ts        # Entry point and CLI definitions
 ├── .env                # Environment variables (not committed)
 ├── .env.template       # Template for environment variables
 ├── .gitignore          # Git ignore file
@@ -66,6 +70,21 @@ Available commands:
 
 ```bash
 node dist/index.js ping
+```
+
+- `protocols <chain>`: Search for protocols on a specific blockchain
+  - Options:
+    - `-s, --search <term>`: Search term to filter protocols by name or ID
+
+```bash
+# List all protocols on Ethereum
+node dist/index.js protocols eth
+
+# Search for a specific protocol on Ethereum
+node dist/index.js protocols eth --search uniswap
+
+# List all protocols on Arbitrum
+node dist/index.js protocols arbitrum
 ```
 
 ## Development
