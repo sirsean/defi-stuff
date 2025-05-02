@@ -100,7 +100,7 @@ export async function userProtocol(
  * @param item The portfolio item to display
  */
 function displayPortfolioItem(item: UserPortfolioItem): void {
-  console.log(`\n--- ${item.name} ---`);
+  console.log(`--- ${item.name} ---`);
   console.log(
     `Value: $${item.stats.asset_usd_value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
   );
@@ -121,7 +121,7 @@ function displayPortfolioItem(item: UserPortfolioItem): void {
     item.detail.supply_token_list &&
     item.detail.supply_token_list.length > 0
   ) {
-    console.log("\nSupplied Assets:");
+    console.log("Supplied Assets:");
     displayTokenList(item.detail.supply_token_list);
   }
 
@@ -129,7 +129,7 @@ function displayPortfolioItem(item: UserPortfolioItem): void {
     item.detail.reward_token_list &&
     item.detail.reward_token_list.length > 0
   ) {
-    console.log("\nReward Assets:");
+    console.log("Reward Assets:");
     displayTokenList(item.detail.reward_token_list);
   }
 
