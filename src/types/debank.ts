@@ -50,10 +50,20 @@ export interface UserPortfolioItem {
   stats: UserPortfolioStats;
   update_at: number;
   name: string;
-  pool_id: string;
   detail_types: string[];
   detail: UserPortfolioDetail;
   proxy_detail?: Record<string, unknown>;
+  pool: PoolInfo;
+}
+
+export interface PoolInfo {
+  id: string;
+  chain: string;
+  project_id: string;
+  adapter_id: string;
+  controller: string;
+  index: number | null;
+  time_at: number;
 }
 
 export interface UserPortfolioStats {

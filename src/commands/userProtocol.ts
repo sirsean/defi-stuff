@@ -81,7 +81,7 @@ export async function userProtocol(
       );
 
       protocolData.portfolio_item_list.forEach((item) => {
-        displayPortfolioItem(item);
+        displayPortfolioItem(item, protocolId);
       });
     }
   } catch (error) {
@@ -98,9 +98,22 @@ export async function userProtocol(
 /**
  * Display a portfolio item's details
  * @param item The portfolio item to display
+ * @param protocolId The protocol ID for the portfolio item
  */
-function displayPortfolioItem(item: UserPortfolioItem): void {
-  console.log(`--- ${item.name} ---`);
+function displayPortfolioItem(item: UserPortfolioItem, protocolId: string): void {
+  // Try to get a friendly name for the pool
+  const friendlyName = UserProtocolService.getPoolFriendlyName(protocolId, item.pool.id);
+  
+  if (friendlyName) {
+    // If we have a friendly name, use it
+    console.log(`--- ${friendlyName} ---`);
+  } else {
+    // Otherwise show the default name and adapter type
+    console.log(`--- ${item.name} (${item.pool.adapter_id}) ---`);
+    // Only show pool ID when we don't have a friendly name mapped
+    console.log(`Pool ID: ${item.pool.id}`);
+  }
+  
   console.log(
     `Value: $${item.stats.asset_usd_value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
   );
@@ -113,8 +126,6 @@ function displayPortfolioItem(item: UserPortfolioItem): void {
       `Net: $${item.stats.net_usd_value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
     );
   }
-
-  console.log(`Updated: ${new Date(item.update_at * 1000).toLocaleString()}`);
 
   // Display token details
   if (
