@@ -7,6 +7,10 @@ A general-use project to interact with DeFi protocols across multiple blockchain
 - Interact with smart contracts using ethers.js
 - Connect to multiple blockchains using Alchemy RPC
 - Integrate with DeFi APIs (Debank, Defillama, Etherscan)
+- Query protocol information from DeBank API
+- Search and filter protocols by name
+- Query user position data for protocols
+- Display pool information with friendly names
 - Send notifications to Discord
 - Run scheduled tasks
 
@@ -107,11 +111,32 @@ node dist/index.js user-protocol aave --json
 
 ## Development
 
+### Testing
+
+This project uses Vitest and axios-mock-adapter for testing:
+
+- **Vitest**: Modern test framework with TypeScript support and ESM compatibility
+- **axios-mock-adapter**: Mocks HTTP requests to test API integrations without network calls
+
+To run tests:
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage report
+npm run test:coverage
+```
+
 ### Adding New Commands
 
 1. Create a new file in the `src/commands/` directory
 2. Export a function that implements the command
 3. Register the command in `src/index.ts`
+4. Add tests for the new command in the `test/commands/` directory
 
 Example:
 

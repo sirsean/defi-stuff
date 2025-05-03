@@ -76,6 +76,13 @@ export interface UserPortfolioDetail {
   supply_token_list?: TokenInfo[];
   reward_token_list?: TokenInfo[];
   borrow_token_list?: TokenInfo[];
+  common?: {
+    position_index: string;
+    pool_adapter_type: string;
+    pool_id: string;
+    pool_name: string;
+    asset_token_list: TokenInfo[];
+  };
 }
 
 export interface TokenInfo {
@@ -83,16 +90,21 @@ export interface TokenInfo {
   chain: string;
   name: string;
   symbol: string;
-  display_symbol?: string;
-  optimized_symbol?: string;
+  display_symbol?: string | null;
+  optimized_symbol?: string | null;
   decimals: number;
-  logo_url: string;
+  logo_url: string | null;
   protocol_id: string;
   price: number;
+  price_24h_change?: number | null;
+  credit_score?: number;
   is_verified?: boolean;
-  is_core?: boolean;
+  is_scam?: boolean;
+  is_suspicious?: boolean;
+  is_core?: boolean | null;
   is_wallet?: boolean;
-  time_at?: number;
+  time_at?: number | null;
+  low_credit_score?: boolean;
   amount: number;
   usd_value?: number;
 }
