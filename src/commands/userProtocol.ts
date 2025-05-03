@@ -19,6 +19,7 @@ export async function userProtocol(
     if (!protocolId) {
       console.error("Protocol ID parameter is required");
       process.exit(1);
+      return; // This ensures the function returns early in tests
     }
 
     console.log(`Fetching protocol data for protocol ${protocolId}...`);

@@ -15,6 +15,7 @@ export async function protocols(chain: string, options: ProtocolCommandOptions):
     if (!chain) {
       console.error('Chain parameter is required');
       process.exit(1);
+      return; // This ensures the function returns early in tests
     }
 
     console.log(`Searching for protocols on ${chain}...`);
