@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { ping } from './commands/ping.js';
 import { protocols } from './commands/protocols.js';
 import { userProtocol } from './commands/userProtocol.js';
+import { abi } from './commands/abi.js';
 
 // Load environment variables
 dotenv.config();
@@ -35,6 +36,12 @@ program
   .option('-a, --address <address>', 'Override the wallet address from environment variables')
   .option('-j, --json', 'Output raw JSON data for debugging')
   .action(userProtocol);
+
+program
+  .command('abi <address>')
+  .description('Fetch ABI for a contract address')
+  .option('--ignoreProxy', 'Skip proxy implementation detection')
+  .action(abi);
 
 // Parse command line arguments
 program.parse();
