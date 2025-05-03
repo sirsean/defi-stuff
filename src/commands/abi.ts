@@ -1,8 +1,9 @@
-import { AbiService } from '../api/etherscan/abiService.js';
-import { AbiOptions } from '../types/etherscan.js';
+import { AbiService } from '../api/explorers/abiService.js';
+import { AbiOptions, BlockchainExplorer, EXPLORER_CONFIGS } from '../types/etherscan.js';
 
 interface AbiCommandOptions {
   ignoreProxy?: boolean;
+  chain?: string;
 }
 
 /**
@@ -24,19 +25,32 @@ export async function abi(address: string, options: AbiCommandOptions = {}): Pro
       process.exit(1);
       return;
     }
+    
+    // Check if the specified chain is supported
+    let chain: BlockchainExplorer = 'ethereum'; // Default to Ethereum
+    
+    if (options.chain) {
+      if (!(options.chain in EXPLORER_CONFIGS)) {
+        console.error(`Unsupported blockchain: ${options.chain}`);
+        console.error(`Supported blockchains: ${Object.keys(EXPLORER_CONFIGS).join(', ')}`);
+        process.exit(1);
+        return;
+      }
+      chain = options.chain as BlockchainExplorer;
+    }
 
-    const abiService = new AbiService();
+    const abiService = new AbiService(chain);
     const abiOptions: AbiOptions = {
       address,
-      checkForProxy: !options.ignoreProxy
+      checkForProxy: !options.ignoreProxy,
+      chain
     };
 
-    // Check if we should detect proxy implementations
-    if (!options.ignoreProxy) {
-      console.log(`Fetching ABI for ${address} (with proxy detection)...`);
-    } else {
-      console.log(`Fetching ABI for ${address} (ignoring proxy)...`);
-    }
+    // Prepare message with blockchain and proxy info
+    const explorerName = abiService.getExplorerName();
+    let detectionMsg = options.ignoreProxy ? 'ignoring proxy' : 'with proxy detection';
+    
+    console.log(`Fetching ABI for ${address} from ${explorerName} (${detectionMsg})...`);
     
     // Get the ABI JSON
     const abiJson = await abiService.getContractAbiJson(abiOptions);

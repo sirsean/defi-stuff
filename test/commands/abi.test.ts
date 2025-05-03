@@ -4,13 +4,15 @@ import { setupConsoleMocks, ConsoleMock } from '../utils/consoleMock.js';
 
 // Mock getContractAbiJson function
 const mockGetContractAbiJson = vi.fn();
+const mockGetExplorerName = vi.fn();
 
 // Mock the AbiService class
-vi.mock('../../src/api/etherscan/abiService.js', () => {
+vi.mock('../../src/api/explorers/abiService.js', () => {
   return {
     AbiService: vi.fn().mockImplementation(() => {
       return {
-        getContractAbiJson: mockGetContractAbiJson
+        getContractAbiJson: mockGetContractAbiJson,
+        getExplorerName: mockGetExplorerName
       };
     })
   };
@@ -27,8 +29,9 @@ describe('abi command', () => {
     // Reset all mocks
     vi.clearAllMocks();
     
-    // Set default mock implementation
+    // Set default mock implementations
     mockGetContractAbiJson.mockResolvedValue(testAbi);
+    mockGetExplorerName.mockReturnValue('Etherscan');
   });
 
   it('should fetch and print ABI with proxy detection enabled by default', async () => {
@@ -38,10 +41,12 @@ describe('abi command', () => {
     // Assert: Verify the service was called with the right parameters
     expect(mockGetContractAbiJson).toHaveBeenCalledWith({
       address: testAddress,
-      checkForProxy: true
+      checkForProxy: true,
+      chain: 'ethereum'
     });
 
     // Check console logs
+    expect(ConsoleMock.log).toHaveBeenCalledWith(expect.stringContaining('Etherscan'));
     expect(ConsoleMock.log).toHaveBeenCalledWith(expect.stringContaining('with proxy detection'));
     expect(ConsoleMock.log).toHaveBeenCalledWith(testAbi);
   });
@@ -53,12 +58,44 @@ describe('abi command', () => {
     // Assert: Verify the service was called with the right parameters
     expect(mockGetContractAbiJson).toHaveBeenCalledWith({
       address: testAddress,
-      checkForProxy: false
+      checkForProxy: false,
+      chain: 'ethereum'
     });
 
     // Check console logs
     expect(ConsoleMock.log).toHaveBeenCalledWith(expect.stringContaining('ignoring proxy'));
     expect(ConsoleMock.log).toHaveBeenCalledWith(testAbi);
+  });
+  
+  it('should use the specified blockchain when provided', async () => {
+    // Arrange: Mock for Base chain
+    mockGetExplorerName.mockReturnValue('Basescan');
+    
+    // Act: Call the command with chain option
+    await abi(testAddress, { chain: 'base' });
+
+    // Assert: Verify the service was called with the base chain
+    expect(mockGetContractAbiJson).toHaveBeenCalledWith({
+      address: testAddress,
+      checkForProxy: true,
+      chain: 'base'
+    });
+
+    // Check console logs
+    expect(ConsoleMock.log).toHaveBeenCalledWith(expect.stringContaining('Basescan'));
+    expect(ConsoleMock.log).toHaveBeenCalledWith(testAbi);
+  });
+  
+  it('should exit with error when an unsupported blockchain is specified', async () => {
+    // Act: Call the command with an invalid chain
+    await abi(testAddress, { chain: 'invalid-chain' });
+
+    // Assert: Verify error handling
+    expect(ConsoleMock.error).toHaveBeenCalledWith(expect.stringContaining('Unsupported blockchain'));
+    expect(ConsoleMock.exit).toHaveBeenCalledWith(1);
+    
+    // Verify the service was not called
+    expect(mockGetContractAbiJson).not.toHaveBeenCalled();
   });
 
   it('should exit with error when address is not provided', async () => {
