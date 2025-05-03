@@ -6,11 +6,12 @@ A general-use project to interact with DeFi protocols across multiple blockchain
 
 - Interact with smart contracts using ethers.js
 - Connect to multiple blockchains using Alchemy RPC
-- Integrate with DeFi APIs (Debank, Defillama, Etherscan)
+- Integrate with DeFi APIs (Debank, Etherscan, Basescan)
 - Query protocol information from DeBank API
 - Search and filter protocols by name
 - Query user position data for protocols
 - Display pool information with friendly names
+- Fetch contract ABIs from multiple blockchains
 - Send notifications to Discord
 - Run scheduled tasks
 
@@ -22,11 +23,13 @@ defi-stuff/
 ├── node_modules/       # Dependencies
 ├── src/                # Source code
 │   ├── api/            # API clients
-│   │   └── debank/     # Debank API implementation
+│   │   ├── debank/     # Debank API implementation
+│   │   └── explorers/  # Blockchain explorer API clients (Etherscan, Basescan)
 │   ├── commands/       # CLI command implementations
 │   │   ├── ping.ts     # Basic ping command
 │   │   ├── protocols.ts # Protocol search command
-│   │   └── userProtocol.ts # User protocol data command
+│   │   ├── userProtocol.ts # User protocol data command
+│   │   └── abi.ts      # Contract ABI fetching command
 │   ├── types/          # Type definitions
 │   ├── utils/          # Utility functions
 │   └── index.ts        # Entry point and CLI definitions
@@ -47,7 +50,10 @@ defi-stuff/
 npm install
 ```
 
-3. Create a `.env` file based on `.env.template` and add your API keys and configuration.
+3. Create a `.env` file based on `.env.template` and add your API keys and configuration. Required API keys include:
+   - `DEBANK_API_KEY` - for DeBank API access
+   - `ETHERSCAN_API_KEY` - for Etherscan API access
+   - `BASESCAN_API_KEY` - for Basescan API access (if using Base blockchain)
 
 ## Usage
 
@@ -107,6 +113,26 @@ node dist/index.js user-protocol uniswap_eth --address 0x123456789abcdef...
 
 # Get raw JSON output for debugging
 node dist/index.js user-protocol aave --json
+```
+
+- `abi <address>`: Fetch and print a contract's ABI
+  - Options:
+    - `--ignoreProxy`: Skip proxy implementation detection
+    - `-c, --chain <chain>`: Blockchain to use (ethereum, base)
+  - Note: Requires appropriate API keys in `.env` file (`ETHERSCAN_API_KEY` for Ethereum, `BASESCAN_API_KEY` for Base)
+
+```bash
+# Fetch ABI for a contract on Ethereum (default)
+node dist/index.js abi 0x1234567890abcdef1234567890abcdef12345678
+
+# Fetch ABI for a contract on Base
+node dist/index.js abi 0x1234567890abcdef1234567890abcdef12345678 --chain base
+
+# Fetch ABI for a contract without proxy resolution
+node dist/index.js abi 0x1234567890abcdef1234567890abcdef12345678 --ignoreProxy
+
+# Save ABI to a file
+node dist/index.js abi 0x1234567890abcdef1234567890abcdef12345678 > contract-abi.json
 ```
 
 ## Development
