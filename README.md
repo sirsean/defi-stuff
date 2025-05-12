@@ -12,7 +12,7 @@ A general-use project to interact with DeFi protocols across multiple blockchain
 - Query user position data for protocols
 - Display pool information with friendly names
 - Fetch contract ABIs from multiple blockchains
-- Send notifications to Discord
+- Send rich formatted messages to Discord
 - Run scheduled tasks
 
 ## Project Structure
@@ -54,6 +54,8 @@ npm install
    - `DEBANK_API_KEY` - for DeBank API access
    - `ETHERSCAN_API_KEY` - for Etherscan API access
    - `BASESCAN_API_KEY` - for Basescan API access (if using Base blockchain)
+   - `DISCORD_APP_TOKEN` - Discord bot token from [Discord Developer Portal](https://discord.com/developers/applications)
+   - `DISCORD_CHANNEL_ID` - ID of the Discord channel where messages will be sent
 
 ## Usage
 
@@ -181,6 +183,71 @@ program
   .option('-o, --option <value>', 'Description of option')
   .action(myCommand);
 ```
+
+### Discord Integration
+
+The Discord integration allows you to send beautifully formatted messages to a Discord channel. It provides:
+
+- Connection management with proper event handling
+- Text message formatting with fields and timestamps
+- Rich embed messages with colors and formatting
+- Easy-to-use builder pattern for message construction
+
+Example usage:
+
+```typescript
+import { discordService, DiscordColors } from './api/discord';
+
+// Simple text message
+const textMessage = discordService.createTextMessage()
+  .addTitle('Protocol Update')
+  .addDescription('Latest information about your protocols')
+  .addFields([
+    { name: 'Wallets Tracked', value: '5' },
+    { name: 'Protocols', value: '12' }
+  ])
+  .addTimestamp()
+  .build();
+
+// Rich embed message
+const embedMessage = discordService.createEmbedMessage()
+  .addTitle('🔍 Protocol Alert')
+  .addDescription('A significant change has been detected')
+  .addField('Protocol', 'UniswapV3', true)
+  .addField('Change', '+15.4%', true)
+  .setColor(DiscordColors.GREEN)
+  .addTimestamp()
+  .build();
+
+// Send messages
+await discordService.sendMessage(textMessage);
+await discordService.sendMessage(embedMessage);
+
+// Always disconnect when done
+await discordService.shutdown();
+```
+
+See [discordExample.ts](./src/examples/discordExample.ts) for a complete example.
+
+#### Testing Discord Integration
+
+To verify your Discord integration is working properly:
+
+```bash
+# Build the project
+npm run build
+
+# Run the test script
+node dist/testDiscord.js
+```
+
+This will send a simple test message to your configured Discord channel. It's useful for:
+
+- Verifying your environment variables are correct
+- Ensuring your bot has proper permissions in the channel
+- Testing that the message formatting is working as expected
+
+If the test is successful, you'll see "Message sent successfully! ✅" in the console and a test message will appear in your Discord channel.
 
 ### Scheduling
 
