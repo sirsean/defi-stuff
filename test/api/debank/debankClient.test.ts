@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { DebankClient } from '../../../src/api/debank/debankClient.js';
-import { mockProtocolList, mockUserProtocolResponse } from '../../utils/testData.js';
+import { mockProtocolList, mockUserProtocolResponse, mockUserTotalBalanceResponse } from '../../utils/testData.js';
 
 describe('DebankClient', () => {
   let mock: MockAdapter;
@@ -85,6 +85,44 @@ describe('DebankClient', () => {
 
       // Act & Assert: Verify that the method throws an error
       await expect(client.getUserProtocol(userAddress, protocolId)).rejects.toThrow();
+    });
+  });
+
+  describe('getUserTotalBalance', () => {
+    const userAddress = '0x1234567890abcdef1234567890abcdef12345678';
+
+    it('should fetch user total balance data', async () => {
+      // Arrange: Set up the mock to return data for the user total balance endpoint
+      mock.onGet('https://pro-openapi.debank.com/v1/user/total_balance')
+        .reply(200, mockUserTotalBalanceResponse);
+
+      // Act: Call the method being tested
+      const result = await client.getUserTotalBalance(userAddress);
+
+      // Assert: Verify the response matches our mock data
+      expect(result).toEqual(mockUserTotalBalanceResponse);
+      expect(mock.history.get[0].params).toEqual({
+        id: userAddress
+      });
+    });
+
+    it('should throw a specific error for 404 responses', async () => {
+      // Arrange: Set up the mock to simulate a 404 response
+      mock.onGet('https://pro-openapi.debank.com/v1/user/total_balance')
+        .reply(404);
+
+      // Act & Assert: Verify that the method throws a specific error
+      await expect(client.getUserTotalBalance(userAddress))
+        .rejects.toThrow(`No balance data found for user ${userAddress}`);
+    });
+
+    it('should throw an error for other API failures', async () => {
+      // Arrange: Set up the mock to simulate a server error
+      mock.onGet('https://pro-openapi.debank.com/v1/user/total_balance')
+        .reply(500, { error: 'Internal server error' });
+
+      // Act & Assert: Verify that the method throws an error
+      await expect(client.getUserTotalBalance(userAddress)).rejects.toThrow();
     });
   });
 });

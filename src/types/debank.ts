@@ -13,6 +13,24 @@ export interface DebankProtocol {
   portfolio_item_list: PortfolioItem[];
 }
 
+/**
+ * Types for User Total Balance API responses
+ */
+export interface UserTotalBalanceResponse {
+  total_usd_value: number;
+  chain_list: ChainBalance[];
+}
+
+export interface ChainBalance {
+  id: string;
+  community_id: number;
+  name: string;
+  native_token_id: string;
+  logo_url: string;
+  wrapped_token_id: string;
+  usd_value: number;
+}
+
 export interface PortfolioItem {
   stats: PortfolioStats;
   id: string;

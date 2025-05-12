@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from "axios";
-import { DebankProtocol, UserProtocolResponse } from "../../types/debank.js";
+import { DebankProtocol, UserProtocolResponse, UserTotalBalanceResponse } from "../../types/debank.js";
 
 /**
  * Client for interacting with the Debank API
@@ -86,6 +86,39 @@ export class DebankClient {
         }
         console.error(
           "Error fetching user protocol data:",
+          error.response?.data || error.message,
+        );
+      } else {
+        console.error("Unexpected error:", error);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Get a user's total balance across all supported chains
+   * @param userAddress The wallet address to query
+   * @returns User's total balance and per-chain balances
+   */
+  async getUserTotalBalance(userAddress: string): Promise<UserTotalBalanceResponse> {
+    try {
+      const response = await this.client.get<UserTotalBalanceResponse>(
+        "/v1/user/total_balance",
+        {
+          params: {
+            id: userAddress
+          },
+        },
+      );
+
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 404) {
+          throw new Error(`No balance data found for user ${userAddress}`);
+        }
+        console.error(
+          "Error fetching user balance data:",
           error.response?.data || error.message,
         );
       } else {

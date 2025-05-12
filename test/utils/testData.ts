@@ -2,7 +2,7 @@
  * Mock data for testing Debank API responses
  */
 
-import { DebankProtocol, UserProtocolResponse } from '../../src/types/debank.js';
+import { DebankProtocol, UserProtocolResponse, UserTotalBalanceResponse } from '../../src/types/debank.js';
 
 /**
  * Mock protocol list for testing
@@ -153,6 +153,60 @@ export const mockUserProtocolResponse: UserProtocolResponse = {
         index: null,
         time_at: 1735920411
       }
+    }
+  ]
+};
+
+/**
+ * Mock user total balance data for testing
+ */
+export const mockUserTotalBalanceResponse: UserTotalBalanceResponse = {
+  total_usd_value: 323456.78,
+  chain_list: [
+    {
+      id: "eth",
+      community_id: 1,
+      name: "Ethereum",
+      native_token_id: "eth",
+      logo_url: "https://static.debank.com/image/chain/logo_url/eth/42ba589cd077e7bdd97db6480b0ff61d.png",
+      wrapped_token_id: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      usd_value: 156789.45
+    },
+    {
+      id: "base",
+      community_id: 8453,
+      name: "Base",
+      native_token_id: "base",
+      logo_url: "https://static.debank.com/image/chain/logo_url/base/7429172c5b921cbe91f177c53d202199.png",
+      wrapped_token_id: "0x4200000000000000000000000000000000000006",
+      usd_value: 87654.32
+    },
+    {
+      id: "arbitrum",
+      community_id: 42161,
+      name: "Arbitrum",
+      native_token_id: "arbitrum",
+      logo_url: "https://static.debank.com/image/chain/logo_url/arb/f6d1b236259654d531a1459b2bccaf64.png",
+      wrapped_token_id: "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+      usd_value: 45678.91
+    },
+    {
+      id: "polygon",
+      community_id: 137,
+      name: "Polygon",
+      native_token_id: "polygon",
+      logo_url: "https://static.debank.com/image/chain/logo_url/matic/5d9c125d36785e7b645a9c399d274f17.png",
+      wrapped_token_id: "0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270",
+      usd_value: 32456.78
+    },
+    {
+      id: "bsc",
+      community_id: 56,
+      name: "BNB Chain",
+      native_token_id: "bsc",
+      logo_url: "https://static.debank.com/image/chain/logo_url/bsc/7c87af7b52853145f3486cc22c52ee6e.png",
+      wrapped_token_id: "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+      usd_value: 877.32
     }
   ]
 };

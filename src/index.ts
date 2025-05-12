@@ -6,6 +6,7 @@ import { ping } from './commands/ping.js';
 import { protocols } from './commands/protocols.js';
 import { userProtocol } from './commands/userProtocol.js';
 import { abi } from './commands/abi.js';
+import { balance } from './commands/balance.js';
 
 // Load environment variables
 dotenv.config();
@@ -43,6 +44,13 @@ program
   .option('--ignoreProxy', 'Skip proxy implementation detection')
   .option('-c, --chain <chain>', 'Blockchain to use (ethereum, base)')
   .action(abi);
+
+program
+  .command('balance [address]')
+  .description('Get wallet balance across all chains')
+  .option('-t, --threshold <value>', 'Minimum USD value to show a chain (default: 1000)', parseInt)
+  .option('-a, --address <address>', 'Override the wallet address from environment variables')
+  .action(balance);
 
 // Parse command line arguments
 program.parse();

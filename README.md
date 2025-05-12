@@ -100,6 +100,26 @@ node dist/index.js protocols eth --search uniswap
 node dist/index.js protocols arbitrum
 ```
 
+- `balance [address]`: Get a wallet's USD balance across all supported chains
+  - Options:
+    - `-t, --threshold <value>`: Minimum USD value to show a chain (default: 1000)
+    - `-a, --address <address>`: Override the wallet address from environment variables
+  - Note: Requires `WALLET_ADDRESS` to be set in `.env` file if no address is provided
+
+```bash
+# Get balance using the default wallet address from .env
+node dist/index.js balance
+
+# Get total balance and per-chain balances above $1,000 for a specific address
+node dist/index.js balance 0x1234567890abcdef1234567890abcdef12345678
+
+# Get balance for a specific address using the -a option
+node dist/index.js balance -a 0x1234567890abcdef1234567890abcdef12345678
+
+# Get total balance and per-chain balances above $10,000
+node dist/index.js balance 0x1234567890abcdef1234567890abcdef12345678 -t 10000
+```
+
 - `user-protocol <protocol_id>`: Get user data for a specific protocol
   - Options:
     - `-a, --address <address>`: Override the wallet address from environment variables
