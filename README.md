@@ -120,6 +120,33 @@ node dist/index.js balance -a 0x1234567890abcdef1234567890abcdef12345678
 node dist/index.js balance 0x1234567890abcdef1234567890abcdef12345678 -t 10000
 ```
 
+- `daily [address]`: Generate a daily financial report for a wallet
+  - Options:
+    - `-a, --address <address>`: Override the wallet address from environment variables
+    - `-d, --discord`: Send the report to Discord
+  - Note: Requires `WALLET_ADDRESS` to be set in `.env` file if no address is provided
+
+```bash
+# Generate daily report using the default wallet address from .env
+node dist/index.js daily
+
+# Generate daily report for a specific address
+node dist/index.js daily 0x1234567890abcdef1234567890abcdef12345678
+
+# Generate daily report and send it to Discord
+node dist/index.js daily --discord
+
+# Generate daily report for a specific address and send it to Discord
+node dist/index.js daily 0x1234567890abcdef1234567890abcdef12345678 --discord
+```
+
+The daily report includes:
+- Overall wallet USD balance
+- USD value of autoUSD positions
+- ETH value of autoETH + dineroETH positions
+- USD value of FLP positions with token breakdowns
+- Pending rewards for Tokemak and Base Flex protocols
+
 - `user-protocol <protocol_id>`: Get user data for a specific protocol
   - Options:
     - `-a, --address <address>`: Override the wallet address from environment variables
@@ -271,4 +298,28 @@ If the test is successful, you'll see "Message sent successfully! ✅" in the co
 
 ### Scheduling
 
-The project uses macOS scheduling tools to run commands on different schedules. (Configuration details to be added as this feature is implemented)
+The project uses macOS scheduling tools to run commands on different schedules.
+
+#### Setting Up a Daily Report
+
+To schedule the daily report to run automatically each morning:
+
+1. Open your crontab for editing:
+
+```bash
+crontab -e
+```
+
+2. Add an entry to run the daily report at 5:00 AM and send it to Discord:
+
+```
+# Run daily DeFi report at 5:00 AM with Discord notification
+0 5 * * * cd /path/to/defi-stuff && /usr/local/bin/node dist/index.js daily --discord
+```
+
+3. Save and exit. Your daily report will now run automatically each morning at 5:00 AM and send results to Discord.
+
+Notes:
+- Use absolute paths to avoid any issues with cron's default PATH
+- Ensure your environment variables (like `WALLET_ADDRESS` and Discord credentials) are properly set up
+- You can adjust the time by changing the crontab entry (the format is: minute hour day month weekday)

@@ -7,6 +7,7 @@ import { protocols } from './commands/protocols.js';
 import { userProtocol } from './commands/userProtocol.js';
 import { abi } from './commands/abi.js';
 import { balance } from './commands/balance.js';
+import { daily } from './commands/daily.js';
 
 // Load environment variables
 dotenv.config();
@@ -51,6 +52,13 @@ program
   .option('-t, --threshold <value>', 'Minimum USD value to show a chain (default: 1000)', parseInt)
   .option('-a, --address <address>', 'Override the wallet address from environment variables')
   .action(balance);
+
+program
+  .command('daily [address]')
+  .description('Generate a daily report of wallet balances and protocol positions')
+  .option('-a, --address <address>', 'Override the wallet address from environment variables')
+  .option('-d, --discord', 'Send the report to Discord')
+  .action(daily);
 
 // Parse command line arguments
 program.parse();
