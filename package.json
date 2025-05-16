@@ -11,7 +11,11 @@
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "db:migrate": "knex --knexfile knexfile.cjs migrate:latest",
+    "db:rollback": "knex --knexfile knexfile.cjs migrate:rollback", 
+    "db:seed": "knex --knexfile knexfile.cjs seed:run",
+    "db:status": "node scripts/db-status.js"
   },
   "keywords": [
     "defi",
@@ -27,7 +31,9 @@
     "discord.js": "^14.19.3",
     "dotenv": "^16.5.0",
     "ethers": "^6.13.7",
-    "fuse.js": "^7.1.0"
+    "fuse.js": "^7.1.0",
+    "knex": "^3.1.0",
+    "sqlite3": "^5.1.7"
   },
   "devDependencies": {
     "@types/commander": "^2.12.5",

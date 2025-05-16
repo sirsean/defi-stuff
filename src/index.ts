@@ -8,6 +8,7 @@ import { userProtocol } from './commands/userProtocol.js';
 import { abi } from './commands/abi.js';
 import { balance } from './commands/balance.js';
 import { daily } from './commands/daily.js';
+import { history } from './commands/history.js';
 
 // Load environment variables
 dotenv.config();
@@ -58,7 +59,17 @@ program
   .description('Generate a daily report of wallet balances and protocol positions')
   .option('-a, --address <address>', 'Override the wallet address from environment variables')
   .option('-d, --discord', 'Send the report to Discord')
+  .option('--db', 'Save the report data to the database')
   .action(daily);
+
+program
+  .command('history [address]')
+  .description('Query historical daily balance data from the database')
+  .option('-a, --address <address>', 'Override the wallet address from environment variables')
+  .option('-d, --days <number>', 'Number of days to look back from today', parseInt)
+  .option('-r, --range <dates>', 'Date range in YYYY-MM-DD,YYYY-MM-DD format')
+  .option('-t, --table', 'Display results in table format (legacy view)')
+  .action(history);
 
 // Parse command line arguments
 program.parse();

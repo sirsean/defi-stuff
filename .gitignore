@@ -17,6 +17,11 @@ coverage/
 .DS_Store
 *.log
 
+# Database files
+db/*.db
+db/*.sqlite
+db/*.sqlite3
+
 # Editor directories and files
 .idea/
 .vscode/

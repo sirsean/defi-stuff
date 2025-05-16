@@ -2,10 +2,13 @@ import { BalanceService } from '../api/debank/balanceService.js';
 import { UserProtocolService } from '../api/debank/userProtocolService.js';
 import { TokenInfo, UserPortfolioItem } from '../types/debank.js';
 import { discordService, DiscordColors } from '../api/discord/discordService.js';
+import { BalanceRecordService, BalanceRecord, BalanceType } from '../db/balanceRecordService.js';
+import { KnexConnector } from '../db/knexConnector.js';
 
 interface DailyCommandOptions {
   address?: string;
   discord?: boolean;
+  db?: boolean;
 }
 
 interface ProtocolData {
@@ -66,8 +69,12 @@ export async function daily(
       baseFlex: processProtocolData(baseFlexData.portfolio_item_list)
     };
 
-    // Generate a console report
-    await generateReport(processedData, options.discord === true);
+    // Generate a console report and optionally save to database
+    await generateReport(processedData, {
+      sendToDiscord: options.discord === true,
+      saveToDb: options.db === true,
+      walletAddress: walletAddress
+    });
     
   } catch (error) {
     if (error instanceof Error) {
@@ -127,9 +134,9 @@ function processProtocolData(portfolioItems: UserPortfolioItem[]): Record<string
 }
 
 /**
- * Generate a formatted report and optionally send to Discord
+ * Generate a formatted report and optionally send to Discord and/or save to database
  * @param data The processed protocol data
- * @param sendToDiscord Whether to send the report to Discord
+ * @param options Options for report generation
  */
 async function generateReport(
   data: {
@@ -137,7 +144,11 @@ async function generateReport(
     tokemak: Record<string, ProtocolData>;
     baseFlex: Record<string, ProtocolData>;
   },
-  sendToDiscord: boolean
+  options: {
+    sendToDiscord: boolean;
+    saveToDb: boolean;
+    walletAddress?: string;
+  }
 ): Promise<void> {
   // Calculate aggregated values
   const autoUsdValue = data.tokemak['autoUSD']?.usdValue || 0;
@@ -216,7 +227,7 @@ async function generateReport(
   }
   
   // Send to Discord if requested
-  if (sendToDiscord) {
+  if (options.sendToDiscord) {
     await sendDiscordReport({
       totalUsdValue: data.totalUsdValue,
       autoUsdValue,
@@ -226,6 +237,27 @@ async function generateReport(
       tokemakRewards,
       baseFlexRewards
     });
+  }
+  
+  // Save to database if requested
+  if (options.saveToDb) {
+    // Check if wallet address is available
+    const walletAddressToUse = options.walletAddress || process.env.WALLET_ADDRESS;
+    
+    if (walletAddressToUse) {
+      await saveToDatabaseReport({
+        walletAddress: walletAddressToUse,
+        totalUsdValue: data.totalUsdValue,
+        autoUsdValue,
+        autoEthValue,
+        dineroEthValue,
+        flpUsdValue,
+        tokemakRewards,
+        baseFlexRewards
+      });
+    } else {
+      console.log("Note: Database save skipped - no wallet address found");
+    }
   }
 }
 
@@ -323,5 +355,130 @@ async function sendDiscordReport(data: {
     } catch (shutdownError) {
       console.error('Error shutting down Discord service:', shutdownError);
     }
+  }
+}
+
+/**
+ * Save the report data to the database
+ * @param data The processed report data
+ */
+async function saveToDatabaseReport(data: {
+  walletAddress: string;
+  totalUsdValue: number;
+  autoUsdValue: number;
+  autoEthValue: number;
+  dineroEthValue: number;
+  flpUsdValue: number;
+  tokemakRewards: Array<{ amount: number; usdValue: number; symbol: string }>;
+  baseFlexRewards: Array<{ amount: number; usdValue: number; symbol: string }>;
+}): Promise<void> {
+  try {
+    // Calculate total rewards USD value
+    const totalRewardsUsdValue = [...data.tokemakRewards, ...data.baseFlexRewards]
+      .reduce((total, reward) => total + reward.usdValue, 0);
+    
+    // Get today's date in YYYY-MM-DD format
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Create the balance records
+    const balanceRecords: BalanceRecord[] = [
+      // Total USD value
+      {
+        date: today,
+        wallet_address: data.walletAddress,
+        balance_type: BalanceType.TOTAL,
+        currency: 'USD',
+        amount: data.totalUsdValue
+      },
+      
+      // AUTO USD value
+      {
+        date: today,
+        wallet_address: data.walletAddress,
+        balance_type: BalanceType.AUTO_USD,
+        currency: 'USD',
+        amount: data.autoUsdValue
+      },
+      
+      // AUTO ETH value
+      {
+        date: today,
+        wallet_address: data.walletAddress,
+        balance_type: BalanceType.AUTO_ETH,
+        currency: 'ETH',
+        amount: data.autoEthValue
+      },
+      
+      // Dinero ETH value
+      {
+        date: today,
+        wallet_address: data.walletAddress,
+        balance_type: BalanceType.DINERO_ETH,
+        currency: 'ETH',
+        amount: data.dineroEthValue
+      },
+      
+      // FLP USD value
+      {
+        date: today,
+        wallet_address: data.walletAddress,
+        balance_type: BalanceType.FLP,
+        currency: 'USD',
+        amount: data.flpUsdValue
+      }
+    ];
+    
+    // Add rewards records
+    // Add Tokemak rewards
+    data.tokemakRewards.forEach(reward => {
+      balanceRecords.push({
+        date: today,
+        wallet_address: data.walletAddress,
+        balance_type: BalanceType.TOKEMAK_REWARDS,
+        currency: reward.symbol,
+        amount: reward.amount,
+        metadata: {
+          usdValue: reward.usdValue
+        }
+      });
+    });
+    
+    // Add Base Flex rewards
+    data.baseFlexRewards.forEach(reward => {
+      balanceRecords.push({
+        date: today,
+        wallet_address: data.walletAddress,
+        balance_type: BalanceType.FLEX_REWARDS,
+        currency: reward.symbol,
+        amount: reward.amount,
+        metadata: {
+          usdValue: reward.usdValue
+        }
+      });
+    });
+    
+    try {
+      // Save to database
+      const balanceRecordService = new BalanceRecordService();
+      
+      // Make sure the database is initialized correctly
+      await balanceRecordService.initDatabase('development');
+      
+      try {
+        // Save the records to the database
+        const savedRecords = await balanceRecordService.saveBalanceRecords(balanceRecords);
+        
+        console.log(`Saved ${savedRecords.length} balance records to database`);
+      } finally {
+        // Always close connections
+        await KnexConnector.destroy();
+      }
+    } catch (dbError) {
+      console.error('Database operation failed:', dbError);
+      // Ensure connections are closed even on error
+      await KnexConnector.destroy();
+    }
+  } catch (error) {
+    console.error('Error saving balance records to database:', error);
   }
 }

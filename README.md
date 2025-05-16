@@ -13,12 +13,17 @@ A general-use project to interact with DeFi protocols across multiple blockchain
 - Display pool information with friendly names
 - Fetch contract ABIs from multiple blockchains
 - Send rich formatted messages to Discord
+- Store daily balance reports in SQLite database for historical tracking
+- Query historical balance data with date range filtering
 - Run scheduled tasks
 
 ## Project Structure
 
 ```
 defi-stuff/
+├── db/                 # Database files and migrations
+│   ├── migrations/     # Database migration files
+│   └── seeds/          # Database seed files
 ├── dist/               # Compiled TypeScript output
 ├── node_modules/       # Dependencies
 ├── src/                # Source code
@@ -29,13 +34,17 @@ defi-stuff/
 │   │   ├── ping.ts     # Basic ping command
 │   │   ├── protocols.ts # Protocol search command
 │   │   ├── userProtocol.ts # User protocol data command
+│   │   ├── daily.ts    # Daily report command
+│   │   ├── history.ts  # Historical data query command
 │   │   └── abi.ts      # Contract ABI fetching command
+│   ├── db/             # Database services and utilities
 │   ├── types/          # Type definitions
 │   ├── utils/          # Utility functions
 │   └── index.ts        # Entry point and CLI definitions
 ├── .env                # Environment variables (not committed)
 ├── .env.template       # Template for environment variables
 ├── .gitignore          # Git ignore file
+├── knexfile.js         # Knex database configuration
 ├── package.json        # Project metadata and scripts
 ├── README.md           # Project documentation
 └── tsconfig.json       # TypeScript configuration
@@ -124,6 +133,7 @@ node dist/index.js balance 0x1234567890abcdef1234567890abcdef12345678 -t 10000
   - Options:
     - `-a, --address <address>`: Override the wallet address from environment variables
     - `-d, --discord`: Send the report to Discord
+    - `--db`: Save the daily report data to the database
   - Note: Requires `WALLET_ADDRESS` to be set in `.env` file if no address is provided
 
 ```bash
@@ -136,8 +146,11 @@ node dist/index.js daily 0x1234567890abcdef1234567890abcdef12345678
 # Generate daily report and send it to Discord
 node dist/index.js daily --discord
 
-# Generate daily report for a specific address and send it to Discord
-node dist/index.js daily 0x1234567890abcdef1234567890abcdef12345678 --discord
+# Generate daily report, send it to Discord and save to database
+node dist/index.js daily --discord --db
+
+# Generate daily report for a specific address, send it to Discord and save to database
+node dist/index.js daily 0x1234567890abcdef1234567890abcdef12345678 --discord --db
 ```
 
 The daily report includes:
@@ -146,6 +159,41 @@ The daily report includes:
 - ETH value of autoETH + dineroETH positions
 - USD value of FLP positions with token breakdowns
 - Pending rewards for Tokemak and Base Flex protocols
+
+When using the `--db` flag, the report data is saved to a SQLite database for historical tracking and analysis.
+
+- `history [address]`: Query and display historical daily report data from the database
+  - Options:
+    - `-a, --address <address>`: Override the wallet address from environment variables
+    - `-d, --days <number>`: Number of days to look back from today
+    - `-r, --range <dates>`: Date range in YYYY-MM-DD,YYYY-MM-DD format
+  - Note: Requires `WALLET_ADDRESS` to be set in `.env` file if no address is provided
+
+```bash
+# Get all historical data for the default wallet
+node dist/index.js history
+
+# Get all historical data for a specific wallet
+node dist/index.js history 0x1234567890abcdef1234567890abcdef12345678
+
+# Get historical data for the past 7 days
+node dist/index.js history --days 7
+
+# Get historical data for a specific date range
+node dist/index.js history --range 2023-01-01,2023-12-31
+
+# Get historical data for a specific wallet and date range
+node dist/index.js history 0x1234567890abcdef1234567890abcdef12345678 --range 2023-01-01,2023-12-31
+```
+
+The history command displays a table of past daily reports, showing:
+- Date of the report
+- Total USD value
+- AUTO USD value
+- AUTO ETH value
+- Dinero ETH value
+- FLP USD value
+- Pending rewards USD value
 
 - `user-protocol <protocol_id>`: Get user data for a specific protocol
   - Options:
@@ -296,6 +344,83 @@ This will send a simple test message to your configured Discord channel. It's us
 
 If the test is successful, you'll see "Message sent successfully! ✅" in the console and a test message will appear in your Discord channel.
 
+### Database Integration
+
+The project includes SQLite database integration to store historical daily balance reports. This allows you to:
+
+- Track portfolio values over time
+- Monitor changes in key positions
+- Analyze performance trends
+- Create historical reports
+
+#### Database Setup
+
+The database setup is managed using Knex.js, a flexible SQL query builder. The following scripts are available in `package.json`:
+
+```bash
+# Run all pending migrations
+npm run db:migrate
+
+# Roll back the most recent migration
+npm run db:rollback
+
+# Run database seeds (if available)
+npm run db:seed
+```
+
+Before using the database, make sure to run the migrations:
+
+```bash
+npm run db:migrate
+```
+
+This will create the necessary tables in the SQLite database.
+
+#### Database Structure
+
+The main table for storing daily reports is `daily_balance`, which includes:
+
+- Basic reporting information (timestamp, wallet address)
+- Total wallet USD value
+- Position-specific values (autoUSD, autoETH, dineroETH, FLP)
+- Pending rewards (TOKE, USDC, total USD value)
+- Additional metadata stored as JSON
+
+#### Database Files
+
+Database files are stored in the `db` directory:
+
+- `db/defi_data_dev.sqlite3`: Development database
+- `db/defi_data.sqlite3`: Production database
+
+These files are automatically generated when you run migrations. They are excluded from git version control (via `.gitignore`).
+
+#### Querying Historical Data
+
+To view historical data stored in the database, use the `history` command:
+
+```bash
+# View all historical records
+npm run dev -- history
+
+# View records from the past 30 days
+npm run dev -- history --days 30
+
+# View records for a specific date range
+npm run dev -- history --range 2023-01-01,2023-12-31
+```
+
+The results are displayed in a formatted table showing:
+- Date
+- Total USD value
+- AUTO USD value
+- AUTO ETH value
+- Dinero ETH value
+- FLP USD value
+- Pending rewards USD value
+
+This makes it easy to track your portfolio's performance over time.
+
 ### Scheduling
 
 The project uses macOS scheduling tools to run commands on different schedules.
@@ -310,11 +435,11 @@ To schedule the daily report to run automatically each morning:
 crontab -e
 ```
 
-2. Add an entry to run the daily report at 5:00 AM and send it to Discord:
+2. Add an entry to run the daily report at 5:00 AM, send it to Discord, and save it to the database:
 
 ```
-# Run daily DeFi report at 5:00 AM with Discord notification
-0 5 * * * cd /path/to/defi-stuff && /usr/local/bin/node dist/index.js daily --discord
+# Run daily DeFi report at 5:00 AM with Discord notification and database storage
+0 5 * * * cd /path/to/defi-stuff && /usr/local/bin/node dist/index.js daily --discord --db
 ```
 
 3. Save and exit. Your daily report will now run automatically each morning at 5:00 AM and send results to Discord.
