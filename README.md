@@ -423,28 +423,70 @@ This makes it easy to track your portfolio's performance over time.
 
 ### Scheduling
 
-The project uses macOS scheduling tools to run commands on different schedules.
+You can schedule the daily report to run automatically using macOS's built-in scheduling system.
 
-#### Setting Up a Daily Report
+#### Using launchd (recommended)
 
-To schedule the daily report to run automatically each morning:
+launchd is macOS's native and recommended scheduling system that offers more features than crontab.
 
-1. Open your crontab for editing:
+1. Set up the scheduled task:
 
 ```bash
+npm run scheduler:setup
+```
+
+This script:
+- Creates a launchd plist file in ~/Library/LaunchAgents
+- Configures it to run daily at 5:00 AM CT
+- Loads it into launchd
+- Creates logs for stdout and stderr output
+
+2. Verify the configuration:
+
+```bash
+npm run scheduler:verify
+```
+
+This will show:
+- If the job is loaded correctly
+- The scheduled runtime
+- Where logs will be written
+
+3. Test the scheduled task immediately:
+
+```bash
+npm run scheduler:test
+```
+
+This command:
+- Verifies the job is loaded in launchd
+- Triggers the job to run immediately (no need to wait for scheduled time)
+- Informs you where to find the logs to verify proper execution
+
+The scheduled task will run:
+- Daily at 5:00 AM CT
+- With environment variables from your .env file
+- With full logging to track any issues
+
+#### Manual launchd Setup
+
+If you prefer to configure manually:
+
+1. Copy the template from `scripts/templates/com.defi-stuff.daily.plist`
+2. Replace `__WORKING_DIR__` with your project directory path
+3. Copy to `~/Library/LaunchAgents/com.defi-stuff.daily.plist`
+4. Load with: `launchctl load -w ~/Library/LaunchAgents/com.defi-stuff.daily.plist`
+
+#### Alternative: Using Crontab
+
+If you prefer using crontab instead of launchd:
+
+```bash
+# Edit crontab
 crontab -e
+
+# Add this line to run daily at 5am CT
+0 5 * * * cd /path/to/defi-stuff && npm run start -- daily --discord --db
 ```
 
-2. Add an entry to run the daily report at 5:00 AM, send it to Discord, and save it to the database:
-
-```
-# Run daily DeFi report at 5:00 AM with Discord notification and database storage
-0 5 * * * cd /path/to/defi-stuff && /usr/local/bin/node dist/index.js daily --discord --db
-```
-
-3. Save and exit. Your daily report will now run automatically each morning at 5:00 AM and send results to Discord.
-
-Notes:
-- Use absolute paths to avoid any issues with cron's default PATH
-- Ensure your environment variables (like `WALLET_ADDRESS` and Discord credentials) are properly set up
-- You can adjust the time by changing the crontab entry (the format is: minute hour day month weekday)
+Note that crontab doesn't handle environment variables from .env files by default, so you might need additional configuration.

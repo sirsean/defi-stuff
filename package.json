@@ -15,7 +15,10 @@
     "db:migrate": "knex --knexfile knexfile.cjs migrate:latest",
     "db:rollback": "knex --knexfile knexfile.cjs migrate:rollback", 
     "db:seed": "knex --knexfile knexfile.cjs seed:run",
-    "db:status": "node scripts/db-status.js"
+    "db:status": "node scripts/db-status.js",
+    "scheduler:setup": "node scripts/setup-launchd.js",
+    "scheduler:verify": "node scripts/verify-launchd.js",
+    "scheduler:test": "node scripts/test-launchd.js"
   },
   "keywords": [
     "defi",
