@@ -20,6 +20,10 @@ export const PROTOCOL_POOL_NAMES: Record<string, Record<string, string>> = {
   dinero: {
     '0x55769490c825ccb09b2a6ae955203fabf04857fd': 'sDINERO'
   },
+  // Base Tokemak pools
+  base_tokemak: {
+    '0x4103a467166bbbda3694ab739b391db6c6630595': 'baseUSD'
+  },
   // Global pool mappings (protocol-agnostic)
   global: {}
   // Add other protocols here as needed

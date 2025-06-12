@@ -24,8 +24,10 @@ export enum BalanceType {
   AUTO_ETH = 'autoETH',
   DINERO_ETH = 'dineroETH',
   FLP = 'FLP',
+  BASE_USD = 'baseUSD',
   FLEX_REWARDS = 'flex_rewards',
-  TOKEMAK_REWARDS = 'tokemak_rewards'
+  TOKEMAK_REWARDS = 'tokemak_rewards',
+  BASE_TOKEMAK_REWARDS = 'base_tokemak_rewards'
 }
 
 /**

@@ -61,12 +61,16 @@ export async function daily(
     
     // 3. Get protocol data for Base Flex
     const baseFlexData = await userProtocolService.getUserProtocolData('base_flex');
+    
+    // 4. Get protocol data for Base Tokemak
+    const baseTokemakData = await userProtocolService.getUserProtocolData('base_tokemak');
 
     // Process protocol data
     const processedData = {
       totalUsdValue: balanceData.total_usd_value,
       tokemak: processProtocolData(tokemakData.portfolio_item_list),
-      baseFlex: processProtocolData(baseFlexData.portfolio_item_list)
+      baseFlex: processProtocolData(baseFlexData.portfolio_item_list),
+      baseTokemak: processProtocolData(baseTokemakData.portfolio_item_list)
     };
 
     // Generate a console report and optionally save to database
@@ -143,6 +147,7 @@ async function generateReport(
     totalUsdValue: number;
     tokemak: Record<string, ProtocolData>;
     baseFlex: Record<string, ProtocolData>;
+    baseTokemak: Record<string, ProtocolData>;
   },
   options: {
     sendToDiscord: boolean;
@@ -158,6 +163,7 @@ async function generateReport(
   const totalEthValue = autoEthValue + dineroEthValue;
   
   const flpUsdValue = data.baseFlex['FLP']?.usdValue || 0;
+  const baseUsdValue = data.baseTokemak['baseUSD']?.usdValue || 0;
   
   // Get and aggregate rewards by token symbol
   const aggregateRewards = (rewards: Array<{ amount: number; usdValue: number; symbol: string }>) => {
@@ -192,6 +198,12 @@ async function generateReport(
       .flatMap(pool => Object.values(pool.rewards || {}))
   );
   
+  const baseTokemakRewards = aggregateRewards(
+    Object.values(data.baseTokemak)
+      .filter(pool => pool.rewards && Object.keys(pool.rewards).length > 0)
+      .flatMap(pool => Object.values(pool.rewards || {}))
+  );
+  
   // Format console output
   console.log('\n========== DAILY REPORT ==========');
   console.log(`Total Wallet Value: $${data.totalUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`);
@@ -200,6 +212,7 @@ async function generateReport(
   console.log(`autoUSD: $${autoUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`);
   console.log(`ETH (autoETH + dineroETH): ${totalEthValue.toLocaleString(undefined, { maximumFractionDigits: 6 })} ETH`);
   console.log(`FLP: $${flpUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`);
+  console.log(`baseUSD: $${baseUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`);
   
   if (data.baseFlex['FLP'] && data.baseFlex['FLP'].details) {
     console.log('\n--- FLP BREAKDOWN ---');
@@ -208,7 +221,7 @@ async function generateReport(
     }
   }
   
-  if (tokemakRewards.length > 0 || baseFlexRewards.length > 0) {
+  if (tokemakRewards.length > 0 || baseFlexRewards.length > 0 || baseTokemakRewards.length > 0) {
     console.log('\n--- PENDING REWARDS ---');
     
     if (tokemakRewards.length > 0) {
@@ -224,6 +237,13 @@ async function generateReport(
         console.log(`  ${reward.amount.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${reward.symbol} ($${reward.usdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })})`);
       }
     }
+    
+    if (baseTokemakRewards.length > 0) {
+      console.log('Base Tokemak:');
+      for (const reward of baseTokemakRewards) {
+        console.log(`  ${reward.amount.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${reward.symbol} ($${reward.usdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })})`);
+      }
+    }
   }
   
   // Send to Discord if requested
@@ -233,9 +253,11 @@ async function generateReport(
       autoUsdValue,
       totalEthValue,
       flpUsdValue,
+      baseUsdValue,
       flpDetails: data.baseFlex['FLP']?.details || {},
       tokemakRewards,
-      baseFlexRewards
+      baseFlexRewards,
+      baseTokemakRewards
     });
   }
   
@@ -252,8 +274,10 @@ async function generateReport(
         autoEthValue,
         dineroEthValue,
         flpUsdValue,
+        baseUsdValue,
         tokemakRewards,
-        baseFlexRewards
+        baseFlexRewards,
+        baseTokemakRewards
       });
     } else {
       console.log("Note: Database save skipped - no wallet address found");
@@ -270,9 +294,11 @@ async function sendDiscordReport(data: {
   autoUsdValue: number;
   totalEthValue: number;
   flpUsdValue: number;
+  baseUsdValue: number;
   flpDetails: Record<string, { tokenValue: number; usdValue: number; symbol: string }>;
   tokemakRewards: Array<{ amount: number; usdValue: number; symbol: string }>;
   baseFlexRewards: Array<{ amount: number; usdValue: number; symbol: string }>;
+  baseTokemakRewards: Array<{ amount: number; usdValue: number; symbol: string }>;
 }): Promise<void> {
   try {
     const embedMessage = discordService.createEmbedMessage()
@@ -285,7 +311,8 @@ async function sendDiscordReport(data: {
           value: [
             `• autoUSD: $${data.autoUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
             `• ETH (autoETH + dineroETH): ${data.totalEthValue.toLocaleString(undefined, { maximumFractionDigits: 6 })} ETH`,
-            `• FLP: $${data.flpUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+            `• FLP: $${data.flpUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
+            `• baseUSD: $${data.baseUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
           ].join('\n')
         }
       ]);
@@ -302,7 +329,7 @@ async function sendDiscordReport(data: {
     }
     
     // Add rewards if available
-    const hasRewards = data.tokemakRewards.length > 0 || data.baseFlexRewards.length > 0;
+    const hasRewards = data.tokemakRewards.length > 0 || data.baseFlexRewards.length > 0 || data.baseTokemakRewards.length > 0;
     
     if (hasRewards) {
       let rewardsText = '';
@@ -316,13 +343,27 @@ async function sendDiscordReport(data: {
           )
           .join('\n');
         
-        if (data.baseFlexRewards.length > 0) {
+        if (data.baseFlexRewards.length > 0 || data.baseTokemakRewards.length > 0) {
           rewardsText += '\n\n';
         }
       }
       
       if (data.baseFlexRewards.length > 0) {
         rewardsText += '**Base Flex:**\n' + data.baseFlexRewards
+          // Only show rewards with USD value > 0
+          .filter(reward => reward.usdValue > 0)
+          .map(reward => 
+            `• ${reward.amount.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${reward.symbol} ($${reward.usdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })})`
+          )
+          .join('\n');
+        
+        if (data.baseTokemakRewards.length > 0) {
+          rewardsText += '\n\n';
+        }
+      }
+      
+      if (data.baseTokemakRewards.length > 0) {
+        rewardsText += '**Base Tokemak:**\n' + data.baseTokemakRewards
           // Only show rewards with USD value > 0
           .filter(reward => reward.usdValue > 0)
           .map(reward => 
@@ -369,12 +410,14 @@ async function saveToDatabaseReport(data: {
   autoEthValue: number;
   dineroEthValue: number;
   flpUsdValue: number;
+  baseUsdValue: number;
   tokemakRewards: Array<{ amount: number; usdValue: number; symbol: string }>;
   baseFlexRewards: Array<{ amount: number; usdValue: number; symbol: string }>;
+  baseTokemakRewards: Array<{ amount: number; usdValue: number; symbol: string }>;
 }): Promise<void> {
   try {
     // Calculate total rewards USD value
-    const totalRewardsUsdValue = [...data.tokemakRewards, ...data.baseFlexRewards]
+    const totalRewardsUsdValue = [...data.tokemakRewards, ...data.baseFlexRewards, ...data.baseTokemakRewards]
       .reduce((total, reward) => total + reward.usdValue, 0);
     
     // Get today's date in YYYY-MM-DD format
@@ -425,6 +468,15 @@ async function saveToDatabaseReport(data: {
         balance_type: BalanceType.FLP,
         currency: 'USD',
         amount: data.flpUsdValue
+      },
+      
+      // Base USD value
+      {
+        date: today,
+        wallet_address: data.walletAddress,
+        balance_type: BalanceType.BASE_USD,
+        currency: 'USD',
+        amount: data.baseUsdValue
       }
     ];
     
@@ -449,6 +501,20 @@ async function saveToDatabaseReport(data: {
         date: today,
         wallet_address: data.walletAddress,
         balance_type: BalanceType.FLEX_REWARDS,
+        currency: reward.symbol,
+        amount: reward.amount,
+        metadata: {
+          usdValue: reward.usdValue
+        }
+      });
+    });
+    
+    // Add Base Tokemak rewards
+    data.baseTokemakRewards.forEach(reward => {
+      balanceRecords.push({
+        date: today,
+        wallet_address: data.walletAddress,
+        balance_type: BalanceType.BASE_TOKEMAK_REWARDS,
         currency: reward.symbol,
         amount: reward.amount,
         metadata: {
