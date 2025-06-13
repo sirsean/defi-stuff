@@ -468,6 +468,8 @@ The scheduled task will run:
 - With environment variables from your .env file
 - With full logging to track any issues
 
+**Important Note:** The scheduled task runs from the compiled JavaScript in `dist/index.js`, not the TypeScript source. After making any code changes, you must rebuild the project with `npm run build` for the scheduled task to pick up those changes.
+
 #### Manual launchd Setup
 
 If you prefer to configure manually:
