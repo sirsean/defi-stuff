@@ -158,8 +158,8 @@ async function generateReport(
   // Calculate aggregated values
   const autoUsdValue = data.tokemak['autoUSD']?.usdValue || 0;
   
-  const autoEthValue = data.tokemak['autoETH']?.details['ETH']?.tokenValue || 0;
-  const dineroEthValue = data.tokemak['dineroETH']?.details['ETH']?.tokenValue || 0;
+  const autoEthValue = (data.tokemak['autoETH']?.details['ETH']?.tokenValue || 0) + (data.tokemak['autoETH']?.details['WETH']?.tokenValue || 0);
+  const dineroEthValue = (data.tokemak['dineroETH']?.details['ETH']?.tokenValue || 0) + (data.tokemak['dineroETH']?.details['WETH']?.tokenValue || 0);
   const totalEthValue = autoEthValue + dineroEthValue;
   
   const flpUsdValue = data.baseFlex['FLP']?.usdValue || 0;
