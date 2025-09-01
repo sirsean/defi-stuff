@@ -26,6 +26,11 @@ db/*.sqlite3
 logs/*
 !logs/.gitkeep
 
+# Generated charts
+charts/*.png
+charts/*.svg
+!charts/.gitkeep
+
 # Editor directories and files
 .idea/
 .vscode/

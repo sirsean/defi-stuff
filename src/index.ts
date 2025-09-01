@@ -9,6 +9,7 @@ import { abi } from './commands/abi.js';
 import { balance } from './commands/balance.js';
 import { daily } from './commands/daily.js';
 import { history } from './commands/history.js';
+import { chart } from './commands/chart.js';
 
 // Load environment variables
 dotenv.config();
@@ -60,6 +61,7 @@ program
   .option('-a, --address <address>', 'Override the wallet address from environment variables')
   .option('-d, --discord', 'Send the report to Discord')
   .option('--db', 'Save the report data to the database')
+  .option('-c, --chart', 'Generate and include a portfolio chart with Discord report')
   .action(daily);
 
 program
@@ -70,6 +72,15 @@ program
   .option('-r, --range <dates>', 'Date range in YYYY-MM-DD,YYYY-MM-DD format')
   .option('-t, --table', 'Display results in table format (legacy view)')
   .action(history);
+
+program
+  .command('chart [address]')
+  .description('Generate portfolio performance charts from historical data')
+  .option('-a, --address <address>', 'Override the wallet address from environment variables')
+  .option('-d, --days <number>', 'Number of days to look back (default: 7)', parseInt)
+  .option('-t, --type <type>', 'Chart type: full, simple, or both (default: both)', /^(full|simple|both)$/i)
+  .option('-o, --output <dir>', 'Output directory for charts (default: charts)')
+  .action(chart);
 
 // Parse command line arguments
 program.parse();

@@ -1,4 +1,4 @@
-import { TextChannel, EmbedBuilder } from 'discord.js';
+import { TextChannel, EmbedBuilder, AttachmentBuilder } from 'discord.js';
 import { discordClient } from './discordClient.js';
 import { EmbedMessageBuilder, MessageBuilder, TextMessageBuilder, DiscordColors } from './messageFormatters.js';
 
@@ -40,7 +40,7 @@ export class DiscordService {
   /**
    * Send a message to the Discord channel
    */
-  async sendMessage(message: string | MessageBuilder): Promise<void> {
+  async sendMessage(message: string | MessageBuilder, attachments?: string[]): Promise<void> {
     if (!this.isInitialized) {
       await this.initialize();
     }
@@ -50,15 +50,29 @@ export class DiscordService {
     }
 
     try {
+      // Prepare attachments if provided
+      const attachmentBuilders = attachments?.map(filePath => 
+        new AttachmentBuilder(filePath)
+      ) || [];
+
       if (typeof message === 'string') {
-        await this.channel.send(message);
+        await this.channel.send({ 
+          content: message, 
+          files: attachmentBuilders 
+        });
       } else {
         const builtMessage = message.build();
 
         if (typeof builtMessage === 'string') {
-          await this.channel.send(builtMessage);
+          await this.channel.send({ 
+            content: builtMessage, 
+            files: attachmentBuilders 
+          });
         } else if (builtMessage instanceof EmbedBuilder) {
-          await this.channel.send({ embeds: [builtMessage] });
+          await this.channel.send({ 
+            embeds: [builtMessage], 
+            files: attachmentBuilders 
+          });
         } else {
           throw new Error('Unsupported message type');
         }
@@ -67,6 +81,13 @@ export class DiscordService {
       console.error('Failed to send Discord message:', error);
       throw error;
     }
+  }
+
+  /**
+   * Send a message with a chart attachment
+   */
+  async sendMessageWithChart(message: string | MessageBuilder, chartPath: string): Promise<void> {
+    await this.sendMessage(message, [chartPath]);
   }
 
   /**

@@ -4,11 +4,14 @@ import { TokenInfo, UserPortfolioItem } from '../types/debank.js';
 import { discordService, DiscordColors } from '../api/discord/discordService.js';
 import { BalanceRecordService, BalanceRecord, BalanceType } from '../db/balanceRecordService.js';
 import { KnexConnector } from '../db/knexConnector.js';
+import { ChartDataService } from '../db/chartDataService.js';
+import { ChartGenerator } from '../utils/chartGenerator.js';
 
 interface DailyCommandOptions {
   address?: string;
   discord?: boolean;
   db?: boolean;
+  chart?: boolean;
 }
 
 interface ProtocolData {
@@ -77,7 +80,8 @@ export async function daily(
     await generateReport(processedData, {
       sendToDiscord: options.discord === true,
       saveToDb: options.db === true,
-      walletAddress: walletAddress
+      walletAddress: walletAddress,
+      generateChart: options.chart === true
     });
     
   } catch (error) {
@@ -153,6 +157,7 @@ async function generateReport(
     sendToDiscord: boolean;
     saveToDb: boolean;
     walletAddress?: string;
+    generateChart?: boolean;
   }
 ): Promise<void> {
   // Calculate aggregated values
@@ -246,21 +251,6 @@ async function generateReport(
     }
   }
   
-  // Send to Discord if requested
-  if (options.sendToDiscord) {
-    await sendDiscordReport({
-      totalUsdValue: data.totalUsdValue,
-      autoUsdValue,
-      totalEthValue,
-      flpUsdValue,
-      baseUsdValue,
-      flpDetails: data.baseFlex['FLP']?.details || {},
-      tokemakRewards,
-      baseFlexRewards,
-      baseTokemakRewards
-    });
-  }
-  
   // Save to database if requested
   if (options.saveToDb) {
     // Check if wallet address is available
@@ -279,15 +269,37 @@ async function generateReport(
         baseFlexRewards,
         baseTokemakRewards
       });
+      console.log('✅ Database save completed');
     } else {
       console.log("Note: Database save skipped - no wallet address found");
     }
+  }
+  
+  // Send to Discord if requested (after DB save so we have the latest data for charts)
+  if (options.sendToDiscord) {
+    const shouldGenerateChart = options.saveToDb === true; // Generate chart if we saved to DB
+    
+    await sendDiscordReport({
+      totalUsdValue: data.totalUsdValue,
+      autoUsdValue,
+      totalEthValue,
+      flpUsdValue,
+      baseUsdValue,
+      flpDetails: data.baseFlex['FLP']?.details || {},
+      tokemakRewards,
+      baseFlexRewards,
+      baseTokemakRewards
+    }, {
+      generateChart: shouldGenerateChart || options.generateChart === true,
+      walletAddress: options.walletAddress
+    });
   }
 }
 
 /**
  * Send the report to Discord
  * @param data The processed report data
+ * @param chartOptions Options for chart generation
  */
 async function sendDiscordReport(data: {
   totalUsdValue: number;
@@ -299,6 +311,9 @@ async function sendDiscordReport(data: {
   tokemakRewards: Array<{ amount: number; usdValue: number; symbol: string }>;
   baseFlexRewards: Array<{ amount: number; usdValue: number; symbol: string }>;
   baseTokemakRewards: Array<{ amount: number; usdValue: number; symbol: string }>;
+}, chartOptions?: {
+  generateChart?: boolean;
+  walletAddress?: string;
 }): Promise<void> {
   try {
     const embedMessage = discordService.createEmbedMessage()
@@ -379,10 +394,47 @@ async function sendDiscordReport(data: {
     
     embedMessage.addTimestamp();
     
+    let chartPath: string | undefined;
+    
+    // Generate chart if requested
+    if (chartOptions?.generateChart) {
+      try {
+        console.log('📈 Generating 30-day portfolio chart for Discord...');
+        const chartDataService = new ChartDataService();
+        const chartGenerator = new ChartGenerator();
+        
+        try {
+          const chartData = await chartDataService.getChartData(chartOptions.walletAddress, 30);
+          
+          if (chartData.datasets.length > 0) {
+            chartPath = await chartGenerator.generateSimplifiedChart(
+              chartData,
+              '30-Day Portfolio Performance',
+              'daily-report-chart-30d'
+            );
+            console.log(`✅ 30-day chart generated: ${chartPath}`);
+            // Chart image will speak for itself - no need to mention it in text
+          } else {
+            console.log('⚠️  No chart data available for the past 30 days');
+          }
+        } finally {
+          await chartDataService.close();
+        }
+      } catch (chartError) {
+        console.warn('⚠️  Failed to generate chart for Discord report:', chartError);
+        // Continue without chart - don't fail the entire report
+      }
+    }
+    
     try {
-      // Send the message to Discord
-      await discordService.sendMessage(embedMessage);
-      console.log('Report sent to Discord successfully');
+      // Send the message to Discord (with chart if available)
+      if (chartPath) {
+        await discordService.sendMessageWithChart(embedMessage, chartPath);
+        console.log('Report with chart sent to Discord successfully');
+      } else {
+        await discordService.sendMessage(embedMessage);
+        console.log('Report sent to Discord successfully');
+      }
     } finally {
       // Important: Always shutdown the Discord service to allow the process to exit
       await discordService.shutdown();

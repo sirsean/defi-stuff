@@ -57,6 +57,21 @@ npm run db:seed
 npm run lint
 ```
 
+### Chart Generation
+```bash
+# Generate 7-day portfolio charts
+npm run dev -- chart
+
+# Generate charts for specific time period
+npm run dev -- chart --days 14
+
+# Generate only simplified chart
+npm run dev -- chart --type simple
+
+# Generate charts for specific address
+npm run dev -- chart --address 0x123...
+```
+
 ### Scheduling (macOS launchd)
 ```bash
 # Set up scheduled daily reports
@@ -80,6 +95,7 @@ src/
 │   ├── daily.ts         # Daily balance reports
 │   ├── balance.ts       # Wallet balance queries
 │   ├── protocols.ts     # Protocol discovery
+│   ├── chart.ts         # Portfolio chart generation
 │   └── ...              # Other commands
 ├── api/                 # External API client layer
 │   ├── debank/         # DeBank API integration
@@ -95,9 +111,11 @@ src/
 ├── db/                 # Database layer
 │   ├── knexConnector.ts         # Knex.js connection management
 │   ├── balanceRecordService.ts  # Balance data persistence
-│   └── dailyBalanceService.ts   # Daily report storage
+│   ├── dailyBalanceService.ts   # Daily report storage
+│   └── chartDataService.ts      # Historical data for charting
 ├── types/              # TypeScript type definitions
 └── utils/              # Shared utilities
+    └── chartGenerator.ts        # Chart.js image generation
 ```
 
 ### Data Flow
@@ -105,13 +123,15 @@ src/
 2. **Service Layer** → Business logic that orchestrates API clients and database operations
 3. **API Clients** → HTTP clients for external APIs (DeBank, Etherscan, Discord)
 4. **Database Layer** → SQLite database operations using Knex.js
-5. **Type System** → Strong typing throughout with custom type definitions
+5. **Chart Generation** → Historical data visualization using Chart.js and canvas
+6. **Type System** → Strong typing throughout with custom type definitions
 
 ### Key Design Patterns
 - **Command Pattern**: Each CLI command is a separate module with a single exported function
 - **Service Layer**: API clients are wrapped in service classes with business logic
 - **Repository Pattern**: Database operations are abstracted through service classes
 - **Builder Pattern**: Discord message construction uses fluent interfaces
+- **Chart Generation**: Historical data is queried, transformed, and rendered as PNG images
 
 ## Testing Strategy
 
@@ -179,6 +199,9 @@ Required environment variables (see `.env.template`):
 - `DISCORD_APP_TOKEN`: Bot token from Discord Developer Portal
 - `DISCORD_CHANNEL_ID`: Target channel for automated messages
 
+### Chart Generation
+No additional environment variables required - charts are generated locally using Chart.js.
+
 ### Wallet Configuration
 - `WALLET_ADDRESS`: Default wallet address for commands
 
@@ -223,6 +246,65 @@ launchctl start com.defi-stuff.daily
 ```
 
 **Important**: The scheduler runs from `dist/index.js`, so run `npm run build` after code changes.
+
+## Portfolio Charts
+
+Generate visual portfolio performance charts from historical balance data:
+
+### Chart Types
+- **Full Chart**: Shows all tracked metrics on dual Y-axes (USD/ETH) - traditional single chart
+- **Simplified Chart**: Multi-panel layout with 4 separate charts, each optimally scaled:
+  - **Panel 1**: Portfolio (total USD value, single line, ~$900K+ scale)
+  - **Panel 2**: Tokemak: ETH (Auto ETH + Dinero ETH combined into single line)
+  - **Panel 3**: Flex FLP (single line, ~$90K scale)
+  - **Panel 4**: Tokemak: USD (Auto USD + Base USD combined into single line, ~$57K scale)
+- **Both**: Generates both full and simplified versions
+
+### Chart Commands
+```bash
+# Generate 7-day portfolio chart
+node dist/index.js chart
+
+# Generate 14-day chart
+node dist/index.js chart --days 14
+
+# Generate only simplified chart
+node dist/index.js chart --type simple
+
+# Generate charts for specific wallet
+node dist/index.js chart --address 0x123...
+
+# Save charts to custom directory
+node dist/index.js chart --output /path/to/charts
+```
+
+### Discord Integration with Charts
+```bash
+# Send daily report with manual chart to Discord
+node dist/index.js daily --discord --chart
+
+# Save to database and send Discord report with automatic 30-day chart
+node dist/index.js daily --discord --db
+
+# Manual control: save to DB, send to Discord, and include chart
+node dist/index.js daily --discord --db --chart
+```
+
+### Chart Features
+- **Multi-Panel Layout**: Simplified charts use 4 separate panels to solve scale comparison issues
+- **Dual Y-Axes**: Full charts use USD values (left axis) and ETH values (right axis)
+- **Optimized Scaling**: Each panel scales appropriately for its data range (no more invisible small positions!)
+- **Clean Design**: No main titles, Y-axis labels, or legends - focus on data trends
+- **Protocol-Based Titles**: "Portfolio", "Tokemak: ETH", "Flex FLP", "Tokemak: USD"
+- **Professional Formatting**: USD values show as $1.2M, $500K; ETH values show as 47.18 ETH
+- **Composite Images**: Multi-panel charts are 1200x800px for better readability
+- **Automatic Generation**: Daily reports with `--discord --db` automatically include 30-day charts
+
+### Chart Storage
+- Charts are saved to `charts/` directory by default
+- Files are named with timestamp and type (e.g., `portfolio-simple-2025-09-01.png`)
+- Old charts are automatically cleaned up (30 days retention)
+- Chart generation requires historical data from `daily --db` runs
 
 ## Discord Integration
 
