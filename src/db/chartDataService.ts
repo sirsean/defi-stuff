@@ -75,15 +75,25 @@ export class ChartDataService {
     // Group records by date and organize by balance type
     const dataByDate = this.groupRecordsByDate(records);
     
-    // Generate array of dates for the past N days
-    const dates: string[] = [];
-    for (let i = 0; i < days; i++) {
-      const date = new Date(startDate);
-      date.setDate(startDate.getDate() + i);
-      dates.push(date.toISOString().split('T')[0]);
+    // Determine dates to use for charting
+    let dates: string[] = [];
+
+    if (records.length > 0) {
+      // Use the unique dates present in the records (sorted ascending)
+      const uniqueDates = Array.from(new Set(Object.keys(dataByDate))).sort();
+      // Limit to the requested number of days (take the last N to show most recent first)
+      const limited = uniqueDates.slice(-days);
+      dates = limited;
+    } else {
+      // Fallback: generate array of dates for the past N days based on the requested range
+      for (let i = 0; i < days; i++) {
+        const date = new Date(startDate);
+        date.setDate(startDate.getDate() + i);
+        dates.push(date.toISOString().split('T')[0]);
+      }
     }
 
-    // Create data points for each date
+    // Create data points for each selected date
     const dataPoints = dates.map(date => this.createDataPointForDate(date, dataByDate[date] || []));
 
     // Format for chart.js

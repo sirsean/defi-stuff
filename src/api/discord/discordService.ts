@@ -51,28 +51,32 @@ export class DiscordService {
 
     try {
       // Prepare attachments if provided
-      const attachmentBuilders = attachments?.map(filePath => 
-        new AttachmentBuilder(filePath)
-      ) || [];
+      const attachmentBuilders = (attachments && attachments.length > 0)
+        ? attachments.map(filePath => new AttachmentBuilder(filePath))
+        : undefined;
 
       if (typeof message === 'string') {
-        await this.channel.send({ 
-          content: message, 
-          files: attachmentBuilders 
-        });
+        if (attachmentBuilders && attachmentBuilders.length > 0) {
+          await this.channel.send({ content: message, files: attachmentBuilders });
+        } else {
+          // Send plain string when no attachments
+          await this.channel.send(message);
+        }
       } else {
         const builtMessage = message.build();
 
         if (typeof builtMessage === 'string') {
-          await this.channel.send({ 
-            content: builtMessage, 
-            files: attachmentBuilders 
-          });
+          if (attachmentBuilders && attachmentBuilders.length > 0) {
+            await this.channel.send({ content: builtMessage, files: attachmentBuilders });
+          } else {
+            await this.channel.send(builtMessage);
+          }
         } else if (builtMessage instanceof EmbedBuilder) {
-          await this.channel.send({ 
-            embeds: [builtMessage], 
-            files: attachmentBuilders 
-          });
+          if (attachmentBuilders && attachmentBuilders.length > 0) {
+            await this.channel.send({ embeds: [builtMessage], files: attachmentBuilders });
+          } else {
+            await this.channel.send({ embeds: [builtMessage] });
+          }
         } else {
           throw new Error('Unsupported message type');
         }
