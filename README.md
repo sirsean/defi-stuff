@@ -6,7 +6,7 @@ A general-use project to interact with DeFi protocols across multiple blockchain
 
 - Interact with smart contracts using ethers.js
 - Connect to multiple blockchains using Alchemy RPC
-- Integrate with DeFi APIs (Debank, Etherscan, Basescan)
+- Integrate with DeFi APIs (Debank, Etherscan v2 multi-chain)
 - Query protocol information from DeBank API
 - Search and filter protocols by name
 - Query user position data for protocols
@@ -29,7 +29,7 @@ defi-stuff/
 ├── src/                # Source code
 │   ├── api/            # API clients
 │   │   ├── debank/     # Debank API implementation
-│   │   └── explorers/  # Blockchain explorer API clients (Etherscan, Basescan)
+│   │   └── explorers/  # Blockchain explorer API clients (Etherscan v2 multi-chain)
 │   ├── commands/       # CLI command implementations
 │   │   ├── ping.ts     # Basic ping command
 │   │   ├── protocols.ts # Protocol search command
@@ -61,8 +61,7 @@ npm install
 
 3. Create a `.env` file based on `.env.template` and add your API keys and configuration. Required API keys include:
    - `DEBANK_API_KEY` - for DeBank API access
-   - `ETHERSCAN_API_KEY` - for Etherscan API access
-   - `BASESCAN_API_KEY` - for Basescan API access (if using Base blockchain)
+- `ETHERSCAN_API_KEY` - for Etherscan v2 multi-chain API access (used for Ethereum, Base, and other supported chains)
    - `DISCORD_APP_TOKEN` - Discord bot token from [Discord Developer Portal](https://discord.com/developers/applications)
    - `DISCORD_CHANNEL_ID` - ID of the Discord channel where messages will be sent
 
@@ -216,7 +215,7 @@ node dist/index.js user-protocol aave --json
   - Options:
     - `--ignoreProxy`: Skip proxy implementation detection
     - `-c, --chain <chain>`: Blockchain to use (ethereum, base)
-  - Note: Requires appropriate API keys in `.env` file (`ETHERSCAN_API_KEY` for Ethereum, `BASESCAN_API_KEY` for Base)
+  - Note: Requires `ETHERSCAN_API_KEY` in `.env` (Etherscan v2 uses a single API key with chainid to access multiple chains)
 
 ```bash
 # Fetch ABI for a contract on Ethereum (default)

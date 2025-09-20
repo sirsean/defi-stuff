@@ -107,7 +107,7 @@ src/
 │   │   ├── discordClient.ts     # Discord.js wrapper
 │   │   ├── discordService.ts    # Message formatting
 │   │   └── messageFormatters.ts # Rich embed builders
-│   └── explorers/      # Blockchain explorer APIs (Etherscan, Basescan)
+│   └── explorers/      # Blockchain explorer APIs (Etherscan v2 multi-chain)
 ├── db/                 # Database layer
 │   ├── knexConnector.ts         # Knex.js connection management
 │   ├── balanceRecordService.ts  # Balance data persistence
@@ -191,8 +191,7 @@ Required environment variables (see `.env.template`):
 
 ### API Keys
 - `DEBANK_API_KEY`: DeBank Pro API access
-- `ETHERSCAN_API_KEY`: Ethereum blockchain data
-- `BASESCAN_API_KEY`: Base blockchain data
+- `ETHERSCAN_API_KEY`: Etherscan v2 multi-chain access (used for Ethereum, Base, etc.)
 - `ALCHEMY_API_KEY`: RPC provider (if used)
 
 ### Discord Integration

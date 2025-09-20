@@ -10,6 +10,7 @@ export interface ExplorerConfig {
   apiUrl: string;
   apiKeyEnv: string;
   name: string;
+  chainId: string;
 }
 
 /**
@@ -17,14 +18,16 @@ export interface ExplorerConfig {
  */
 export const EXPLORER_CONFIGS: Record<BlockchainExplorer, ExplorerConfig> = {
   ethereum: {
-    apiUrl: 'https://api.etherscan.io/api',
+    apiUrl: 'https://api.etherscan.io/v2/api',
     apiKeyEnv: 'ETHERSCAN_API_KEY',
-    name: 'Etherscan'
+    name: 'Etherscan',
+    chainId: '1'
   },
   base: {
-    apiUrl: 'https://api.basescan.org/api',
-    apiKeyEnv: 'BASESCAN_API_KEY',
-    name: 'Basescan'
+    apiUrl: 'https://api.etherscan.io/v2/api',
+    apiKeyEnv: 'ETHERSCAN_API_KEY',
+    name: 'Etherscan',
+    chainId: '8453'
   }
 };
 

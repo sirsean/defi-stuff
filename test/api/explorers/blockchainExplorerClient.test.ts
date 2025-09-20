@@ -16,7 +16,6 @@ describe('BlockchainExplorerClient', () => {
   beforeEach(() => {
     // Setup environment variables for testing
     process.env.ETHERSCAN_API_KEY = 'test-etherscan-key';
-    process.env.BASESCAN_API_KEY = 'test-basescan-key';
     
     // Create a fresh mock for each test
     mock = new MockAdapter(axios);
@@ -30,7 +29,6 @@ describe('BlockchainExplorerClient', () => {
     // Clean up after each test
     mock.restore();
     delete process.env.ETHERSCAN_API_KEY;
-    delete process.env.BASESCAN_API_KEY;
     vi.clearAllMocks();
   });
 
@@ -60,19 +58,20 @@ describe('BlockchainExplorerClient', () => {
   });
 
   describe('getContractABI', () => {
-    it('should fetch contract ABI from Etherscan', async () => {
-      // Arrange: Set up the mock to return data for the Etherscan API
+    it('should fetch contract ABI from Etherscan (v2)', async () => {
+      // Arrange: Set up the mock to return data for the Etherscan V2 API
       mock.onGet()
         .reply(config => {
-          // Verify the URL matches Ethereum
-          expect(config.baseURL).toBe('https://api.etherscan.io/api');
+          // Verify the URL matches Etherscan V2
+          expect(config.baseURL).toBe('https://api.etherscan.io/v2/api');
           
           // Verify params
           expect(config.params).toEqual({
             module: 'contract',
             action: 'getabi',
             address: testAddress,
-            apikey: 'test-etherscan-key'
+            apikey: 'test-etherscan-key',
+            chainid: '1'
           });
           return [200, mockContractAbiResponse];
         });
@@ -84,19 +83,20 @@ describe('BlockchainExplorerClient', () => {
       expect(result).toEqual(mockContractAbiResponse.result);
     });
     
-    it('should fetch contract ABI from Basescan', async () => {
-      // Arrange: Set up the mock to return data for the Basescan API
+    it('should fetch contract ABI for Base via Etherscan V2', async () => {
+      // Arrange: Set up the mock to return data for the Etherscan V2 API (Base)
       mock.onGet()
         .reply(config => {
-          // Verify the URL matches Base
-          expect(config.baseURL).toBe('https://api.basescan.org/api');
+          // Verify the URL matches Etherscan V2
+          expect(config.baseURL).toBe('https://api.etherscan.io/v2/api');
           
           // Verify params
           expect(config.params).toEqual({
             module: 'contract',
             action: 'getabi',
             address: testAddress,
-            apikey: 'test-basescan-key'
+            apikey: 'test-etherscan-key',
+            chainid: '8453'
           });
           return [200, mockContractAbiResponse];
         });
@@ -132,19 +132,20 @@ describe('BlockchainExplorerClient', () => {
   });
 
   describe('getContractSourceCode', () => {
-    it('should fetch contract source code from Etherscan', async () => {
-      // Arrange: Set up the mock to return data for the Etherscan API
+    it('should fetch contract source code from Etherscan V2', async () => {
+      // Arrange: Set up the mock to return data for the Etherscan V2 API
       mock.onGet()
         .reply(config => {
-          // Verify the URL matches Ethereum
-          expect(config.baseURL).toBe('https://api.etherscan.io/api');
+          // Verify the URL matches Etherscan V2
+          expect(config.baseURL).toBe('https://api.etherscan.io/v2/api');
           
           // Verify params
           expect(config.params).toEqual({
             module: 'contract',
             action: 'getsourcecode',
             address: testAddress,
-            apikey: 'test-etherscan-key'
+            apikey: 'test-etherscan-key',
+            chainid: '1'
           });
           return [200, mockContractSourceCodeResponse];
         });
@@ -156,19 +157,20 @@ describe('BlockchainExplorerClient', () => {
       expect(result).toEqual(mockContractSourceCodeResponse.result[0]);
     });
     
-    it('should fetch contract source code from Basescan', async () => {
-      // Arrange: Set up the mock to return data for the Basescan API
+    it('should fetch contract source code for Base via Etherscan V2', async () => {
+      // Arrange: Set up the mock to return data for the Etherscan V2 API (Base)
       mock.onGet()
         .reply(config => {
-          // Verify the URL matches Base
-          expect(config.baseURL).toBe('https://api.basescan.org/api');
+          // Verify the URL matches Etherscan V2
+          expect(config.baseURL).toBe('https://api.etherscan.io/v2/api');
           
           // Verify params
           expect(config.params).toEqual({
             module: 'contract',
             action: 'getsourcecode',
             address: testAddress,
-            apikey: 'test-basescan-key'
+            apikey: 'test-etherscan-key',
+            chainid: '8453'
           });
           return [200, mockContractSourceCodeResponse];
         });
@@ -209,7 +211,7 @@ describe('BlockchainExplorerClient', () => {
     });
     
     it('should return the correct explorer name for Base', () => {
-      expect(baseClient.getExplorerName()).toBe('Basescan');
+      expect(baseClient.getExplorerName()).toBe('Etherscan');
     });
     
     it('should return the correct chain for Ethereum', () => {

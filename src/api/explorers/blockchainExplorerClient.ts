@@ -13,6 +13,7 @@ export class BlockchainExplorerClient {
   private apiKey: string;
   private chain: BlockchainExplorer;
   private explorerName: string;
+  private chainId: string;
 
   /**
    * Creates a new blockchain explorer API client
@@ -28,6 +29,7 @@ export class BlockchainExplorerClient {
     }
     
     this.explorerName = config.name;
+    this.chainId = config.chainId;
     
     // Get the API key from environment variables
     const apiKey = process.env[config.apiKeyEnv];
@@ -56,6 +58,7 @@ export class BlockchainExplorerClient {
           action: "getabi",
           address,
           apikey: this.apiKey,
+          chainid: this.chainId,
         },
       });
 
@@ -91,6 +94,7 @@ export class BlockchainExplorerClient {
           action: "getsourcecode",
           address,
           apikey: this.apiKey,
+          chainid: this.chainId,
         },
       });
 
