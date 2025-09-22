@@ -82,5 +82,13 @@ program
   .option('-o, --output <dir>', 'Output directory for charts (default: charts)')
   .action(chart);
 
+// New: Flex FLP compound command
+import { flpCompound } from './commands/flpCompound.js';
+program
+  .command('flp:compound')
+  .description('Compound Flex FLP rewards on Base and report gas (ETH) and USDC received')
+  .option('--dry-run', 'Estimate gas and show summary without sending')
+  .action(flpCompound);
+
 // Parse command line arguments
 program.parse();

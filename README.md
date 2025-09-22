@@ -231,6 +231,32 @@ node dist/index.js abi 0x1234567890abcdef1234567890abcdef12345678 --ignoreProxy
 node dist/index.js abi 0x1234567890abcdef1234567890abcdef12345678 > contract-abi.json
 ```
 
+- `flp:compound`: Compound Flex FLP rewards on Base and report gas (ETH) and USDC received
+  - Options:
+    - `--dry-run`: Estimate gas and show a summary without sending a transaction
+  - Requirements:
+    - Base RPC. By default uses `https://mainnet.base.org`. If `ALCHEMY_API_KEY` is set, uses `https://base-mainnet.g.alchemy.com/v2/$ALCHEMY_API_KEY` for better reliability.
+    - For live execution (without `--dry-run`), set `MAIN_PRIVATE_KEY` in your environment. This key is used to sign the transaction on Base mainnet. Do not share or commit this key.
+  - Output:
+    - Gas used, effective gas price, and total ETH paid
+    - USDC received (computed from Transfer logs to your address, with a balance-delta fallback)
+
+```bash
+# Dry run: estimate gas and show a summary (no transaction sent)
+npm run dev -- flp:compound --dry-run
+
+# Live execution (requires MAIN_PRIVATE_KEY)
+node dist/index.js flp:compound
+
+# Using dev runner with live execution
+npm run dev -- flp:compound
+```
+
+Notes:
+- The command validates you are on Base (chainId 8453) and will exit with an error if not.
+- MAIN_PRIVATE_KEY should correspond to the wallet receiving USDC from compounding. The command detects received USDC by parsing ERC-20 Transfer logs to your address.
+- For accurate gas estimation during dry-run, setting MAIN_PRIVATE_KEY helps some nodes simulate from your address; otherwise estimation may be conservative or fail.
+
 ## Development
 
 ### Testing
