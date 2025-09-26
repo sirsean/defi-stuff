@@ -90,5 +90,11 @@ program
   .option('--dry-run', 'Estimate gas and show summary without sending')
   .action(flpCompound);
 
+// If no arguments, show help and exit successfully
+if (process.argv.length <= 2) {
+  program.outputHelp();
+  process.exit(0);
+}
+
 // Parse command line arguments
 program.parse();
