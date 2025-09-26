@@ -88,6 +88,8 @@ program
   .command('baseusd:add <amount>')
   .description('Deposit USDC to baseUSD via Autopilot Router and stake it (Base). Amount is a USDC decimal string.')
   .option('--dry-run', 'Estimate gas and show summary without sending')
+  .option('--debug', 'Print detailed internals and decoding to help debug failures')
+  .option('--probe-slippage <bpsList>', 'Comma-separated bps values to test in dry-run (e.g. 10,25,50,100,200)')
   .action(baseusdAdd);
 
 // New: Flex FLP compound command

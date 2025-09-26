@@ -1,4 +1,4 @@
-import { Interface, ParamType, concat, toBigInt, parseUnits } from 'ethers';
+import { Interface, ParamType, parseUnits } from 'ethers';
 import routerAbi from '../../abi/baseusd/AutopilotRouter.json' with { type: 'json' };
 import templateBytes from '../../abi/baseusd/baseusd_multicall_template.json' with { type: 'json' };
 
@@ -7,6 +7,9 @@ export interface BuildOptions {
   deadlineMinutes?: number; // default 20 minutes
   // When provided, use this shares-based minOut instead of inferring from amountIn heuristics
   minSharesOutOverride?: bigint;
+  // When provided, use this amount for approve() when the token is baseUSD (shares),
+  // instead of defaulting to amountIn (assets)
+  approveBaseUsdAmountOverride?: bigint;
 }
 
 export interface BuildResult {
@@ -22,10 +25,11 @@ const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const BASEUSD_ADDRESS = '0x9c6864105AEC23388C89600046213a44C384c831';
 const REWARDER_ADDRESS = '0x4103A467166bbbDA3694AB739b391db6c6630595';
 
+const MAX_UINT256 = (1n << 256n) - 1n;
+
 // Helper: detect if a bigint is the all-ones max (uint256 max)
 function isMaxUint(value: bigint): boolean {
-  // 2^256 - 1
-  return value === (BigInt(1) << BigInt(256)) - BigInt(1);
+  return value === MAX_UINT256;
 }
 
 // Parse the known template to discover which argument represents the variable amount
@@ -80,9 +84,10 @@ export function buildDepositStakeMulticall(amountUsdcDecimal: string, opts: Buil
   }
 
   // Build new inner calls by substituting:
-  // - any bigint arg equal to templateAmount -> amountIn
-  // - any single-uint function that looks like a deadline setter -> replace with new deadline
-  // - any uint equal to templateAmount used as minOut -> set to computed minOut (heuristic: when within same function as amount or named accordingly)
+  // - Explicitly set amount/minSharesOut by parameter name for deposit-related functions
+  // - Replace deadline-like single-uint calls with new deadline
+  // - Fallback: replace any bigint equal to templateAmount with amountIn (first occurrence) and minOutShares (second occurrence)
+  // - Safety: if a parameter name includes 'min' and value is MAX_UINT256, replace with minOutShares
   const innerDatas: `0x${string}`[] = [];
   const innerVerbose: { name: string; args: any[]; data: `0x${string}` }[] = [];
 
@@ -91,27 +96,63 @@ export function buildDepositStakeMulticall(amountUsdcDecimal: string, opts: Buil
     if (!frag) throw new Error(`Function fragment not found in ABI for ${t.name}`);
     const newArgs = [...t.args];
 
-    // Heuristics
-    // 1) If function has exactly 1 uint param and no addresses, treat as deadline setter
-    const paramTypes = frag.inputs.map((p) => ParamType.from(p).type);
+    // Parameter meta
+    const paramMeta = frag.inputs.map((p) => ParamType.from(p));
+    const paramTypes = paramMeta.map((p) => p.type);
     const hasOnlyOneUint = paramTypes.length === 1 && paramTypes[0].startsWith('uint');
     const hasAddressInput = paramTypes.some((ty) => ty === 'address' || ty.startsWith('address'));
 
+    // 1) Deadline-like setter (e.g., expiration(uint256))
     if (hasOnlyOneUint && !hasAddressInput) {
-      // replace sole uint with deadline
       newArgs[0] = deadline;
     } else {
-      // Otherwise, replace occurrences of templateAmount
-      for (let i = 0; i < newArgs.length; i++) {
-        const v = newArgs[i];
-        if (typeof v === 'bigint' && v === templateAmount) {
-          // Heuristic: first hit in a function is amountIn (assets), second (if present) is minSharesOut
-          const priorHits = newArgs.slice(0, i).filter((x) => typeof x === 'bigint' && x === templateAmount).length;
-          if (priorHits === 0) {
-            newArgs[i] = amountIn; // amount in (assets)
-          } else {
-            newArgs[i] = minOutShares; // minSharesOut in shares units
+      // 2) Named handling for deposit variants
+      const name = frag.name;
+
+      // Helper to find index by parameter name
+      const findIndexByName = (n: string) => paramMeta.findIndex((pm) => (pm.name || '').toLowerCase() === n.toLowerCase());
+
+      if (name === 'deposit') {
+        const amountIdx = findIndexByName('amount');
+        const minIdx = findIndexByName('minSharesOut');
+        if (amountIdx >= 0) newArgs[amountIdx] = amountIn;
+        if (minIdx >= 0) newArgs[minIdx] = minOutShares;
+      } else if (name === 'depositBalance' || name === 'depositMax') {
+        const minIdx = findIndexByName('minSharesOut');
+        if (minIdx >= 0) newArgs[minIdx] = minOutShares;
+      } else if (name === 'approve') {
+        // approve(IERC20 token, address to, uint256 amount)
+        const amountIdx = findIndexByName('amount');
+        const tokenIdx = findIndexByName('token');
+        if (
+          tokenIdx >= 0 &&
+          typeof newArgs[tokenIdx] === 'string' &&
+          (newArgs[tokenIdx] as string).toLowerCase() === BASEUSD_ADDRESS.toLowerCase() &&
+          opts.approveBaseUsdAmountOverride !== undefined
+        ) {
+          newArgs[amountIdx] = opts.approveBaseUsdAmountOverride;
+        } else if (amountIdx >= 0) {
+          newArgs[amountIdx] = amountIn;
+        }
+      } else {
+        // 3) Fallback heuristic: replace templateAmount occurrences
+        for (let i = 0; i < newArgs.length; i++) {
+          const v = newArgs[i];
+          if (typeof v === 'bigint' && v === templateAmount) {
+            const priorHits = newArgs.slice(0, i).filter((x) => typeof x === 'bigint' && x === templateAmount).length;
+            newArgs[i] = priorHits === 0 ? amountIn : minOutShares;
           }
+        }
+      }
+
+      // 4) Safety pass: replace any MAX_UINT256 for parameters with 'min' in their name
+      for (let i = 0; i < newArgs.length; i++) {
+        const pm = paramMeta[i];
+        if (!pm) continue;
+        const isUint = pm.type.startsWith('uint');
+        const hasMinInName = (pm.name || '').toLowerCase().includes('min');
+        if (isUint && hasMinInName && typeof newArgs[i] === 'bigint' && (newArgs[i] as bigint) === MAX_UINT256) {
+          newArgs[i] = minOutShares;
         }
       }
     }
