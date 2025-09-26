@@ -50,8 +50,6 @@ export async function abi(address: string, options: AbiCommandOptions = {}): Pro
     const explorerName = abiService.getExplorerName();
     let detectionMsg = options.ignoreProxy ? 'ignoring proxy' : 'with proxy detection';
     
-    console.log(`Fetching ABI for ${address} from ${explorerName} (${detectionMsg})...`);
-    
     // Get the ABI JSON
     const abiJson = await abiService.getContractAbiJson(abiOptions);
     

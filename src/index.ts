@@ -82,6 +82,14 @@ program
   .option('-o, --output <dir>', 'Output directory for charts (default: charts)')
   .action(chart);
 
+// New: baseUSD add (deposit + stake via router)
+import { baseusdAdd } from './commands/baseusdAdd.js';
+program
+  .command('baseusd:add <amount>')
+  .description('Deposit USDC to baseUSD via Autopilot Router and stake it (Base). Amount is a USDC decimal string.')
+  .option('--dry-run', 'Estimate gas and show summary without sending')
+  .action(baseusdAdd);
+
 // New: Flex FLP compound command
 import { flpCompound } from './commands/flpCompound.js';
 program

@@ -45,9 +45,7 @@ describe('abi command', () => {
       chain: 'ethereum'
     });
 
-    // Check console logs
-    expect(ConsoleMock.log).toHaveBeenCalledWith(expect.stringContaining('Etherscan'));
-    expect(ConsoleMock.log).toHaveBeenCalledWith(expect.stringContaining('with proxy detection'));
+    // Check console logs: only raw ABI JSON should be printed
     expect(ConsoleMock.log).toHaveBeenCalledWith(testAbi);
   });
 
@@ -62,8 +60,7 @@ describe('abi command', () => {
       chain: 'ethereum'
     });
 
-    // Check console logs
-    expect(ConsoleMock.log).toHaveBeenCalledWith(expect.stringContaining('ignoring proxy'));
+    // Check console logs: only raw ABI JSON should be printed
     expect(ConsoleMock.log).toHaveBeenCalledWith(testAbi);
   });
   
@@ -81,8 +78,7 @@ describe('abi command', () => {
       chain: 'base'
     });
 
-    // Check console logs
-    expect(ConsoleMock.log).toHaveBeenCalledWith(expect.stringContaining('Basescan'));
+    // Check console logs: only raw ABI JSON should be printed
     expect(ConsoleMock.log).toHaveBeenCalledWith(testAbi);
   });
   
