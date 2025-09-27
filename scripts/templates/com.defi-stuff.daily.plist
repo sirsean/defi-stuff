@@ -8,7 +8,7 @@
     <array>
         <string>sh</string>
         <string>-c</string>
-        <string>cd $WORKING_DIR && echo "[$(date '+%Y-%m-%d %H:%M:%S')]" > $WORKING_DIR/logs/daily-output.log && echo "[$(date '+%Y-%m-%d %H:%M:%S')]" > $WORKING_DIR/logs/daily-error.log && $NODE_PATH $WORKING_DIR/dist/index.js daily --discord --db >> $WORKING_DIR/logs/daily-output.log 2>> $WORKING_DIR/logs/daily-error.log</string>
+        <string>cd $WORKING_DIR && echo "[$(date '+%Y-%m-%d %H:%M:%S')]" > $WORKING_DIR/logs/daily-output.log && echo "[$(date '+%Y-%m-%d %H:%M:%S')]" > $WORKING_DIR/logs/daily-error.log && $NODE_PATH $WORKING_DIR/dist/index.js daily --discord --db --claim-compound >> $WORKING_DIR/logs/daily-output.log 2>> $WORKING_DIR/logs/daily-error.log</string>
     </array>
     <key>EnvironmentVariables</key>
     <dict>
