@@ -1,9 +1,20 @@
 import { Contract, JsonRpcProvider, Wallet, formatUnits, getAddress, keccak256, toUtf8Bytes } from 'ethers';
 import { ERC20_ABI } from '../abi/erc20.js';
 import { COMPOUNDER2_ABI } from '../abi/compounder2.js';
+import { computeTxFeesWei } from '../utils/gas.js';
 
 interface FlpCompoundOptions {
   dryRun?: boolean;
+}
+
+export interface FlpCompoundResult {
+  usdcReceivedAtomic: bigint;
+  usdcDecimals: number;
+  l2GasUsed: bigint;
+  perGasPriceWei: bigint;
+  l1FeeWei: bigint;
+  totalFeeWei: bigint;
+  txHash: string;
 }
 
 // Constants
@@ -66,7 +77,7 @@ export async function flpCompound(options: FlpCompoundOptions = {}): Promise<voi
     const compounderRead = new Contract(compounderAddr, COMPOUNDER2_ABI, provider);
     const usdcRead = new Contract(usdcAddr, ERC20_ABI, provider);
 
-    // Prepare populated transaction data (use getFunction to avoid TS issues with dynamic ABI)
+    // Prepare populated transaction data
     const populated = await compounderRead
       .getFunction('compound')
       .populateTransaction(POOLS, REWARDERS, START_EPOCH_TIMESTAMP, NO_OF_EPOCHS, IS_CROSS_CHAIN, OPTION);
@@ -76,7 +87,6 @@ export async function flpCompound(options: FlpCompoundOptions = {}): Promise<voi
     if (options.dryRun === true) {
       // Try to estimate gas without broadcasting
       let fromAddr: string | undefined;
-      // Prefer MAIN_PRIVATE_KEY if available for accurate estimation
       const maybePk = process.env.MAIN_PRIVATE_KEY;
       if (maybePk) {
         const signer = new Wallet(maybePk, provider);
@@ -110,60 +120,82 @@ export async function flpCompound(options: FlpCompoundOptions = {}): Promise<voi
       return;
     }
 
-    // Live execution
-    const pk = process.env.MAIN_PRIVATE_KEY;
-    if (!pk) {
-      console.error('MAIN_PRIVATE_KEY is required for live execution. Set it in your environment.');
-      process.exit(1);
-      return;
-    }
+    // Live execution via core, then print
+const result = await flpCompoundCore();
 
-    const signer = new Wallet(pk, provider);
-    const from = await signer.getAddress();
-
-    // Pre-balance
-    const decimals: number = await usdcRead.decimals();
-    const preBal: bigint = (await usdcRead.balanceOf(from)) as unknown as bigint;
-
-    // Send transaction
-    const compounderWrite = compounderRead.connect(signer);
-    const tx = await compounderWrite
-      .getFunction('compound')(
-        POOLS, REWARDERS, START_EPOCH_TIMESTAMP, NO_OF_EPOCHS, IS_CROSS_CHAIN, OPTION
-      );
-    console.log(`Submitted tx: ${tx.hash}`);
-
-    const receipt = await tx.wait();
-
-    const gasUsed = receipt.gasUsed ?? 0n;
-    const effectiveGasPrice = (receipt as any).effectiveGasPrice ?? 0n;
-    const gasPaid = gasUsed * effectiveGasPrice;
-
-    // Parse USDC received from logs (primary)
-    let usdcReceived = parseUsdcTransfersToRecipient(
-      (receipt as any).logs,
-      transferTopic,
-      usdcAddr,
-      from
-    );
-
-    // Fallback to balance delta if logs produced zero
-    if (usdcReceived === 0n) {
-      const postBal: bigint = (await usdcRead.balanceOf(from)) as unknown as bigint;
-      if (postBal > preBal) {
-        usdcReceived = postBal - preBal;
-      }
-    }
-
+    console.log(`Submitted tx: ${result.txHash}`);
     console.log('--- Flex FLP Compound (result) ---');
-    console.log(`Network: Base (8453), Block: ${receipt.blockNumber}`);
-    console.log(`Gas used: ${gasUsed.toString()} units`);
-    console.log(`Effective gas price: ${formatUnits(effectiveGasPrice, 9)} gwei`);
-    console.log(`Gas paid: ${formatUnits(gasPaid, 18)} ETH`);
-    console.log(`USDC received: ${formatUnits(usdcReceived, decimals)} (raw ${usdcReceived.toString()})`);
-    console.log(`Tx hash: ${receipt.hash}`);
+    console.log(`Gas used: ${result.l2GasUsed.toString()} units`);
+    console.log(`Effective gas price: ${formatUnits(result.perGasPriceWei, 9)} gwei`);
+    // Show total (L1+L2) for alignment with baseusd:add
+    console.log(`Total gas paid: ${formatUnits(result.totalFeeWei, 18)} ETH`);
+    console.log(`USDC received: ${formatUnits(result.usdcReceivedAtomic, result.usdcDecimals)} (raw ${result.usdcReceivedAtomic.toString()})`);
   } catch (error) {
     console.error('Error executing FLP compound:', error);
     process.exit(1);
   }
+}
+
+export async function flpCompoundCore(): Promise<FlpCompoundResult> {
+  const provider = new JsonRpcProvider(DEFAULT_BASE_RPC);
+  const network = await provider.getNetwork();
+  if (network.chainId !== BASE_CHAIN_ID) {
+    throw new Error(`Connected to wrong network (chainId ${network.chainId}). Expected Base (8453).`);
+  }
+
+  const pk = process.env.MAIN_PRIVATE_KEY;
+  if (!pk) {
+    throw new Error('MAIN_PRIVATE_KEY is required for live execution. Set it in your environment.');
+  }
+
+  const compounderAddr = getAddress(COMPOUNDER2_ADDRESS);
+  const usdcAddr = getAddress(USDC_ADDRESS);
+
+  const compounderRead = new Contract(compounderAddr, COMPOUNDER2_ABI, provider);
+  const usdcRead = new Contract(usdcAddr, ERC20_ABI, provider);
+
+  const signer = new Wallet(pk, provider);
+  const from = await signer.getAddress();
+
+  const decimals: number = await usdcRead.decimals();
+  const preBal: bigint = (await usdcRead.balanceOf(from)) as unknown as bigint;
+
+  const transferTopic = keccak256(toUtf8Bytes('Transfer(address,address,uint256)'));
+
+  const compounderWrite = compounderRead.connect(signer);
+  const tx = await compounderWrite
+    .getFunction('compound')(
+      POOLS, REWARDERS, START_EPOCH_TIMESTAMP, NO_OF_EPOCHS, IS_CROSS_CHAIN, OPTION
+    );
+
+  const receipt = await tx.wait();
+  if (!receipt) throw new Error('No receipt returned for compound transaction');
+
+  // Parse USDC received from logs (primary)
+  let usdcReceived = parseUsdcTransfersToRecipient(
+    (receipt as any).logs,
+    transferTopic,
+    usdcAddr,
+    from
+  );
+
+  // Fallback to balance delta if logs produced zero
+  if (usdcReceived === 0n) {
+    const postBal: bigint = (await usdcRead.balanceOf(from)) as unknown as bigint;
+    if (postBal > preBal) {
+      usdcReceived = postBal - preBal;
+    }
+  }
+
+  const fees = await computeTxFeesWei(provider, tx as any, receipt as any);
+
+return {
+    usdcReceivedAtomic: usdcReceived,
+    usdcDecimals: decimals,
+    l2GasUsed: fees.l2GasUsed,
+    perGasPriceWei: fees.effectiveGasPriceWei,
+    l1FeeWei: fees.l1FeeWei,
+    totalFeeWei: fees.totalFeeWei,
+    txHash: (tx as any).hash,
+  };
 }

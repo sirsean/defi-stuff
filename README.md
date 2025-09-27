@@ -242,6 +242,10 @@ node dist/index.js abi 0x1234567890abcdef1234567890abcdef12345678 > contract-abi
     - USDC received (computed from Transfer logs to your address, with a balance-delta fallback)
 
 ```bash
+# Show help
+npm run dev -- flp:compound --help
+node dist/index.js flp:compound --help
+
 # Dry run: estimate gas and show a summary (no transaction sent)
 npm run dev -- flp:compound --dry-run
 

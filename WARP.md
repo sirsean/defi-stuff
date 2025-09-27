@@ -72,6 +72,26 @@ npm run dev -- chart --type simple
 npm run dev -- chart --address 0x123...
 ```
 
+### Flex FLP Compounding
+```bash
+# Dry run: estimate gas and show a summary (no transaction sent)
+npm run dev -- flp:compound --dry-run
+
+# Live execution (requires MAIN_PRIVATE_KEY)
+node dist/index.js flp:compound
+
+# Using dev runner with live execution
+npm run dev -- flp:compound
+```
+
+Notes:
+- Network: Base mainnet (chainId 8453). The command validates the connected network and exits if not on Base.
+- RPC: Uses https://mainnet.base.org by default; if ALCHEMY_API_KEY is set, uses https://base-mainnet.g.alchemy.com/v2/$ALCHEMY_API_KEY.
+- Live execution: Requires MAIN_PRIVATE_KEY in the environment to sign the transaction. Keep this key secure and never commit it.
+- Output:
+  - Gas used, effective gas price, total ETH paid
+  - USDC received (computed from Transfer logs to your address, with a balance-delta fallback)
+
 ### Scheduling (macOS launchd)
 ```bash
 # Set up scheduled daily reports
@@ -203,6 +223,9 @@ No additional environment variables required - charts are generated locally usin
 
 ### Wallet Configuration
 - `WALLET_ADDRESS`: Default wallet address for commands
+
+### Transaction Execution
+- `MAIN_PRIVATE_KEY`: Required for live execution of flp:compound (Base mainnet). Used to sign and submit the transaction. Do not share or commit this value.
 
 ## Database Schema
 

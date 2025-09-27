@@ -4,6 +4,7 @@ import baseUsdAbi from '../abi/baseusd/baseUSD.json' with { type: 'json' };
 import routerAbi from '../abi/baseusd/AutopilotRouter.json' with { type: 'json' };
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { computeTxFeesWei } from '../utils/gas.js';
 
 // Minimal ERC-20 ABI for allowance/approve
 const erc20Abi = [
@@ -26,7 +27,11 @@ function decodeRouterRevert(error: any): { name?: string; signature?: string; ra
       }
       try {
         const parsed = iface.parseError(raw);
-        return { name: parsed.name, signature: parsed.signature, raw, selector, words };
+        if (parsed) {
+          return { name: parsed.name, signature: parsed.signature, raw, selector, words };
+        }
+        // Not a custom error in the router ABI; return raw if available
+        return { raw, reason: error?.shortMessage ?? error?.message, selector, words };
       } catch {
         // Not a custom error in the router ABI; return raw if available
         return { raw, reason: error?.shortMessage ?? error?.message, selector, words };
@@ -79,10 +84,20 @@ function tryDecodeWithAbi(error: any, abi: any): { name?: string; signature?: st
     }
     const iface = new Interface(abi as any);
     const parsed = iface.parseError(raw);
-    return { name: parsed.name, signature: parsed.signature, raw, selector, words };
+    if (parsed) {
+      return { name: parsed.name, signature: parsed.signature, raw, selector, words };
+    }
+    return { raw, reason: (error?.shortMessage ?? error?.message) as string, selector, words };
   } catch {
     return null;
   }
+}
+
+export interface BaseusdAddResult {
+  approval?: { executed: boolean; totalFeeWei: bigint };
+  deposit: { totalFeeWei: bigint };
+  depositedUsdcAtomic: bigint;
+  usdcDecimals: number;
 }
 
 export async function baseusdAdd(amount: string, options: BaseusdAddOptions = {}): Promise<void> {
@@ -325,66 +340,96 @@ export async function baseusdAdd(amount: string, options: BaseusdAddOptions = {}
 
     const signer = new Wallet(pk, provider);
 
-    // Ensure USDC allowance for router is sufficient; if not, approve exact amount
-    const usdc = new Contract(USDC_ADDRESS, erc20Abi, provider);
-    const owner = await signer.getAddress();
-    const currentAllowance: bigint = await usdc.allowance(owner, built.to);
-    if (currentAllowance < assets) {
-      console.log(`Approving USDC for router (amount: ${assets.toString()})...`);
-      const usdcWithSigner: any = usdc.connect(signer);
-      const approveTx = await usdcWithSigner.approve(built.to, assets);
-      console.log(`Submitted approve tx: ${approveTx.hash}`);
-      const approveRcpt = await approveTx.wait();
-      if (approveRcpt) {
-        console.log(`Approve confirmed in block ${approveRcpt.blockNumber}`);
-      }
-    }
-
-    const tx = await signer.sendTransaction({ to: built.to, data: built.data, value: built.value });
-    console.log(`Submitted tx: ${tx.hash}`);
-    const receipt = await tx.wait();
-
-    if (!receipt) {
-      console.log('Transaction submitted but no receipt was returned (possibly dropped and replaced).');
-      return;
-    }
-
-    const gasUsed = receipt.gasUsed ?? 0n;
-
-    // Fetch the full transaction to recover gas price fields if effectiveGasPrice is 0/absent
-    const fullTx = await provider.getTransaction(tx.hash);
-
-    // Resolve a per-gas price
-    const perGas =
-      (receipt as any).effectiveGasPrice ??
-      (fullTx?.gasPrice ?? fullTx?.maxFeePerGas ?? 0n);
-
-    // Base (OP Stack) L1 data fee via gas oracle
-    const GAS_ORACLE = '0x420000000000000000000000000000000000000F';
-    const gasOracleAbi = ['function getL1Fee(bytes _data) view returns (uint256)'];
-    const gasOracle = new Contract(GAS_ORACLE, gasOracleAbi, provider);
-
-    let l1Fee = 0n;
-    try {
-      const txData = fullTx?.data ?? tx.data;
-      l1Fee = await gasOracle.getL1Fee(txData);
-    } catch {
-      // ignore oracle errors; l1Fee remains 0n
-    }
-
-    const l2Fee = gasUsed * perGas;
-    const totalFee = l2Fee + l1Fee;
+    // Execute via core then print summary
+    const result = await baseusdAddCore(amount);
 
     console.log('--- baseUSD Add (result) ---');
-    console.log(`Network: Base (8453), Block: ${receipt.blockNumber}`);
-    console.log(`Gas used: ${gasUsed.toString()} units`);
-    console.log(`Per-gas price: ${formatUnits(perGas, 9)} gwei`);
-    console.log(`L2 fee: ${formatUnits(l2Fee, 18)} ETH`);
-    console.log(`L1 fee: ${formatUnits(l1Fee, 18)} ETH`);
-    console.log(`Total gas paid: ${formatUnits(totalFee, 18)} ETH`);
-    console.log(`Tx hash: ${receipt.hash}`);
+    // If approval executed, we would have printed its tx already below when sending
+    console.log(`Total gas paid: ${formatUnits(result.deposit.totalFeeWei + (result.approval?.totalFeeWei ?? 0n), 18)} ETH`);
   } catch (error) {
     console.error('Error executing baseusd:add:', error);
     process.exit(1);
   }
+}
+
+export async function baseusdAddCore(amount: string): Promise<BaseusdAddResult> {
+  if (!amount || isNaN(Number(amount))) {
+    throw new Error('Amount (USDC decimal string) is required, e.g., 250.5');
+  }
+
+  const provider = new JsonRpcProvider(DEFAULT_BASE_RPC);
+  const network = await provider.getNetwork();
+  if (network.chainId !== BASE_CHAIN_ID) {
+    throw new Error(`Connected to wrong network (chainId ${network.chainId}). Expected Base (8453).`);
+  }
+
+  const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+  const assets = parseUnits(amount, 6);
+
+  const BASEUSD_ADDRESS = '0x9c6864105AEC23388C89600046213a44C384c831';
+  const vault = new Contract(BASEUSD_ADDRESS, baseUsdAbi as any, provider);
+  let vaultAsset: string;
+  try {
+    vaultAsset = await vault.asset();
+  } catch {
+    throw new Error('Failed to read baseUSD.asset() for ERC-4626 validation');
+  }
+  if (vaultAsset?.toLowerCase() !== USDC_ADDRESS.toLowerCase()) {
+    throw new Error(`Vault asset mismatch: expected USDC ${USDC_ADDRESS}, got ${vaultAsset}`);
+  }
+
+  let expectedShares: bigint;
+  try {
+    expectedShares = await vault.convertToShares(assets);
+  } catch (e) {
+    throw new Error('Failed to quote convertToShares for baseUSD');
+  }
+  if (expectedShares <= 0n) {
+    throw new Error('Vault returned zero shares for non-zero assets; aborting');
+  }
+
+  const slippageBps = 10; // default 0.10%
+  const minSharesOut = (expectedShares * BigInt(10000 - slippageBps)) / 10000n;
+
+  const built = buildDepositStakeMulticall(amount, {
+    minSharesOutOverride: minSharesOut,
+    slippageBps,
+    approveBaseUsdAmountOverride: expectedShares,
+  });
+
+  const pk = process.env.MAIN_PRIVATE_KEY;
+  if (!pk) {
+    throw new Error('MAIN_PRIVATE_KEY is required for live execution. Set it in your environment.');
+  }
+
+  const signer = new Wallet(pk, provider);
+
+  // Ensure USDC allowance for router is sufficient; if not, approve exact amount
+  const usdc = new Contract(USDC_ADDRESS, erc20Abi, provider);
+  const owner = await signer.getAddress();
+  const currentAllowance: bigint = await usdc.allowance(owner, built.to);
+
+  let approvalTotal: bigint | undefined;
+  if (currentAllowance < assets) {
+    const usdcWithSigner: any = usdc.connect(signer);
+    const approveTx = await usdcWithSigner.approve(built.to, assets);
+    console.log(`Submitted approve tx: ${approveTx.hash}`);
+    const approveRcpt = await approveTx.wait();
+    if (!approveRcpt) throw new Error('Approve transaction did not return a receipt');
+    const approvalFees = await computeTxFeesWei(provider, approveTx as any, approveRcpt as any);
+    approvalTotal = approvalFees.totalFeeWei;
+  }
+
+  const tx = await signer.sendTransaction({ to: built.to, data: built.data, value: built.value });
+  console.log(`Submitted tx: ${tx.hash}`);
+  const receipt = await tx.wait();
+  if (!receipt) throw new Error('Transaction submitted but no receipt was returned');
+  const depositFees = await computeTxFeesWei(provider, tx as any, receipt as any);
+
+  return {
+    approval: approvalTotal !== undefined ? { executed: true, totalFeeWei: approvalTotal } : undefined,
+    deposit: { totalFeeWei: depositFees.totalFeeWei },
+    depositedUsdcAtomic: assets,
+    usdcDecimals: 6,
+  };
 }

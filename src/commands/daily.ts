@@ -7,11 +7,16 @@ import { KnexConnector } from '../db/knexConnector.js';
 import { ChartDataService } from '../db/chartDataService.js';
 import { ChartGenerator } from '../utils/chartGenerator.js';
 
+import { JsonRpcProvider, Wallet } from 'ethers';
+import { flpCompoundCore, FlpCompoundResult } from './flpCompound.js';
+import { baseusdAddCore, BaseusdAddResult } from './baseusdAdd.js';
+
 interface DailyCommandOptions {
   address?: string;
   discord?: boolean;
   db?: boolean;
   chart?: boolean;
+  claimCompound?: boolean;
 }
 
 interface ProtocolData {
@@ -56,6 +61,13 @@ export async function daily(
       userProtocolService.setWalletAddress(walletAddress);
     }
 
+    // Pre-execution auto-compound sequence (must happen before Debank portfolio fetch)
+    const autoCompound = await runAutoCompoundIfRequested({
+      enabled: options.claimCompound === true,
+      reportWallet: walletAddress || process.env.WALLET_ADDRESS || '',
+      userProtocolService,
+    });
+
     // 1. Get overall wallet balance
     const balanceData = await balanceService.getUserBalanceWithThreshold(walletAddress, 0);
     
@@ -76,12 +88,13 @@ export async function daily(
       baseTokemak: processProtocolData(baseTokemakData.portfolio_item_list)
     };
 
-    // Generate a console report and optionally save to database
+// Generate a console report and optionally save to database
     await generateReport(processedData, {
       sendToDiscord: options.discord === true,
       saveToDb: options.db === true,
       walletAddress: walletAddress,
-      generateChart: options.chart === true
+      generateChart: options.chart === true,
+      autoCompoundSummary: autoCompound.summary
     });
     
   } catch (error) {
@@ -158,6 +171,7 @@ async function generateReport(
     saveToDb: boolean;
     walletAddress?: string;
     generateChart?: boolean;
+    autoCompoundSummary?: AutoCompoundSummary;
   }
 ): Promise<void> {
   // Calculate aggregated values
@@ -279,7 +293,7 @@ async function generateReport(
   if (options.sendToDiscord) {
     const shouldGenerateChart = options.saveToDb === true; // Generate chart if we saved to DB
     
-    await sendDiscordReport({
+await sendDiscordReport({
       totalUsdValue: data.totalUsdValue,
       autoUsdValue,
       totalEthValue,
@@ -292,7 +306,7 @@ async function generateReport(
     }, {
       generateChart: shouldGenerateChart || options.generateChart === true,
       walletAddress: options.walletAddress
-    });
+    }, options.autoCompoundSummary);
   }
 }
 
@@ -314,7 +328,7 @@ async function sendDiscordReport(data: {
 }, chartOptions?: {
   generateChart?: boolean;
   walletAddress?: string;
-}): Promise<void> {
+}, autoCompoundSummary?: AutoCompoundSummary): Promise<void> {
   try {
     const embedMessage = discordService.createEmbedMessage()
       .addTitle('📊 Daily DeFi Report')
@@ -343,6 +357,23 @@ async function sendDiscordReport(data: {
       embedMessage.addField('FLP Breakdown', flpBreakdown);
     }
     
+    // Add auto-compound summary if provided
+    if (autoCompoundSummary) {
+      let value = '';
+      if (autoCompoundSummary.errors.length > 0) {
+        value = ['Status: errors during auto-compound', ...autoCompoundSummary.errors.map(e => `• ${e}`)].join('\n');
+      } else if (autoCompoundSummary.skipped) {
+        value = 'No USDC rewards available; no transactions executed.';
+      } else {
+        value = [
+          `USDC claimed: ${autoCompoundSummary.claimedUsdcDisplay}`,
+          `Deposited to baseUSD: ${autoCompoundSummary.depositedUsdcDisplay}`,
+          `Gas spent: ${autoCompoundSummary.totalGasEthDisplay} ETH`
+        ].join('\n');
+      }
+      embedMessage.addField('Auto-compound', value);
+    }
+
     // Add rewards if available
     const hasRewards = data.tokemakRewards.length > 0 || data.baseFlexRewards.length > 0 || data.baseTokemakRewards.length > 0;
     
@@ -449,6 +480,126 @@ async function sendDiscordReport(data: {
       console.error('Error shutting down Discord service:', shutdownError);
     }
   }
+}
+
+/** Utility types and helpers for auto-compound summary */
+interface AutoCompoundSummary {
+  claimedUsdcDisplay: string;
+  depositedUsdcDisplay: string;
+  totalGasEthDisplay: string;
+  errors: string[];
+  skipped: boolean;
+}
+
+function formatFixed(num: number, frac: number): string {
+  return num.toLocaleString(undefined, { minimumFractionDigits: frac, maximumFractionDigits: frac });
+}
+
+function atomicUsdcToDecimalString(amount: bigint): string {
+  const asNumber = Number(amount) / 1e6; // USDC 6 decimals
+  return asNumber.toString();
+}
+
+function formatUsdc2(amountAtomic: bigint): string {
+  const n = Number(amountAtomic) / 1e6;
+  return formatFixed(n, 2);
+}
+
+function formatEth8FromWei(totalWei: bigint): string {
+  const n = Number(totalWei) / 1e18;
+  return formatFixed(n, 8);
+}
+
+/**
+ * Execute auto-compound sequence if requested and return summary
+ */
+async function runAutoCompoundIfRequested(args: {
+  enabled: boolean;
+  reportWallet: string;
+  userProtocolService: UserProtocolService;
+}): Promise<{ summary?: AutoCompoundSummary }> {
+  if (!args.enabled) return { summary: undefined };
+
+  const errors: string[] = [];
+  let skipped = false;
+  let claimedAtomic = 0n;
+  let depositedAtomic = 0n;
+  let totalGasWei = 0n;
+
+  // Ensure signer matches report wallet
+  const pk = process.env.MAIN_PRIVATE_KEY;
+  if (!pk) {
+    errors.push('MAIN_PRIVATE_KEY is not set');
+    return { summary: { claimedUsdcDisplay: '0.00', depositedUsdcDisplay: '0.00', totalGasEthDisplay: formatEth8FromWei(0n), errors, skipped: true } };
+  }
+
+  const provider = new JsonRpcProvider(process.env.ALCHEMY_API_KEY
+    ? `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
+    : 'https://mainnet.base.org');
+  const signer = new Wallet(pk, provider);
+  const signerAddr = (await signer.getAddress()).toLowerCase();
+  const reportAddr = (args.reportWallet || '').toLowerCase();
+  if (!reportAddr || signerAddr !== reportAddr) {
+    errors.push('Signer address does not match report wallet address');
+    return { summary: { claimedUsdcDisplay: '0.00', depositedUsdcDisplay: '0.00', totalGasEthDisplay: formatEth8FromWei(0n), errors, skipped: true } };
+  }
+
+  // Fetch base_flex only to determine FLP USDC rewards
+  let usdcRewardDecimal = 0;
+  try {
+    const baseFlex = await args.userProtocolService.getUserProtocolData('base_flex');
+    for (const item of baseFlex.portfolio_item_list) {
+      const rewards = item.detail.reward_token_list || [];
+      for (const tok of rewards) {
+        if (tok.symbol === 'USDC') {
+          usdcRewardDecimal += tok.amount;
+        }
+      }
+    }
+  } catch (e: any) {
+    errors.push('Failed to fetch base_flex rewards from DeBank');
+    return { summary: { claimedUsdcDisplay: '0.00', depositedUsdcDisplay: '0.00', totalGasEthDisplay: formatEth8FromWei(0n), errors, skipped: true } };
+  }
+
+  if (usdcRewardDecimal <= 0) {
+    skipped = true;
+    return { summary: { claimedUsdcDisplay: '0.00', depositedUsdcDisplay: '0.00', totalGasEthDisplay: formatEth8FromWei(0n), errors, skipped } };
+  }
+
+  // Step 1: Claim via flpCompoundCore
+  let flpRes: FlpCompoundResult | undefined;
+  try {
+    flpRes = await flpCompoundCore();
+    claimedAtomic = flpRes.usdcReceivedAtomic;
+    totalGasWei += flpRes.totalFeeWei;
+  } catch (e: any) {
+    errors.push('FLP compound failed');
+    return { summary: { claimedUsdcDisplay: '0.00', depositedUsdcDisplay: '0.00', totalGasEthDisplay: formatEth8FromWei(totalGasWei), errors, skipped: false } };
+  }
+
+  if (claimedAtomic <= 0n) {
+    // Nothing to deposit
+    return { summary: { claimedUsdcDisplay: formatUsdc2(claimedAtomic), depositedUsdcDisplay: '0.00', totalGasEthDisplay: formatEth8FromWei(totalGasWei), errors, skipped: false } };
+  }
+
+  // Step 2: Deposit claimed USDC into baseUSD
+  const claimedDecimalForDeposit = atomicUsdcToDecimalString(claimedAtomic);
+  try {
+    const addRes: BaseusdAddResult = await baseusdAddCore(claimedDecimalForDeposit);
+    depositedAtomic = addRes.depositedUsdcAtomic;
+    totalGasWei += addRes.deposit.totalFeeWei + (addRes.approval?.totalFeeWei ?? 0n);
+  } catch (e: any) {
+    errors.push('baseUSD deposit failed');
+    return { summary: { claimedUsdcDisplay: formatUsdc2(claimedAtomic), depositedUsdcDisplay: '0.00', totalGasEthDisplay: formatEth8FromWei(totalGasWei), errors, skipped: false } };
+  }
+
+  return { summary: {
+    claimedUsdcDisplay: formatUsdc2(claimedAtomic),
+    depositedUsdcDisplay: formatUsdc2(depositedAtomic),
+    totalGasEthDisplay: formatEth8FromWei(totalGasWei),
+    errors,
+    skipped: false
+  }};
 }
 
 /**

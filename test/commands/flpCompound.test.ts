@@ -37,6 +37,8 @@ vi.mock('ethers', () => {
     getFunction(name: string) {
       const fn: any = (..._args: any[]) => ({
         hash: '0xhash',
+        // Include data so fee computation does not need to call provider.getTransaction
+        data: mockState.populatedData,
         wait: async () => ({
           gasUsed: 21000n,
           effectiveGasPrice: 2_000_000_000n,

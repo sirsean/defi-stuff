@@ -62,6 +62,7 @@ program
   .option('-d, --discord', 'Send the report to Discord')
   .option('--db', 'Save the report data to the database')
   .option('-c, --chart', 'Generate and include a portfolio chart with Discord report')
+  .option('--claim-compound', 'Claim Flex FLP USDC rewards and deposit to baseUSD before fetching data')
   .action(daily);
 
 program
