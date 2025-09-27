@@ -17,7 +17,7 @@
         <key>WORKING_DIR</key>
         <string>__WORKING_DIR__</string>
         <key>NODE_PATH</key>
-        <string>/Users/sirsean/.nvm/versions/node/v19.3.0/bin/node</string>
+        <string>__NODE_PATH__</string>
         <key>DOTENV_CONFIG_PATH</key>
         <string>__WORKING_DIR__/.env</string>
     </dict>

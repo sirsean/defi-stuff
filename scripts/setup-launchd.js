@@ -32,6 +32,9 @@ let plistContent = fs.readFileSync(templatePath, 'utf8');
 
 // Replace placeholders with actual values
 plistContent = plistContent.replace(/__WORKING_DIR__/g, WORKING_DIR);
+// Use the current Node.js binary for scheduled runs (matches your active environment)
+plistContent = plistContent.replace(/__NODE_PATH__/g, process.execPath);
+console.log(`Using Node for scheduler: ${process.execPath}`);
 
 // Write the final plist file to LaunchAgents directory
 const targetPath = path.join(LAUNCH_AGENTS_DIR, PLIST_NAME);

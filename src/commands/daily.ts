@@ -510,6 +510,27 @@ function formatEth8FromWei(totalWei: bigint): string {
   return formatFixed(n, 8);
 }
 
+// Extract a concise summary from an ethers error for logging/Discord
+function extractEthersErrorInfo(error: any): { summary?: string; code?: any; message?: string; shortMessage?: string; reason?: string; selector?: string; raw?: string } {
+  try {
+    const code = error?.code;
+    const shortMessage = error?.shortMessage;
+    const message = error?.message;
+    const reason = error?.reason ?? error?.info?.error?.message;
+    const raw: string | undefined = error?.data?.data ?? error?.error?.data ?? error?.info?.error?.data ?? error?.data;
+    const selector = typeof raw === 'string' ? raw.slice(0, 10) : undefined;
+    const summaryParts: string[] = [];
+    if (shortMessage) summaryParts.push(shortMessage);
+    else if (reason) summaryParts.push(reason);
+    else if (message) summaryParts.push(message);
+    if (code) summaryParts.push(`code=${String(code)}`);
+    if (selector) summaryParts.push(`selector=${selector}`);
+    return { summary: summaryParts.join(' | '), code, message, shortMessage, reason, selector, raw };
+  } catch {
+    return {};
+  }
+}
+
 /**
  * Execute auto-compound sequence if requested and return summary
  */
@@ -519,6 +540,8 @@ async function runAutoCompoundIfRequested(args: {
   userProtocolService: UserProtocolService;
 }): Promise<{ summary?: AutoCompoundSummary }> {
   if (!args.enabled) return { summary: undefined };
+
+  console.log('🔁 Auto-compound requested');
 
   const errors: string[] = [];
   let skipped = false;
@@ -530,6 +553,7 @@ async function runAutoCompoundIfRequested(args: {
   const pk = process.env.MAIN_PRIVATE_KEY;
   if (!pk) {
     errors.push('MAIN_PRIVATE_KEY is not set');
+    console.error('Auto-compound: MAIN_PRIVATE_KEY is not set; skipping');
     return { summary: { claimedUsdcDisplay: '0.00', depositedUsdcDisplay: '0.00', totalGasEthDisplay: formatEth8FromWei(0n), errors, skipped: true } };
   }
 
@@ -541,8 +565,10 @@ async function runAutoCompoundIfRequested(args: {
   const reportAddr = (args.reportWallet || '').toLowerCase();
   if (!reportAddr || signerAddr !== reportAddr) {
     errors.push('Signer address does not match report wallet address');
+    console.error(`Auto-compound: signer ${signerAddr} mismatches report wallet ${reportAddr}`);
     return { summary: { claimedUsdcDisplay: '0.00', depositedUsdcDisplay: '0.00', totalGasEthDisplay: formatEth8FromWei(0n), errors, skipped: true } };
   }
+  console.log(`Auto-compound: signer ${signerAddr} matches report wallet ${reportAddr}`);
 
   // Fetch base_flex only to determine FLP USDC rewards
   let usdcRewardDecimal = 0;
@@ -563,8 +589,10 @@ async function runAutoCompoundIfRequested(args: {
 
   if (usdcRewardDecimal <= 0) {
     skipped = true;
+    console.log('Auto-compound: no USDC rewards detected; skipping');
     return { summary: { claimedUsdcDisplay: '0.00', depositedUsdcDisplay: '0.00', totalGasEthDisplay: formatEth8FromWei(0n), errors, skipped } };
   }
+  console.log(`Auto-compound: detected USDC rewards ~ ${formatFixed(usdcRewardDecimal, 2)} (decimal)`);
 
   // Step 1: Claim via flpCompoundCore
   let flpRes: FlpCompoundResult | undefined;
@@ -572,8 +600,11 @@ async function runAutoCompoundIfRequested(args: {
     flpRes = await flpCompoundCore();
     claimedAtomic = flpRes.usdcReceivedAtomic;
     totalGasWei += flpRes.totalFeeWei;
+    console.log(`Auto-compound: FLP compound tx=${flpRes.txHash} USDC received=${formatUsdc2(claimedAtomic)} gas(ETH)=${formatEth8FromWei(flpRes.totalFeeWei)}`);
   } catch (e: any) {
-    errors.push('FLP compound failed');
+    const info = extractEthersErrorInfo(e);
+    console.error('Auto-compound: FLP compound failed', info);
+    errors.push('FLP compound failed' + (info.summary ? ` (${info.summary})` : ''));
     return { summary: { claimedUsdcDisplay: '0.00', depositedUsdcDisplay: '0.00', totalGasEthDisplay: formatEth8FromWei(totalGasWei), errors, skipped: false } };
   }
 
@@ -588,8 +619,11 @@ async function runAutoCompoundIfRequested(args: {
     const addRes: BaseusdAddResult = await baseusdAddCore(claimedDecimalForDeposit);
     depositedAtomic = addRes.depositedUsdcAtomic;
     totalGasWei += addRes.deposit.totalFeeWei + (addRes.approval?.totalFeeWei ?? 0n);
+    console.log(`Auto-compound: baseUSD deposit ok deposited=${formatUsdc2(depositedAtomic)} gas(ETH)=${formatEth8FromWei(addRes.deposit.totalFeeWei + (addRes.approval?.totalFeeWei ?? 0n))}`);
   } catch (e: any) {
-    errors.push('baseUSD deposit failed');
+    const info = extractEthersErrorInfo(e);
+    console.error('Auto-compound: baseUSD deposit failed', info);
+    errors.push('baseUSD deposit failed' + (info.summary ? ` (${info.summary})` : ''));
     return { summary: { claimedUsdcDisplay: formatUsdc2(claimedAtomic), depositedUsdcDisplay: '0.00', totalGasEthDisplay: formatEth8FromWei(totalGasWei), errors, skipped: false } };
   }
 
