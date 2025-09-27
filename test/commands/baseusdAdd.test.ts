@@ -16,12 +16,18 @@ vi.mock('ethers', () => {
     async getNetwork() { return { chainId: mockState.networkChainId }; }
     async estimateGas(_tx: any) { return mockState.estGas; }
     async getFeeData() { return mockState.fee; }
+    async getTransaction(hash: string) {
+      // Provide minimal fields used by the command
+      const gasPrice = mockState.fee.gasPrice ?? mockState.fee.maxFeePerGas ?? 0n;
+      return { hash, data: '0x', gasPrice, maxFeePerGas: mockState.fee.maxFeePerGas } as any;
+    }
   }
   class Wallet {
     pk: string; provider: any;
     constructor(pk: string, provider: any) { this.pk = pk; this.provider = provider; }
     async getAddress() { return mockState.signerAddress; }
-    async sendTransaction(_tx: any) { return { hash: '0xhash', wait: async () => ({ gasUsed: 21_000n, effectiveGasPrice: 1_500_000_000n, blockNumber: 1 }) }; }
+    async estimateGas(_tx: any) { return mockState.estGas; }
+    async sendTransaction(_tx: any) { return { hash: '0xhash', wait: async () => ({ gasUsed: 21_000n, effectiveGasPrice: 1_500_000_000n, blockNumber: 1, hash: '0xhash' }) }; }
   }
   class Contract {
     addr: string; abi: any; provider: any; signer: any;
