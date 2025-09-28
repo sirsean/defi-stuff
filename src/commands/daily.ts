@@ -525,9 +525,12 @@ function extractEthersErrorInfo(error: any): { summary?: string; code?: any; mes
     const raw: string | undefined = error?.data?.data ?? error?.error?.data ?? error?.info?.error?.data ?? error?.data;
     const selector = typeof raw === 'string' ? raw.slice(0, 10) : undefined;
     const summaryParts: string[] = [];
+    // Prefer to include both a concise short message and the underlying reason if present
     if (shortMessage) summaryParts.push(shortMessage);
-    else if (reason) summaryParts.push(reason);
-    else if (message) summaryParts.push(message);
+    if (reason && (!shortMessage || !String(shortMessage).toLowerCase().includes(String(reason).toLowerCase()))) {
+      summaryParts.push(reason);
+    }
+    if (summaryParts.length === 0 && message) summaryParts.push(message);
     if (code) summaryParts.push(`code=${String(code)}`);
     if (selector) summaryParts.push(`selector=${selector}`);
     return { summary: summaryParts.join(' | '), code, message, shortMessage, reason, selector, raw };
@@ -562,9 +565,11 @@ async function runAutoCompoundIfRequested(args: {
     return { summary: { claimedUsdcDisplay: '0.00', depositedUsdcDisplay: '0.00', totalGasEthDisplay: formatEth8FromWei(0n), errors, skipped: true } };
   }
 
-  const provider = new JsonRpcProvider(process.env.ALCHEMY_API_KEY
+const rpcUrl = process.env.ALCHEMY_API_KEY
     ? `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
-    : 'https://mainnet.base.org');
+    : 'https://mainnet.base.org';
+  console.log(`Auto-compound: RPC endpoint = ${rpcUrl.includes('alchemy.com') ? 'Alchemy (masked)' : 'Base public'}`);
+  const provider = new JsonRpcProvider(rpcUrl);
   const signer = new Wallet(pk, provider);
   const signerAddr = (await signer.getAddress()).toLowerCase();
   const reportAddr = (args.reportWallet || '').toLowerCase();
@@ -620,6 +625,10 @@ async function runAutoCompoundIfRequested(args: {
 
   // Step 2: Deposit claimed USDC into baseUSD
   const claimedDecimalForDeposit = atomicUsdcToDecimalString(claimedAtomic);
+  // Small delay to reduce back-to-back RPC pressure
+  try {
+    await (await import('../utils/retry.js')).sleep(800 + Math.floor(Math.random() * 700));
+  } catch {}
   try {
     const addRes: BaseusdAddResult = await baseusdAddCore(claimedDecimalForDeposit);
     depositedAtomic = addRes.depositedUsdcAtomic;
@@ -628,7 +637,7 @@ async function runAutoCompoundIfRequested(args: {
   } catch (e: any) {
     const info = extractEthersErrorInfo(e);
     console.error('Auto-compound: baseUSD deposit failed', info);
-    errors.push('baseUSD deposit failed' + (info.summary ? ` (${info.summary})` : ''));
+errors.push('baseUSD deposit failed' + (info.summary ? ` (${info.summary})` : (info.reason ? ` (${info.reason})` : '')));
     return { summary: { claimedUsdcDisplay: formatUsdc2(claimedAtomic), depositedUsdcDisplay: '0.00', totalGasEthDisplay: formatEth8FromWei(totalGasWei), errors, skipped: false } };
   }
 

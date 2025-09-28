@@ -1,4 +1,5 @@
 import { Contract, JsonRpcProvider } from 'ethers';
+import { withRetry } from './retry.js';
 
 const GAS_ORACLE_ADDRESS = '0x420000000000000000000000000000000000000F';
 const gasOracleAbi = ['function getL1Fee(bytes _data) view returns (uint256)'];
@@ -19,7 +20,7 @@ export async function getEffectiveGasPriceWei(
 ): Promise<bigint> {
   const fromReceipt = (receipt as any)?.effectiveGasPrice as bigint | undefined;
   if (typeof fromReceipt === 'bigint' && fromReceipt > 0n) return fromReceipt;
-  const fullTx = await provider.getTransaction(txHash);
+  const fullTx = await withRetry(() => provider.getTransaction(txHash));
   const price = (fullTx?.gasPrice ?? fullTx?.maxFeePerGas ?? 0n) as bigint;
   return price ?? 0n;
 }
@@ -50,7 +51,7 @@ export async function computeTxFeesWei(
   // Prefer txResponse.data if present; otherwise, fetch full tx
   let txData: `0x${string}` | string | undefined = txResponse.data;
   if (!txData) {
-    const fullTx = await provider.getTransaction(txResponse.hash);
+    const fullTx = await withRetry(() => provider.getTransaction(txResponse.hash));
     txData = (fullTx?.data ?? '0x') as any;
   }
   const l1FeeWei = await getBaseL1FeeWei(provider, txData);

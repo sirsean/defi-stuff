@@ -2,6 +2,8 @@ import { Contract, JsonRpcProvider, Wallet, formatUnits, getAddress, keccak256, 
 import { ERC20_ABI } from '../abi/erc20.js';
 import { COMPOUNDER2_ABI } from '../abi/compounder2.js';
 import { computeTxFeesWei } from '../utils/gas.js';
+import { withRetry, maskRpcUrl } from '../utils/retry.js';
+import { getBaseRpcUrl } from '../utils/rpc.js';
 
 interface FlpCompoundOptions {
   dryRun?: boolean;
@@ -19,9 +21,6 @@ export interface FlpCompoundResult {
 
 // Constants
 const BASE_CHAIN_ID = 8453n;
-const DEFAULT_BASE_RPC = process.env.ALCHEMY_API_KEY
-  ? `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
-  : 'https://mainnet.base.org';
 
 // Addresses (checksummed below when used)
 const COMPOUNDER2_ADDRESS = '0xEC883DB48859aC55F1eAC325dEB52e9939F641F6';
@@ -61,7 +60,9 @@ import { hexToAddressFromTopic, parseUsdcTransfersToRecipient } from './helpers/
 
 export async function flpCompound(options: FlpCompoundOptions = {}): Promise<void> {
   try {
-    const provider = new JsonRpcProvider(DEFAULT_BASE_RPC);
+const rpcUrl = getBaseRpcUrl();
+    console.log(`flp:compound RPC endpoint = ${maskRpcUrl(rpcUrl)}`);
+    const provider = new JsonRpcProvider(rpcUrl);
     const network = await provider.getNetwork();
     if (network.chainId !== BASE_CHAIN_ID) {
       console.error(`Connected to wrong network (chainId ${network.chainId}). Expected Base (8453).`);
@@ -137,7 +138,7 @@ const result = await flpCompoundCore();
 }
 
 export async function flpCompoundCore(): Promise<FlpCompoundResult> {
-  const provider = new JsonRpcProvider(DEFAULT_BASE_RPC);
+const provider = new JsonRpcProvider(getBaseRpcUrl());
   const network = await provider.getNetwork();
   if (network.chainId !== BASE_CHAIN_ID) {
     throw new Error(`Connected to wrong network (chainId ${network.chainId}). Expected Base (8453).`);
@@ -157,8 +158,8 @@ export async function flpCompoundCore(): Promise<FlpCompoundResult> {
   const signer = new Wallet(pk, provider);
   const from = await signer.getAddress();
 
-  const decimals: number = await usdcRead.decimals();
-  const preBal: bigint = (await usdcRead.balanceOf(from)) as unknown as bigint;
+const decimals: number = await withRetry(() => usdcRead.decimals());
+  const preBal: bigint = (await withRetry(() => usdcRead.balanceOf(from))) as unknown as bigint;
 
   const transferTopic = keccak256(toUtf8Bytes('Transfer(address,address,uint256)'));
 

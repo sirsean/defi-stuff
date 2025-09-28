@@ -5,6 +5,8 @@ import routerAbi from '../abi/baseusd/AutopilotRouter.json' with { type: 'json' 
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { computeTxFeesWei } from '../utils/gas.js';
+import { withRetry, maskRpcUrl } from '../utils/retry.js';
+import { getBaseRpcUrl } from '../utils/rpc.js';
 
 // Minimal ERC-20 ABI for allowance/approve
 const erc20Abi = [
@@ -50,9 +52,6 @@ interface BaseusdAddOptions {
   probeSlippage?: string; // comma-separated list of bps to try in dry-run
 }
 const BASE_CHAIN_ID = 8453n;
-const DEFAULT_BASE_RPC = process.env.ALCHEMY_API_KEY
-  ? `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
-  : 'https://mainnet.base.org';
 
 // Known addresses (Base mainnet)
 const REWARDER_ADDRESS = '0x4103A467166bbbDA3694AB739b391db6c6630595';
@@ -108,7 +107,9 @@ export async function baseusdAdd(amount: string, options: BaseusdAddOptions = {}
       return;
     }
 
-    const provider = new JsonRpcProvider(DEFAULT_BASE_RPC);
+const rpcUrl = getBaseRpcUrl();
+    console.log(`baseusd:add RPC endpoint = ${maskRpcUrl(rpcUrl)}`);
+    const provider = new JsonRpcProvider(rpcUrl);
     const network = await provider.getNetwork();
     if (network.chainId !== BASE_CHAIN_ID) {
       console.error(`Connected to wrong network (chainId ${network.chainId}). Expected Base (8453).`);
@@ -128,7 +129,7 @@ export async function baseusdAdd(amount: string, options: BaseusdAddOptions = {}
     // Sanity check: vault.asset() matches Base USDC
     let vaultAsset: string;
     try {
-      vaultAsset = await vault.asset();
+vaultAsset = await withRetry(() => vault.asset());
     } catch {
       console.error('Failed to read baseUSD.asset() for ERC-4626 validation');
       process.exit(1);
@@ -143,7 +144,7 @@ export async function baseusdAdd(amount: string, options: BaseusdAddOptions = {}
     // Quote expected shares for the given assets
     let expectedShares: bigint;
     try {
-      expectedShares = await vault.convertToShares(assets);
+expectedShares = await withRetry(() => vault.convertToShares(assets));
     } catch (e) {
       console.error('Failed to quote convertToShares for baseUSD');
       process.exit(1);
@@ -230,9 +231,9 @@ export async function baseusdAdd(amount: string, options: BaseusdAddOptions = {}
       if (fromAddr) {
         try {
           const usdc = new Contract(USDC_ADDRESS, erc20Abi, provider);
-          const [allowance, balance]: [bigint, bigint] = await Promise.all([
-            usdc.allowance(fromAddr, built.to),
-            usdc.balanceOf(fromAddr),
+const [allowance, balance]: [bigint, bigint] = await Promise.all([
+            withRetry(() => usdc.allowance(fromAddr, built.to)),
+            withRetry(() => usdc.balanceOf(fromAddr)),
           ]);
           needsApprove = allowance < assets;
           if (options.debug) {
@@ -247,7 +248,7 @@ export async function baseusdAdd(amount: string, options: BaseusdAddOptions = {}
         }
       }
 
-      const feeData = await provider.getFeeData();
+const feeData = await withRetry(() => provider.getFeeData());
       const gasPrice = feeData.maxFeePerGas ?? feeData.gasPrice ?? 0n;
       const estCost = estGas ? estGas * gasPrice : 0n;
 
@@ -357,7 +358,8 @@ export async function baseusdAddCore(amount: string): Promise<BaseusdAddResult> 
     throw new Error('Amount (USDC decimal string) is required, e.g., 250.5');
   }
 
-  const provider = new JsonRpcProvider(DEFAULT_BASE_RPC);
+const rpcUrlCore = getBaseRpcUrl();
+  const provider = new JsonRpcProvider(rpcUrlCore);
   const network = await provider.getNetwork();
   if (network.chainId !== BASE_CHAIN_ID) {
     throw new Error(`Connected to wrong network (chainId ${network.chainId}). Expected Base (8453).`);
@@ -370,7 +372,7 @@ export async function baseusdAddCore(amount: string): Promise<BaseusdAddResult> 
   const vault = new Contract(BASEUSD_ADDRESS, baseUsdAbi as any, provider);
   let vaultAsset: string;
   try {
-    vaultAsset = await vault.asset();
+vaultAsset = await withRetry(() => vault.asset());
   } catch {
     throw new Error('Failed to read baseUSD.asset() for ERC-4626 validation');
   }
@@ -380,7 +382,7 @@ export async function baseusdAddCore(amount: string): Promise<BaseusdAddResult> 
 
   let expectedShares: bigint;
   try {
-    expectedShares = await vault.convertToShares(assets);
+expectedShares = await withRetry(() => vault.convertToShares(assets));
   } catch (e) {
     throw new Error('Failed to quote convertToShares for baseUSD');
   }
@@ -407,7 +409,7 @@ export async function baseusdAddCore(amount: string): Promise<BaseusdAddResult> 
   // Ensure USDC allowance for router is sufficient; if not, approve exact amount
   const usdc = new Contract(USDC_ADDRESS, erc20Abi, provider);
   const owner = await signer.getAddress();
-  const currentAllowance: bigint = await usdc.allowance(owner, built.to);
+const currentAllowance: bigint = await withRetry(() => usdc.allowance(owner, built.to));
 
   let approvalTotal: bigint | undefined;
   if (currentAllowance < assets) {
