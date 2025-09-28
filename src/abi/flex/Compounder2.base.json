@@ -1,8 +1,3 @@
-
-> defi-stuff@1.0.0 dev
-> node --loader ts-node/esm src/index.ts abi 0xEC883DB48859aC55F1eAC325dEB52e9939F641F6 --chain base
-
-Fetching ABI for 0xEC883DB48859aC55F1eAC325dEB52e9939F641F6 from Etherscan (with proxy detection)...
 [
   {
     "inputs": [],
