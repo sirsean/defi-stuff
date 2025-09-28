@@ -228,9 +228,9 @@ async function generateReport(
   console.log(`Total Wallet Value: $${data.totalUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`);
   
   console.log('\n--- KEY POSITIONS ---');
-  console.log(`autoUSD: $${autoUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`);
   console.log(`ETH (autoETH + dineroETH): ${totalEthValue.toLocaleString(undefined, { maximumFractionDigits: 6 })} ETH`);
   console.log(`FLP: $${flpUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`);
+  console.log(`autoUSD: $${autoUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`);
   console.log(`baseUSD: $${baseUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`);
   
   if (data.baseFlex['FLP'] && data.baseFlex['FLP'].details) {
@@ -240,7 +240,11 @@ async function generateReport(
     }
   }
   
-  if (tokemakRewards.length > 0 || baseFlexRewards.length > 0 || baseTokemakRewards.length > 0) {
+  // Apply Base Flex display threshold: only show if total USD value >= 1
+  const baseFlexTotalUsd = baseFlexRewards.reduce((sum, r) => sum + r.usdValue, 0);
+  const baseFlexAboveMin = baseFlexTotalUsd >= 1;
+  
+  if (tokemakRewards.length > 0 || baseFlexAboveMin || baseTokemakRewards.length > 0) {
     console.log('\n--- PENDING REWARDS ---');
     
     if (tokemakRewards.length > 0) {
@@ -250,7 +254,7 @@ async function generateReport(
       }
     }
     
-    if (baseFlexRewards.length > 0) {
+    if (baseFlexAboveMin) {
       console.log('Base Flex:');
       for (const reward of baseFlexRewards) {
         console.log(`  ${reward.amount.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${reward.symbol} ($${reward.usdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })})`);
@@ -338,9 +342,9 @@ async function sendDiscordReport(data: {
         { 
           name: 'Key Positions', 
           value: [
-            `• autoUSD: $${data.autoUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
             `• ETH (autoETH + dineroETH): ${data.totalEthValue.toLocaleString(undefined, { maximumFractionDigits: 6 })} ETH`,
             `• FLP: $${data.flpUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
+            `• autoUSD: $${data.autoUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
             `• baseUSD: $${data.baseUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
           ].join('\n')
         }
@@ -366,8 +370,7 @@ async function sendDiscordReport(data: {
         value = 'No USDC rewards available; no transactions executed.';
       } else {
         value = [
-          `USDC claimed: ${autoCompoundSummary.claimedUsdcDisplay}`,
-          `Deposited to baseUSD: ${autoCompoundSummary.depositedUsdcDisplay}`,
+          `FLP->baseUSD: ${autoCompoundSummary.depositedUsdcDisplay} USDC`,
           `Gas spent: ${autoCompoundSummary.totalGasEthDisplay} ETH`
         ].join('\n');
       }
@@ -375,7 +378,9 @@ async function sendDiscordReport(data: {
     }
 
     // Add rewards if available
-    const hasRewards = data.tokemakRewards.length > 0 || data.baseFlexRewards.length > 0 || data.baseTokemakRewards.length > 0;
+    const baseFlexTotalUsd = data.baseFlexRewards.reduce((sum, r) => sum + r.usdValue, 0);
+    const baseFlexAboveMin = baseFlexTotalUsd >= 1;
+    const hasRewards = data.tokemakRewards.length > 0 || baseFlexAboveMin || data.baseTokemakRewards.length > 0;
     
     if (hasRewards) {
       let rewardsText = '';
@@ -389,12 +394,12 @@ async function sendDiscordReport(data: {
           )
           .join('\n');
         
-        if (data.baseFlexRewards.length > 0 || data.baseTokemakRewards.length > 0) {
+        if (baseFlexAboveMin || data.baseTokemakRewards.length > 0) {
           rewardsText += '\n\n';
         }
       }
       
-      if (data.baseFlexRewards.length > 0) {
+      if (baseFlexAboveMin) {
         rewardsText += '**Base Flex:**\n' + data.baseFlexRewards
           // Only show rewards with USD value > 0
           .filter(reward => reward.usdValue > 0)
