@@ -1,8 +1,8 @@
 import axios, { AxiosInstance } from "axios";
-import { 
-  BlockchainExplorer, 
-  ContractAbiResponse, 
-  EXPLORER_CONFIGS 
+import {
+  BlockchainExplorer,
+  ContractAbiResponse,
+  EXPLORER_CONFIGS,
 } from "../../types/etherscan.js";
 
 /**
@@ -19,18 +19,18 @@ export class BlockchainExplorerClient {
    * Creates a new blockchain explorer API client
    * @param chain The blockchain to use (ethereum, base, etc.)
    */
-  constructor(chain: BlockchainExplorer = 'ethereum') {
+  constructor(chain: BlockchainExplorer = "ethereum") {
     this.chain = chain;
-    
+
     // Get configuration for the specified chain
     const config = EXPLORER_CONFIGS[chain];
     if (!config) {
       throw new Error(`Unsupported blockchain: ${chain}`);
     }
-    
+
     this.explorerName = config.name;
     this.chainId = config.chainId;
-    
+
     // Get the API key from environment variables
     const apiKey = process.env[config.apiKeyEnv];
     if (!apiKey) {
@@ -63,7 +63,9 @@ export class BlockchainExplorerClient {
       });
 
       if (response.data.status !== "1") {
-        throw new Error(`${this.explorerName} API error: ${response.data.message} - ${response.data.result}`);
+        throw new Error(
+          `${this.explorerName} API error: ${response.data.message} - ${response.data.result}`,
+        );
       }
 
       return response.data.result;
@@ -99,7 +101,9 @@ export class BlockchainExplorerClient {
       });
 
       if (response.data.status !== "1") {
-        throw new Error(`${this.explorerName} API error: ${response.data.message} - ${response.data.result}`);
+        throw new Error(
+          `${this.explorerName} API error: ${response.data.message} - ${response.data.result}`,
+        );
       }
 
       return response.data.result[0];
@@ -115,7 +119,7 @@ export class BlockchainExplorerClient {
       throw error;
     }
   }
-  
+
   /**
    * Get the name of the explorer being used
    * @returns The name of the explorer (e.g., "Etherscan", "Basescan")
@@ -123,7 +127,7 @@ export class BlockchainExplorerClient {
   getExplorerName(): string {
     return this.explorerName;
   }
-  
+
   /**
    * Get the blockchain this client is configured for
    * @returns The blockchain identifier

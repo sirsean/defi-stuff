@@ -1,4 +1,4 @@
-import { KnexConnector } from './knexConnector.js';
+import { KnexConnector } from "./knexConnector.js";
 
 /**
  * Utility function to close database connections
@@ -7,8 +7,8 @@ import { KnexConnector } from './knexConnector.js';
 export async function closeAllConnections(): Promise<void> {
   try {
     await KnexConnector.destroy();
-    console.debug('Database connections closed successfully');
+    console.debug("Database connections closed successfully");
   } catch (error) {
-    console.error('Error closing database connections:', error);
+    console.error("Error closing database connections:", error);
   }
 }

@@ -1,7 +1,7 @@
 /**
  * Supported blockchain explorers
  */
-export type BlockchainExplorer = 'ethereum' | 'base';
+export type BlockchainExplorer = "ethereum" | "base";
 
 /**
  * Configuration for blockchain explorer API
@@ -18,17 +18,17 @@ export interface ExplorerConfig {
  */
 export const EXPLORER_CONFIGS: Record<BlockchainExplorer, ExplorerConfig> = {
   ethereum: {
-    apiUrl: 'https://api.etherscan.io/v2/api',
-    apiKeyEnv: 'ETHERSCAN_API_KEY',
-    name: 'Etherscan',
-    chainId: '1'
+    apiUrl: "https://api.etherscan.io/v2/api",
+    apiKeyEnv: "ETHERSCAN_API_KEY",
+    name: "Etherscan",
+    chainId: "1",
   },
   base: {
-    apiUrl: 'https://api.etherscan.io/v2/api',
-    apiKeyEnv: 'ETHERSCAN_API_KEY',
-    name: 'Etherscan',
-    chainId: '8453'
-  }
+    apiUrl: "https://api.etherscan.io/v2/api",
+    apiKeyEnv: "ETHERSCAN_API_KEY",
+    name: "Etherscan",
+    chainId: "8453",
+  },
 };
 
 /**

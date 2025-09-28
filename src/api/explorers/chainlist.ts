@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios from "axios";
 
 export interface ChainEntry {
   chainname: string;
@@ -15,19 +15,25 @@ export interface ChainlistResponse {
   result: ChainEntry[];
 }
 
-const ETHERSCAN_CHAINLIST_URL = 'https://api.etherscan.io/v2/chainlist';
+const ETHERSCAN_CHAINLIST_URL = "https://api.etherscan.io/v2/chainlist";
 
 export async function fetchEtherscanChainlist(): Promise<ChainEntry[]> {
-  const { data } = await axios.get<ChainlistResponse>(ETHERSCAN_CHAINLIST_URL, { timeout: 10_000 });
+  const { data } = await axios.get<ChainlistResponse>(ETHERSCAN_CHAINLIST_URL, {
+    timeout: 10_000,
+  });
   return data.result ?? [];
 }
 
-export async function findChainById(chainId: string): Promise<ChainEntry | undefined> {
+export async function findChainById(
+  chainId: string,
+): Promise<ChainEntry | undefined> {
   const list = await fetchEtherscanChainlist();
   return list.find((c) => c.chainid === chainId);
 }
 
-export async function findChainByName(name: string): Promise<ChainEntry | undefined> {
+export async function findChainByName(
+  name: string,
+): Promise<ChainEntry | undefined> {
   const list = await fetchEtherscanChainlist();
   const lower = name.toLowerCase();
   return list.find((c) => c.chainname.toLowerCase().includes(lower));

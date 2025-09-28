@@ -1,18 +1,22 @@
 #!/usr/bin/env node
 
-import fs from 'fs';
-import path from 'path';
-import { execSync } from 'child_process';
-import dotenv from 'dotenv';
+import fs from "fs";
+import path from "path";
+import { execSync } from "child_process";
+import dotenv from "dotenv";
 
 // Load environment variables
 dotenv.config();
 
 const WORKING_DIR = process.cwd();
-const TEMPLATE_DIR = path.join(WORKING_DIR, 'scripts', 'templates');
-const LAUNCH_AGENTS_DIR = path.join(process.env.HOME, 'Library', 'LaunchAgents');
-const PLIST_NAME = 'com.defi-stuff.daily.plist';
-const LOGS_DIR = path.join(WORKING_DIR, 'logs');
+const TEMPLATE_DIR = path.join(WORKING_DIR, "scripts", "templates");
+const LAUNCH_AGENTS_DIR = path.join(
+  process.env.HOME,
+  "Library",
+  "LaunchAgents",
+);
+const PLIST_NAME = "com.defi-stuff.daily.plist";
+const LOGS_DIR = path.join(WORKING_DIR, "logs");
 
 // Create logs directory if it doesn't exist
 if (!fs.existsSync(LOGS_DIR)) {
@@ -28,7 +32,7 @@ if (!fs.existsSync(LAUNCH_AGENTS_DIR)) {
 
 // Read plist template
 const templatePath = path.join(TEMPLATE_DIR, PLIST_NAME);
-let plistContent = fs.readFileSync(templatePath, 'utf8');
+let plistContent = fs.readFileSync(templatePath, "utf8");
 
 // Replace placeholders with actual values
 plistContent = plistContent.replace(/__WORKING_DIR__/g, WORKING_DIR);
@@ -43,28 +47,36 @@ console.log(`Created launchd plist at ${targetPath}`);
 
 // Load the plist into launchd
 try {
-  execSync(`launchctl unload ${targetPath}`, { stdio: 'pipe' });
+  execSync(`launchctl unload ${targetPath}`, { stdio: "pipe" });
 } catch (error) {
   // It's okay if this fails - it might not be loaded yet
 }
 
 try {
   execSync(`launchctl load -w ${targetPath}`);
-  console.log('Successfully loaded job into launchd');
+  console.log("Successfully loaded job into launchd");
 } catch (error) {
-  console.error('Failed to load job into launchd:', error.message);
+  console.error("Failed to load job into launchd:", error.message);
   process.exit(1);
 }
 
 // Verify the job is loaded
 try {
-  const result = execSync(`launchctl list | grep com.defi-stuff.daily`).toString();
-  console.log('Job is loaded and scheduled to run at 5:00 AM CT daily');
+  const result = execSync(
+    `launchctl list | grep com.defi-stuff.daily`,
+  ).toString();
+  console.log("Job is loaded and scheduled to run at 5:00 AM CT daily");
   console.log(result);
 } catch (error) {
-  console.error('Job verification failed. The job may not be loaded correctly.');
+  console.error(
+    "Job verification failed. The job may not be loaded correctly.",
+  );
   process.exit(1);
 }
 
-console.log('Setup complete! The daily command will run automatically at 5:00 AM.');
-console.log(`Logs will be written to: ${LOGS_DIR}/daily-output.log and ${LOGS_DIR}/daily-error.log`);
+console.log(
+  "Setup complete! The daily command will run automatically at 5:00 AM.",
+);
+console.log(
+  `Logs will be written to: ${LOGS_DIR}/daily-output.log and ${LOGS_DIR}/daily-error.log`,
+);

@@ -1,5 +1,5 @@
-import { DebankClient } from './debankClient.js';
-import { ChainBalance, UserTotalBalanceResponse } from '../../types/debank.js';
+import { DebankClient } from "./debankClient.js";
+import { ChainBalance, UserTotalBalanceResponse } from "../../types/debank.js";
 
 /**
  * Service for fetching and processing user balance data from Debank
@@ -29,7 +29,9 @@ export class BalanceService {
    * @param userAddress The wallet address to query (optional, uses default if not provided)
    * @returns The user's total balance data
    */
-  async getUserTotalBalance(userAddress?: string): Promise<UserTotalBalanceResponse> {
+  async getUserTotalBalance(
+    userAddress?: string,
+  ): Promise<UserTotalBalanceResponse> {
     const address = userAddress || this.walletAddress;
     return this.debankClient.getUserTotalBalance(address);
   }
@@ -40,7 +42,10 @@ export class BalanceService {
    * @param threshold Minimum USD value to include a chain in the results (default: 1000)
    * @returns Filtered balance data
    */
-  async getUserBalanceWithThreshold(userAddress?: string, threshold = 1000): Promise<{
+  async getUserBalanceWithThreshold(
+    userAddress?: string,
+    threshold = 1000,
+  ): Promise<{
     total_usd_value: number;
     chain_list: ChainBalance[];
   }> {
@@ -49,7 +54,7 @@ export class BalanceService {
 
     // Filter chains by the threshold
     const filteredChains = balanceData.chain_list.filter(
-      chain => chain.usd_value >= threshold
+      (chain) => chain.usd_value >= threshold,
     );
 
     // Sort chains by USD value in descending order
@@ -57,7 +62,7 @@ export class BalanceService {
 
     return {
       total_usd_value: balanceData.total_usd_value,
-      chain_list: filteredChains
+      chain_list: filteredChains,
     };
   }
 

@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+import { vi } from "vitest";
 
 /**
  * Utility for mocking console methods in tests
@@ -8,7 +8,7 @@ export class ConsoleMock {
   static logMock = vi.fn();
   static errorMock = vi.fn();
   static exitMock = vi.fn();
-  
+
   // Original functions
   private static originalLog: typeof console.log;
   private static originalError: typeof console.error;
@@ -22,7 +22,7 @@ export class ConsoleMock {
     this.originalLog = console.log;
     this.originalError = console.error;
     this.originalExit = process.exit;
-    
+
     // Replace with mocks
     console.log = this.logMock;
     console.error = this.errorMock;
@@ -37,7 +37,7 @@ export class ConsoleMock {
     console.log = this.originalLog;
     console.error = this.originalError;
     process.exit = this.originalExit;
-    
+
     // Clear the mocks
     this.resetCalls();
   }
@@ -75,7 +75,7 @@ export class ConsoleMock {
 
 /**
  * Setup and teardown for tests using console mocks
- * 
+ *
  * Usage:
  * ```
  * describe('my test suite', () => {
@@ -86,7 +86,7 @@ export class ConsoleMock {
  *   afterEach(() => {
  *     ConsoleMock.restore();
  *   });
- *   
+ *
  *   // Tests...
  * });
  * ```

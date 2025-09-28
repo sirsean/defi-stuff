@@ -10,37 +10,37 @@ export const mockContractAbiResponse = {
   message: "OK",
   result: JSON.stringify([
     {
-      "inputs": [],
-      "stateMutability": "nonpayable",
-      "type": "constructor"
+      inputs: [],
+      stateMutability: "nonpayable",
+      type: "constructor",
     },
     {
-      "inputs": [],
-      "name": "name",
-      "outputs": [
+      inputs: [],
+      name: "name",
+      outputs: [
         {
-          "internalType": "string",
-          "name": "",
-          "type": "string"
-        }
+          internalType: "string",
+          name: "",
+          type: "string",
+        },
       ],
-      "stateMutability": "view",
-      "type": "function"
+      stateMutability: "view",
+      type: "function",
     },
     {
-      "inputs": [],
-      "name": "symbol",
-      "outputs": [
+      inputs: [],
+      name: "symbol",
+      outputs: [
         {
-          "internalType": "string",
-          "name": "",
-          "type": "string"
-        }
+          internalType: "string",
+          name: "",
+          type: "string",
+        },
       ],
-      "stateMutability": "view",
-      "type": "function"
-    }
-  ])
+      stateMutability: "view",
+      type: "function",
+    },
+  ]),
 };
 
 /**
@@ -51,39 +51,39 @@ export const mockProxyContractAbiResponse = {
   message: "OK",
   result: JSON.stringify([
     {
-      "inputs": [
+      inputs: [
         {
-          "internalType": "address",
-          "name": "logic",
-          "type": "address"
+          internalType: "address",
+          name: "logic",
+          type: "address",
         },
         {
-          "internalType": "bytes",
-          "name": "data",
-          "type": "bytes"
-        }
+          internalType: "bytes",
+          name: "data",
+          type: "bytes",
+        },
       ],
-      "stateMutability": "nonpayable",
-      "type": "constructor"
+      stateMutability: "nonpayable",
+      type: "constructor",
     },
     {
-      "anonymous": false,
-      "inputs": [
+      anonymous: false,
+      inputs: [
         {
-          "indexed": false,
-          "internalType": "address",
-          "name": "implementation",
-          "type": "address"
-        }
+          indexed: false,
+          internalType: "address",
+          name: "implementation",
+          type: "address",
+        },
       ],
-      "name": "Upgraded",
-      "type": "event"
+      name: "Upgraded",
+      type: "event",
     },
     {
-      "stateMutability": "payable",
-      "type": "fallback"
-    }
-  ])
+      stateMutability: "payable",
+      type: "fallback",
+    },
+  ]),
 };
 
 /**
@@ -94,37 +94,37 @@ export const mockImplementationAbiResponse = {
   message: "OK",
   result: JSON.stringify([
     {
-      "inputs": [],
-      "stateMutability": "nonpayable",
-      "type": "constructor"
+      inputs: [],
+      stateMutability: "nonpayable",
+      type: "constructor",
     },
     {
-      "inputs": [],
-      "name": "decimals",
-      "outputs": [
+      inputs: [],
+      name: "decimals",
+      outputs: [
         {
-          "internalType": "uint8",
-          "name": "",
-          "type": "uint8"
-        }
+          internalType: "uint8",
+          name: "",
+          type: "uint8",
+        },
       ],
-      "stateMutability": "view",
-      "type": "function"
+      stateMutability: "view",
+      type: "function",
     },
     {
-      "inputs": [],
-      "name": "totalSupply",
-      "outputs": [
+      inputs: [],
+      name: "totalSupply",
+      outputs: [
         {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
+          internalType: "uint256",
+          name: "",
+          type: "uint256",
+        },
       ],
-      "stateMutability": "view",
-      "type": "function"
-    }
-  ])
+      stateMutability: "view",
+      type: "function",
+    },
+  ]),
 };
 
 /**
@@ -135,21 +135,22 @@ export const mockContractSourceCodeResponse = {
   message: "OK",
   result: [
     {
-      "SourceCode": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\n\ncontract SimpleContract {\n    string public name = \"Simple Contract\";\n    string public symbol = \"SIMPLE\";\n}",
-      "ABI": "[{\"inputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"name\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"symbol\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
-      "ContractName": "SimpleContract",
-      "CompilerVersion": "v0.8.0+commit.c7dfd78e",
-      "OptimizationUsed": "1",
-      "Runs": "200",
-      "ConstructorArguments": "",
-      "EVMVersion": "Default",
-      "Library": "",
-      "LicenseType": "MIT",
-      "Proxy": "0",
-      "Implementation": "",
-      "SwarmSource": ""
-    }
-  ]
+      SourceCode:
+        '// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\n\ncontract SimpleContract {\n    string public name = "Simple Contract";\n    string public symbol = "SIMPLE";\n}',
+      ABI: '[{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"}]',
+      ContractName: "SimpleContract",
+      CompilerVersion: "v0.8.0+commit.c7dfd78e",
+      OptimizationUsed: "1",
+      Runs: "200",
+      ConstructorArguments: "",
+      EVMVersion: "Default",
+      Library: "",
+      LicenseType: "MIT",
+      Proxy: "0",
+      Implementation: "",
+      SwarmSource: "",
+    },
+  ],
 };
 
 /**
@@ -160,19 +161,20 @@ export const mockProxySourceCodeResponse = {
   message: "OK",
   result: [
     {
-      "SourceCode": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\n\ncontract ProxyContract {\n    address public implementation;\n    \n    constructor(address _implementation) {\n        implementation = _implementation;\n    }\n    \n    fallback() external payable {\n        // Forward call to implementation\n    }\n}",
-      "ABI": "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"logic\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"implementation\",\"type\":\"address\"}],\"name\":\"Upgraded\",\"type\":\"event\"},{\"stateMutability\":\"payable\",\"type\":\"fallback\"}]",
-      "ContractName": "ProxyContract",
-      "CompilerVersion": "v0.8.0+commit.c7dfd78e",
-      "OptimizationUsed": "1",
-      "Runs": "200",
-      "ConstructorArguments": "",
-      "EVMVersion": "Default",
-      "Library": "",
-      "LicenseType": "MIT",
-      "Proxy": "1",
-      "Implementation": "0x123456789abcdef123456789abcdef123456789a",
-      "SwarmSource": ""
-    }
-  ]
+      SourceCode:
+        "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\n\ncontract ProxyContract {\n    address public implementation;\n    \n    constructor(address _implementation) {\n        implementation = _implementation;\n    }\n    \n    fallback() external payable {\n        // Forward call to implementation\n    }\n}",
+      ABI: '[{"inputs":[{"internalType":"address","name":"logic","type":"address"},{"internalType":"bytes","name":"data","type":"bytes"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"address","name":"implementation","type":"address"}],"name":"Upgraded","type":"event"},{"stateMutability":"payable","type":"fallback"}]',
+      ContractName: "ProxyContract",
+      CompilerVersion: "v0.8.0+commit.c7dfd78e",
+      OptimizationUsed: "1",
+      Runs: "200",
+      ConstructorArguments: "",
+      EVMVersion: "Default",
+      Library: "",
+      LicenseType: "MIT",
+      Proxy: "1",
+      Implementation: "0x123456789abcdef123456789abcdef123456789a",
+      SwarmSource: "",
+    },
+  ],
 };

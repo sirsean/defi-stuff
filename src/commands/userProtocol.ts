@@ -101,10 +101,16 @@ export async function userProtocol(
  * @param item The portfolio item to display
  * @param protocolId The protocol ID for the portfolio item
  */
-function displayPortfolioItem(item: UserPortfolioItem, protocolId: string): void {
+function displayPortfolioItem(
+  item: UserPortfolioItem,
+  protocolId: string,
+): void {
   // Try to get a friendly name for the pool
-  const friendlyName = UserProtocolService.getPoolFriendlyName(protocolId, item.pool.id);
-  
+  const friendlyName = UserProtocolService.getPoolFriendlyName(
+    protocolId,
+    item.pool.id,
+  );
+
   if (friendlyName) {
     // If we have a friendly name, use it
     console.log(`--- ${friendlyName} ---`);
@@ -114,7 +120,7 @@ function displayPortfolioItem(item: UserPortfolioItem, protocolId: string): void
     // Only show pool ID when we don't have a friendly name mapped
     console.log(`Pool ID: ${item.pool.id}`);
   }
-  
+
   console.log(
     `Value: $${item.stats.asset_usd_value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
   );

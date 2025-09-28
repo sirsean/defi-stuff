@@ -1,5 +1,5 @@
-import { Knex } from 'knex';
-import { KnexConnector } from './knexConnector.js';
+import { Knex } from "knex";
+import { KnexConnector } from "./knexConnector.js";
 
 /**
  * Interface for daily balance data
@@ -24,13 +24,13 @@ export interface DailyBalanceRecord {
  */
 export class DailyBalanceService {
   private db!: Knex; // Using the ! non-null assertion operator since we initialize it in initDatabase
-  private tableName = 'daily_balance';
+  private tableName = "daily_balance";
 
   /**
    * Create an instance of the DailyBalanceService
    * @param environment The database environment to use
    */
-  constructor(environment: string = 'development') {
+  constructor(environment: string = "development") {
     this.initDatabase(environment);
   }
 
@@ -41,7 +41,7 @@ export class DailyBalanceService {
   public async initDatabase(environment: string): Promise<void> {
     this.db = await KnexConnector.getConnection(environment);
   }
-  
+
   /**
    * Close the database connection
    */
@@ -54,30 +54,34 @@ export class DailyBalanceService {
    * @param record The daily balance record to save
    * @returns The saved record with its ID
    */
-  async saveDailyBalance(record: DailyBalanceRecord): Promise<DailyBalanceRecord> {
+  async saveDailyBalance(
+    record: DailyBalanceRecord,
+  ): Promise<DailyBalanceRecord> {
     try {
       // Make sure DB is initialized
       if (!this.db) {
-        await this.initDatabase('development');
+        await this.initDatabase("development");
       }
-      
+
       // Check that DB is valid
       if (!this.db) {
-        throw new Error('Database connection could not be established');
+        throw new Error("Database connection could not be established");
       }
-      
+
       // Insert the record and get back the ID
-      const result = await this.db(this.tableName).insert(record).returning('*');
-      
+      const result = await this.db(this.tableName)
+        .insert(record)
+        .returning("*");
+
       // Check if we got a result
       if (!result || !Array.isArray(result) || result.length === 0) {
-        throw new Error('Insert operation returned empty result');
+        throw new Error("Insert operation returned empty result");
       }
-      
+
       const [savedRecord] = result;
       return savedRecord;
     } catch (error) {
-      console.error('Error saving daily balance record:', error);
+      console.error("Error saving daily balance record:", error);
       throw error;
     }
   }
@@ -92,21 +96,21 @@ export class DailyBalanceService {
   async getDailyBalancesByWallet(
     walletAddress: string,
     limit: number = 100,
-    offset: number = 0
+    offset: number = 0,
   ): Promise<DailyBalanceRecord[]> {
     try {
       // Make sure DB is initialized
       if (!this.db) {
-        await this.initDatabase('development');
+        await this.initDatabase("development");
       }
-      
+
       return await this.db(this.tableName)
         .where({ wallet_address: walletAddress })
-        .orderBy('timestamp', 'desc')
+        .orderBy("timestamp", "desc")
         .limit(limit)
         .offset(offset);
     } catch (error) {
-      console.error('Error getting daily balance records:', error);
+      console.error("Error getting daily balance records:", error);
       throw error;
     }
   }
@@ -125,22 +129,25 @@ export class DailyBalanceService {
     startDate: Date,
     endDate: Date,
     limit: number = 100,
-    offset: number = 0
+    offset: number = 0,
   ): Promise<DailyBalanceRecord[]> {
     try {
       // Make sure DB is initialized
       if (!this.db) {
-        await this.initDatabase('development');
+        await this.initDatabase("development");
       }
-      
+
       return await this.db(this.tableName)
         .where({ wallet_address: walletAddress })
-        .whereBetween('timestamp', [startDate, endDate])
-        .orderBy('timestamp', 'desc')
+        .whereBetween("timestamp", [startDate, endDate])
+        .orderBy("timestamp", "desc")
         .limit(limit)
         .offset(offset);
     } catch (error) {
-      console.error('Error getting daily balance records by date range:', error);
+      console.error(
+        "Error getting daily balance records by date range:",
+        error,
+      );
       throw error;
     }
   }
@@ -152,19 +159,19 @@ export class DailyBalanceService {
    * @returns Array of all daily balance records
    */
   async getAllDailyBalancesByWallet(
-    walletAddress: string
+    walletAddress: string,
   ): Promise<DailyBalanceRecord[]> {
     try {
       // Make sure DB is initialized
       if (!this.db) {
-        await this.initDatabase('development');
+        await this.initDatabase("development");
       }
-      
+
       return await this.db(this.tableName)
         .where({ wallet_address: walletAddress })
-        .orderBy('timestamp', 'desc');
+        .orderBy("timestamp", "desc");
     } catch (error) {
-      console.error('Error getting all daily balance records:', error);
+      console.error("Error getting all daily balance records:", error);
       throw error;
     }
   }
@@ -178,13 +185,13 @@ export class DailyBalanceService {
     try {
       // Make sure DB is initialized
       if (!this.db) {
-        await this.initDatabase('development');
+        await this.initDatabase("development");
       }
-      
+
       const record = await this.db(this.tableName).where({ id }).first();
       return record || null;
     } catch (error) {
-      console.error('Error getting daily balance record by ID:', error);
+      console.error("Error getting daily balance record by ID:", error);
       throw error;
     }
   }
@@ -194,20 +201,22 @@ export class DailyBalanceService {
    * @param walletAddress The wallet address to get the record for
    * @returns The most recent daily balance record or null if none exists
    */
-  async getLatestDailyBalance(walletAddress: string): Promise<DailyBalanceRecord | null> {
+  async getLatestDailyBalance(
+    walletAddress: string,
+  ): Promise<DailyBalanceRecord | null> {
     try {
       // Make sure DB is initialized
       if (!this.db) {
-        await this.initDatabase('development');
+        await this.initDatabase("development");
       }
-      
+
       const record = await this.db(this.tableName)
         .where({ wallet_address: walletAddress })
-        .orderBy('timestamp', 'desc')
+        .orderBy("timestamp", "desc")
         .first();
       return record || null;
     } catch (error) {
-      console.error('Error getting latest daily balance record:', error);
+      console.error("Error getting latest daily balance record:", error);
       throw error;
     }
   }
@@ -221,13 +230,13 @@ export class DailyBalanceService {
     try {
       // Make sure DB is initialized
       if (!this.db) {
-        await this.initDatabase('development');
+        await this.initDatabase("development");
       }
-      
+
       const count = await this.db(this.tableName).where({ id }).delete();
       return count > 0;
     } catch (error) {
-      console.error('Error deleting daily balance record:', error);
+      console.error("Error deleting daily balance record:", error);
       throw error;
     }
   }

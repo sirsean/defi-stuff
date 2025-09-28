@@ -1,9 +1,11 @@
-import { EmbedBuilder, APIEmbedField } from 'discord.js';
+import { EmbedBuilder, APIEmbedField } from "discord.js";
 
 export interface MessageBuilder {
   addTitle(title: string): MessageBuilder;
   addDescription(description: string): MessageBuilder;
-  addFields(fields: Array<{name: string, value: string, inline?: boolean}>): MessageBuilder;
+  addFields(
+    fields: Array<{ name: string; value: string; inline?: boolean }>,
+  ): MessageBuilder;
   addField(name: string, value: string, inline?: boolean): MessageBuilder;
   addTimestamp(): MessageBuilder;
   setColor(color: number): MessageBuilder;
@@ -28,8 +30,12 @@ export class TextMessageBuilder implements MessageBuilder {
     return this;
   }
 
-  addFields(fields: Array<{name: string, value: string, inline?: boolean}>): MessageBuilder {
-    fields.forEach(field => this.addField(field.name, field.value, field.inline));
+  addFields(
+    fields: Array<{ name: string; value: string; inline?: boolean }>,
+  ): MessageBuilder {
+    fields.forEach((field) =>
+      this.addField(field.name, field.value, field.inline),
+    );
     return this;
   }
 
@@ -49,7 +55,7 @@ export class TextMessageBuilder implements MessageBuilder {
   }
 
   build(): string {
-    return this.parts.join('');
+    return this.parts.join("");
   }
 }
 
@@ -73,12 +79,16 @@ export class EmbedMessageBuilder implements MessageBuilder {
     return this;
   }
 
-  addFields(fields: Array<{name: string, value: string, inline?: boolean}>): MessageBuilder {
-    this.embed.addFields(fields.map(field => ({
-      name: field.name,
-      value: field.value,
-      inline: field.inline
-    })));
+  addFields(
+    fields: Array<{ name: string; value: string; inline?: boolean }>,
+  ): MessageBuilder {
+    this.embed.addFields(
+      fields.map((field) => ({
+        name: field.name,
+        value: field.value,
+        inline: field.inline,
+      })),
+    );
     return this;
   }
 
@@ -107,13 +117,13 @@ export class EmbedMessageBuilder implements MessageBuilder {
  */
 export const DiscordColors = {
   DEFAULT: 0x000000,
-  WHITE: 0xFFFFFF,
-  RED: 0xFF0000,
-  GREEN: 0x00FF00,
-  BLUE: 0x0000FF,
-  YELLOW: 0xFFFF00,
+  WHITE: 0xffffff,
+  RED: 0xff0000,
+  GREEN: 0x00ff00,
+  BLUE: 0x0000ff,
+  YELLOW: 0xffff00,
   PURPLE: 0x800080,
-  GOLD: 0xFFD700,
-  ORANGE: 0xFFA500,
-  GREY: 0x808080
+  GOLD: 0xffd700,
+  ORANGE: 0xffa500,
+  GREY: 0x808080,
 };

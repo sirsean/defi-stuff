@@ -1,4 +1,4 @@
-import { BalanceRecordService, BalanceType } from './balanceRecordService.js';
+import { BalanceRecordService, BalanceType } from "./balanceRecordService.js";
 
 /**
  * Interface for chart data points
@@ -38,7 +38,7 @@ export interface ChartData {
 export class ChartDataService {
   private balanceRecordService: BalanceRecordService;
 
-  constructor(environment: string = 'development') {
+  constructor(environment: string = "development") {
     this.balanceRecordService = new BalanceRecordService(environment);
   }
 
@@ -48,12 +48,17 @@ export class ChartDataService {
    * @param days Number of days to look back (default: 7)
    * @returns Chart data ready for visualization
    */
-  async getChartData(walletAddress?: string, days: number = 7): Promise<ChartData> {
+  async getChartData(
+    walletAddress?: string,
+    days: number = 7,
+  ): Promise<ChartData> {
     // Use environment variable if no address provided
     if (!walletAddress) {
       walletAddress = process.env.WALLET_ADDRESS;
       if (!walletAddress) {
-        throw new Error('No wallet address provided and WALLET_ADDRESS environment variable is not set');
+        throw new Error(
+          "No wallet address provided and WALLET_ADDRESS environment variable is not set",
+        );
       }
     }
 
@@ -62,19 +67,20 @@ export class ChartDataService {
     const startDate = new Date();
     startDate.setDate(endDate.getDate() - days + 1); // Include today as day 1
 
-    const endDateStr = endDate.toISOString().split('T')[0];
-    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split("T")[0];
+    const startDateStr = startDate.toISOString().split("T")[0];
 
     // Get all balance records in the date range
-    const records = await this.balanceRecordService.getBalanceRecordsByDateRange(
-      walletAddress,
-      startDateStr,
-      endDateStr
-    );
+    const records =
+      await this.balanceRecordService.getBalanceRecordsByDateRange(
+        walletAddress,
+        startDateStr,
+        endDateStr,
+      );
 
     // Group records by date and organize by balance type
     const dataByDate = this.groupRecordsByDate(records);
-    
+
     // Determine dates to use for charting
     let dates: string[] = [];
 
@@ -89,12 +95,14 @@ export class ChartDataService {
       for (let i = 0; i < days; i++) {
         const date = new Date(startDate);
         date.setDate(startDate.getDate() + i);
-        dates.push(date.toISOString().split('T')[0]);
+        dates.push(date.toISOString().split("T")[0]);
       }
     }
 
     // Create data points for each selected date
-    const dataPoints = dates.map(date => this.createDataPointForDate(date, dataByDate[date] || []));
+    const dataPoints = dates.map((date) =>
+      this.createDataPointForDate(date, dataByDate[date] || []),
+    );
 
     // Format for chart.js
     return this.formatForChartJs(dataPoints);
@@ -107,7 +115,7 @@ export class ChartDataService {
    */
   private groupRecordsByDate(records: any[]): Record<string, any[]> {
     const grouped: Record<string, any[]> = {};
-    
+
     for (const record of records) {
       if (!grouped[record.date]) {
         grouped[record.date] = [];
@@ -141,50 +149,50 @@ export class ChartDataService {
     // Process each record and aggregate by balance type
     for (const record of records) {
       const amount = parseFloat(record.amount.toString());
-      
+
       switch (record.balance_type) {
         case BalanceType.TOTAL:
-          if (record.currency === 'USD') {
+          if (record.currency === "USD") {
             dataPoint.totalUsd = amount;
           }
           break;
         case BalanceType.AUTO_USD:
-          if (record.currency === 'USD') {
+          if (record.currency === "USD") {
             dataPoint.autoUsd = amount;
           }
           break;
         case BalanceType.AUTO_ETH:
-          if (record.currency === 'ETH') {
+          if (record.currency === "ETH") {
             dataPoint.autoEth = amount;
           }
           break;
         case BalanceType.DINERO_ETH:
-          if (record.currency === 'ETH') {
+          if (record.currency === "ETH") {
             dataPoint.dineroEth = amount;
           }
           break;
         case BalanceType.FLP:
-          if (record.currency === 'USD') {
+          if (record.currency === "USD") {
             dataPoint.flp = amount;
           }
           break;
         case BalanceType.BASE_USD:
-          if (record.currency === 'USD') {
+          if (record.currency === "USD") {
             dataPoint.baseUsd = amount;
           }
           break;
         case BalanceType.FLEX_REWARDS:
-          if (record.currency === 'USD') {
+          if (record.currency === "USD") {
             dataPoint.flexRewards = amount;
           }
           break;
         case BalanceType.TOKEMAK_REWARDS:
-          if (record.currency === 'USD') {
+          if (record.currency === "USD") {
             dataPoint.tokemakRewards = amount;
           }
           break;
         case BalanceType.BASE_TOKEMAK_REWARDS:
-          if (record.currency === 'USD') {
+          if (record.currency === "USD") {
             dataPoint.baseTokemakRewards = amount;
           }
           break;
@@ -200,81 +208,86 @@ export class ChartDataService {
    * @returns Chart.js formatted data
    */
   private formatForChartJs(dataPoints: ChartDataPoint[]): ChartData {
-    const labels = dataPoints.map(point => {
+    const labels = dataPoints.map((point) => {
       // Fix timezone issue by explicitly setting time to local midnight
-      const date = new Date(point.date + 'T00:00:00');
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const date = new Date(point.date + "T00:00:00");
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
     });
 
     const datasets = [
       {
-        label: 'Total USD',
-        data: dataPoints.map(p => p.totalUsd),
-        borderColor: '#2563eb', // Blue
-        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+        label: "Total USD",
+        data: dataPoints.map((p) => p.totalUsd),
+        borderColor: "#2563eb", // Blue
+        backgroundColor: "rgba(37, 99, 235, 0.1)",
         fill: false,
         tension: 0.1,
-        yAxisID: 'usd',
+        yAxisID: "usd",
       },
       {
-        label: 'Auto USD',
-        data: dataPoints.map(p => p.autoUsd),
-        borderColor: '#16a34a', // Green
-        backgroundColor: 'rgba(22, 163, 74, 0.1)',
+        label: "Auto USD",
+        data: dataPoints.map((p) => p.autoUsd),
+        borderColor: "#16a34a", // Green
+        backgroundColor: "rgba(22, 163, 74, 0.1)",
         fill: false,
         tension: 0.1,
-        yAxisID: 'usd',
+        yAxisID: "usd",
       },
       {
-        label: 'Auto ETH',
-        data: dataPoints.map(p => p.autoEth),
-        borderColor: '#dc2626', // Red
-        backgroundColor: 'rgba(220, 38, 38, 0.1)',
+        label: "Auto ETH",
+        data: dataPoints.map((p) => p.autoEth),
+        borderColor: "#dc2626", // Red
+        backgroundColor: "rgba(220, 38, 38, 0.1)",
         fill: false,
         tension: 0.1,
-        yAxisID: 'eth',
+        yAxisID: "eth",
       },
       {
-        label: 'Dinero ETH',
-        data: dataPoints.map(p => p.dineroEth),
-        borderColor: '#ea580c', // Orange
-        backgroundColor: 'rgba(234, 88, 12, 0.1)',
+        label: "Dinero ETH",
+        data: dataPoints.map((p) => p.dineroEth),
+        borderColor: "#ea580c", // Orange
+        backgroundColor: "rgba(234, 88, 12, 0.1)",
         fill: false,
         tension: 0.1,
-        yAxisID: 'eth',
+        yAxisID: "eth",
       },
       {
-        label: 'FLP USD',
-        data: dataPoints.map(p => p.flp),
-        borderColor: '#7c2d12', // Brown
-        backgroundColor: 'rgba(124, 45, 18, 0.1)',
+        label: "FLP USD",
+        data: dataPoints.map((p) => p.flp),
+        borderColor: "#7c2d12", // Brown
+        backgroundColor: "rgba(124, 45, 18, 0.1)",
         fill: false,
         tension: 0.1,
-        yAxisID: 'usd',
+        yAxisID: "usd",
       },
       {
-        label: 'Base USD',
-        data: dataPoints.map(p => p.baseUsd),
-        borderColor: '#1e40af', // Dark Blue
-        backgroundColor: 'rgba(30, 64, 175, 0.1)',
+        label: "Base USD",
+        data: dataPoints.map((p) => p.baseUsd),
+        borderColor: "#1e40af", // Dark Blue
+        backgroundColor: "rgba(30, 64, 175, 0.1)",
         fill: false,
         tension: 0.1,
-        yAxisID: 'usd',
+        yAxisID: "usd",
       },
       {
-        label: 'Total Rewards',
-        data: dataPoints.map(p => p.flexRewards + p.tokemakRewards + p.baseTokemakRewards),
-        borderColor: '#7c3aed', // Purple
-        backgroundColor: 'rgba(124, 58, 237, 0.1)',
+        label: "Total Rewards",
+        data: dataPoints.map(
+          (p) => p.flexRewards + p.tokemakRewards + p.baseTokemakRewards,
+        ),
+        borderColor: "#7c3aed", // Purple
+        backgroundColor: "rgba(124, 58, 237, 0.1)",
         fill: false,
         tension: 0.1,
-        yAxisID: 'usd',
+        yAxisID: "usd",
       },
     ];
 
     // Filter out datasets with no data (all zeros)
-    const filteredDatasets = datasets.filter(dataset => 
-      dataset.data.some(value => value > 0)
+    const filteredDatasets = datasets.filter((dataset) =>
+      dataset.data.some((value) => value > 0),
     );
 
     return {

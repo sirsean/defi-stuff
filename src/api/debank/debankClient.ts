@@ -1,5 +1,9 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from "axios";
-import { DebankProtocol, UserProtocolResponse, UserTotalBalanceResponse } from "../../types/debank.js";
+import {
+  DebankProtocol,
+  UserProtocolResponse,
+  UserTotalBalanceResponse,
+} from "../../types/debank.js";
 
 /**
  * Client for interacting with the Debank API
@@ -66,14 +70,17 @@ export class DebankClient {
    * @param protocolId The protocol ID to query
    * @returns User's protocol data
    */
-  async getUserProtocol(userAddress: string, protocolId: string): Promise<UserProtocolResponse> {
+  async getUserProtocol(
+    userAddress: string,
+    protocolId: string,
+  ): Promise<UserProtocolResponse> {
     try {
       const response = await this.client.get<UserProtocolResponse>(
         "/v1/user/protocol",
         {
           params: {
             id: userAddress,
-            protocol_id: protocolId
+            protocol_id: protocolId,
           },
         },
       );
@@ -82,7 +89,9 @@ export class DebankClient {
     } catch (error) {
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 404) {
-          throw new Error(`No data found for protocol ${protocolId} and user ${userAddress}`);
+          throw new Error(
+            `No data found for protocol ${protocolId} and user ${userAddress}`,
+          );
         }
         console.error(
           "Error fetching user protocol data:",
@@ -100,13 +109,15 @@ export class DebankClient {
    * @param userAddress The wallet address to query
    * @returns User's total balance and per-chain balances
    */
-  async getUserTotalBalance(userAddress: string): Promise<UserTotalBalanceResponse> {
+  async getUserTotalBalance(
+    userAddress: string,
+  ): Promise<UserTotalBalanceResponse> {
     try {
       const response = await this.client.get<UserTotalBalanceResponse>(
         "/v1/user/total_balance",
         {
           params: {
-            id: userAddress
+            id: userAddress,
           },
         },
       );
