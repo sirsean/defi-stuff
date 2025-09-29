@@ -10,6 +10,7 @@ import { balance } from "./commands/balance.js";
 import { daily } from "./commands/daily.js";
 import { history } from "./commands/history.js";
 import { chart } from "./commands/chart.js";
+import { fearGreedIndex } from "./commands/fearGreedIndex.js";
 
 // Load environment variables
 dotenv.config();
@@ -124,6 +125,12 @@ program
   )
   .option("-o, --output <dir>", "Output directory for charts (default: charts)")
   .action(chart);
+
+program
+  .command("fear-and-greed-index")
+  .description("Get the crypto Fear and Greed Index with trend analysis")
+  .option("-l, --limit <number>", "Number of days to analyze (default: 10)")
+  .action(fearGreedIndex);
 
 // New: baseUSD add (deposit + stake via router)
 import { baseusdAdd } from "./commands/baseusdAdd.js";
