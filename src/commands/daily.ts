@@ -13,6 +13,8 @@ import {
 import { KnexConnector } from "../db/knexConnector.js";
 import { ChartDataService } from "../db/chartDataService.js";
 import { ChartGenerator } from "../utils/chartGenerator.js";
+import { fearGreedService } from "../api/feargreed/fearGreedService.js";
+import type { FearGreedAnalysis } from "../types/feargreed.js";
 
 import { JsonRpcProvider, Wallet } from "ethers";
 import { flpCompoundCore, FlpCompoundResult } from "./flpCompound.js";
@@ -93,12 +95,22 @@ export async function daily(
     const baseTokemakData =
       await userProtocolService.getUserProtocolData("base_tokemak");
 
+    // 5. Get Fear & Greed Index
+    let fearGreedAnalysis: FearGreedAnalysis | undefined;
+    try {
+      fearGreedAnalysis = await fearGreedService.analyzeFearGreedIndex(10);
+    } catch (error) {
+      console.warn("⚠️  Failed to fetch Fear & Greed Index:", error);
+      // Continue without it - don't fail the entire report
+    }
+
     // Process protocol data
     const processedData = {
       totalUsdValue: balanceData.total_usd_value,
       tokemak: processProtocolData(tokemakData.portfolio_item_list),
       baseFlex: processProtocolData(baseFlexData.portfolio_item_list),
       baseTokemak: processProtocolData(baseTokemakData.portfolio_item_list),
+      fearGreed: fearGreedAnalysis,
     };
 
     // Generate a console report and optionally save to database
@@ -187,6 +199,7 @@ async function generateReport(
     tokemak: Record<string, ProtocolData>;
     baseFlex: Record<string, ProtocolData>;
     baseTokemak: Record<string, ProtocolData>;
+    fearGreed?: FearGreedAnalysis;
   },
   options: {
     sendToDiscord: boolean;
@@ -254,11 +267,39 @@ async function generateReport(
       .flatMap((pool) => Object.values(pool.rewards || {})),
   );
 
+  // Helper function to get classification emoji
+  const getClassificationEmoji = (classification: string): string => {
+    const map: Record<string, string> = {
+      "Extreme Fear": "😱",
+      Fear: "😨",
+      Neutral: "😐",
+      Greed: "🙂",
+      "Extreme Greed": "🤑",
+    };
+    return map[classification] ?? "";
+  };
+
+  const getTrendEmoji = (trend: string): string => {
+    if (trend === "improving") return "📈";
+    if (trend === "declining") return "📉";
+    return "🔁";
+  };
+
   // Format console output
   console.log("\n========== DAILY REPORT ==========");
   console.log(
     `Total Wallet Value: $${data.totalUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
   );
+
+  // Add Fear & Greed Index if available
+  if (data.fearGreed) {
+    const emoji = getClassificationEmoji(data.fearGreed.current.classification);
+    const trendEmoji = getTrendEmoji(data.fearGreed.trend);
+    const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+    console.log(
+      `Fear & Greed: ${Math.round(data.fearGreed.current.value)} (${data.fearGreed.current.classification}) ${emoji} - ${capitalize(data.fearGreed.trend)} ${trendEmoji}`,
+    );
+  }
 
   console.log("\n--- KEY POSITIONS ---");
   console.log(
@@ -367,6 +408,7 @@ async function generateReport(
         tokemakRewards,
         baseFlexRewards,
         baseTokemakRewards,
+        fearGreed: data.fearGreed,
       },
       {
         generateChart: shouldGenerateChart || options.generateChart === true,
@@ -404,6 +446,7 @@ async function sendDiscordReport(
       usdValue: number;
       symbol: string;
     }>;
+    fearGreed?: FearGreedAnalysis;
   },
   chartOptions?: {
     generateChart?: boolean;
@@ -412,13 +455,41 @@ async function sendDiscordReport(
   autoCompoundSummary?: AutoCompoundSummary,
 ): Promise<void> {
   try {
+    // Helper functions for emojis
+    const getClassificationEmoji = (classification: string): string => {
+      const map: Record<string, string> = {
+        "Extreme Fear": "😱",
+        Fear: "😨",
+        Neutral: "😐",
+        Greed: "🙂",
+        "Extreme Greed": "🤑",
+      };
+      return map[classification] ?? "";
+    };
+
+    const getTrendEmoji = (trend: string): string => {
+      if (trend === "improving") return "📈";
+      if (trend === "declining") return "📉";
+      return "🔁";
+    };
+
+    const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+    // Build description with optional Fear & Greed
+    let description = `Total Wallet Value: $${data.totalUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+    if (data.fearGreed) {
+      const emoji = getClassificationEmoji(
+        data.fearGreed.current.classification,
+      );
+      const trendEmoji = getTrendEmoji(data.fearGreed.trend);
+      description += `\n\n**Market Sentiment**\nFear & Greed: ${Math.round(data.fearGreed.current.value)} (${data.fearGreed.current.classification}) ${emoji} - ${capitalize(data.fearGreed.trend)} ${trendEmoji}`;
+    }
+
     const embedMessage = discordService
       .createEmbedMessage()
       .addTitle("📊 Daily DeFi Report")
       .setColor(DiscordColors.BLUE)
-      .addDescription(
-        `Total Wallet Value: $${data.totalUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
-      )
+      .addDescription(description)
       .addFields([
         {
           name: "Key Positions",
