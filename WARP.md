@@ -100,6 +100,53 @@ Trade BTC, ETH, and other perpetual futures on Flex (Base mainnet) with comprehe
 **Collateral**: USDC
 **Markets**: 22 markets including BTC, ETH, SOL, XRP, and more
 
+#### Manage Collateral
+
+Before trading, you need to deposit USDC collateral into your Flex subaccount.
+
+**Deposit USDC:**
+```bash
+# Deposit $1,000 USDC to subaccount 0
+npm run dev -- flex:deposit 1000
+
+# Deposit to specific subaccount
+npm run dev -- flex:deposit 500 --sub 1
+
+# Dry run to preview
+npm run dev -- flex:deposit 1000 --dry-run
+```
+
+**Deposit process:**
+1. Automatically approves USDC spending (if needed)
+2. Deposits USDC to your Flex subaccount
+3. Shows current and projected balances
+4. Displays transaction details and gas cost
+
+**Withdraw USDC:**
+```bash
+# Withdraw $500 USDC from subaccount 0
+npm run dev -- flex:withdraw 500
+
+# Withdraw from specific subaccount
+npm run dev -- flex:withdraw 200 --sub 1
+
+# Dry run to preview
+npm run dev -- flex:withdraw 500 --dry-run
+```
+
+**Withdrawal safety:**
+- Validates sufficient balance
+- Checks for open positions
+- Calculates projected leverage after withdrawal
+- Prevents withdrawals that would risk liquidation
+- Shows warnings for high-risk withdrawals
+
+**Output includes:**
+- Current and projected USDC balance
+- Impact on leverage (if positions are open)
+- Risk warnings for high-leverage scenarios
+- Transaction details and gas cost
+
 #### View Market Prices and Funding Rates
 ```bash
 # Get BTC market info (default)
@@ -277,6 +324,18 @@ Built-in risk management features:
 
 #### Common Workflows
 
+**Initial setup (deposit collateral):**
+```bash
+# 1. Check your wallet has USDC
+# (Ensure you have USDC on Base mainnet)
+
+# 2. Deposit USDC to Flex
+npm run dev -- flex:deposit 5000
+
+# 3. Verify deposit
+npm run dev -- flex:balance
+```
+
 **Check prices and open a position:**
 ```bash
 # 1. Check BTC price and funding
@@ -314,6 +373,20 @@ npm run dev -- flex:close -m BTC --dry-run
 
 # 3. Execute close
 npm run dev -- flex:close -m BTC
+```
+
+**Close positions and withdraw collateral:**
+```bash
+# 1. Close all open positions
+npm run dev -- flex:positions  # See what's open
+npm run dev -- flex:close -m BTC
+npm run dev -- flex:close -m ETH
+
+# 2. Check final balance
+npm run dev -- flex:balance
+
+# 3. Withdraw USDC back to wallet
+npm run dev -- flex:withdraw 5000
 ```
 
 **Important Notes:**

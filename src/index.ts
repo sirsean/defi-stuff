@@ -18,6 +18,8 @@ import { flexPrice } from "./commands/flex/flexPrice.js";
 import { flexOrder } from "./commands/flex/flexOrder.js";
 import { flexClose } from "./commands/flex/flexClose.js";
 import { flexOrders } from "./commands/flex/flexOrders.js";
+import { flexDeposit } from "./commands/flex/flexDeposit.js";
+import { flexWithdraw } from "./commands/flex/flexWithdraw.js";
 
 // Load environment variables
 dotenv.config();
@@ -267,6 +269,24 @@ program
   .option("-m, --market <symbol>", "Filter by market symbol (e.g., BTC, ETH)")
   .option("--cancel <orderId>", "Cancel an order by ID")
   .action(flexOrders);
+
+program
+  .command("flex:deposit <amount>")
+  .description("Deposit USDC collateral into a Flex subaccount")
+  .option("--sub <id>", "Subaccount ID to deposit into (0-255, default: 0)")
+  .option("--dry-run", "Show deposit details without executing")
+  .action((amount, options) => {
+    flexDeposit({ ...options, amount });
+  });
+
+program
+  .command("flex:withdraw <amount>")
+  .description("Withdraw USDC collateral from a Flex subaccount")
+  .option("--sub <id>", "Subaccount ID to withdraw from (0-255, default: 0)")
+  .option("--dry-run", "Show withdrawal details without executing")
+  .action((amount, options) => {
+    flexWithdraw({ ...options, amount });
+  });
 
 // If no arguments, show help and exit successfully
 if (process.argv.length <= 2) {

@@ -356,7 +356,9 @@ WALLET_ADDRESS=0x...
 
 **Code Coverage**: Comprehensive test coverage across all services
 
-**Phase 5 Complete**: All 6 CLI commands implemented and documented:
+**Phase 5 Complete**: All 8 CLI commands implemented and documented:
+- ✅ `flex:deposit` - Deposit USDC collateral with approval handling
+- ✅ `flex:withdraw` - Withdraw USDC with safety checks
 - ✅ `flex:price` - Market prices and funding rates
 - ✅ `flex:balance` - Account collateral and equity
 - ✅ `flex:positions` - Position monitoring with risk assessment
