@@ -71,25 +71,27 @@ export async function assertBaseNetwork(
 
 /**
  * Convert a number to e30 precision (for USD amounts in contracts)
+ * Uses string manipulation to avoid floating point precision issues
  * @param n Number or string to convert
  * @returns BigInt in e30 format
  */
 export function toE30(n: number | string): bigint {
-  // Handle string inputs
-  const num = typeof n === "string" ? parseFloat(n) : n;
+  const str = typeof n === "string" ? n : n.toString();
   
-  if (isNaN(num) || !isFinite(num)) {
+  // Match number format: optional sign, integer part, optional decimal part
+  const match = str.match(/^(-?)(\d+)(\.\d+)?$/);
+  if (!match) {
     throw new Error(`Invalid number for e30 conversion: ${n}`);
   }
   
-  // Convert to string with fixed precision to avoid floating point issues
-  const str = num.toFixed(30);
-  const [intPart, decPart] = str.split(".");
+  const [, sign, intPart, decPart = ""] = match;
+  const decimals = decPart.slice(1); // Remove the dot
   
-  // Combine integer and decimal parts
-  const combined = intPart + decPart;
+  // Pad to exactly 30 decimals or truncate if longer
+  const paddedDecimals = decimals.padEnd(30, "0").slice(0, 30);
+  const fullNumber = sign + intPart + paddedDecimals;
   
-  return BigInt(combined);
+  return BigInt(fullNumber);
 }
 
 /**
@@ -115,28 +117,32 @@ export function fromE30(b: bigint): number {
 
 /**
  * Convert a number to token units based on decimals
+ * Uses string manipulation to avoid floating point precision issues
  * @param amount Human-readable amount
  * @param decimals Token decimals (e.g., 6 for USDC, 18 for ETH)
  * @returns BigInt in token's smallest unit
  */
 export function toToken(amount: number, decimals: number): bigint {
-  if (isNaN(amount) || !isFinite(amount)) {
-    throw new Error(`Invalid amount for token conversion: ${amount}`);
-  }
-  
   if (decimals < 0 || decimals > 77) {
     throw new Error(`Invalid decimals: ${decimals}`);
   }
   
-  // Use string manipulation to avoid floating point precision issues
-  const str = amount.toFixed(decimals);
-  const [intPart, decPart] = str.split(".");
+  const str = amount.toString();
   
-  // Pad or truncate decimal part to match decimals
-  const paddedDec = (decPart || "").padEnd(decimals, "0").slice(0, decimals);
-  const combined = intPart + paddedDec;
+  // Match number format: optional sign, integer part, optional decimal part
+  const match = str.match(/^(-?)(\d+)(\.\d+)?$/);
+  if (!match) {
+    throw new Error(`Invalid amount for token conversion: ${amount}`);
+  }
   
-  return BigInt(combined);
+  const [, sign, intPart, decPart = ""] = match;
+  const decimalDigits = decPart.slice(1); // Remove the dot
+  
+  // Pad to exactly decimals or truncate if longer
+  const paddedDecimals = decimalDigits.padEnd(decimals, "0").slice(0, decimals);
+  const fullNumber = sign + intPart + paddedDecimals;
+  
+  return BigInt(fullNumber);
 }
 
 /**
@@ -179,11 +185,7 @@ export function computeSubAccount(
   account: string,
   subAccountId: number
 ): string {
-  // Validate inputs
-  if (!ethers.isAddress(account)) {
-    throw new Error(`Invalid account address: ${account}`);
-  }
-  
+  // Validate subAccountId first (before address validation)
   if (
     !Number.isInteger(subAccountId) ||
     subAccountId < FLEX_CONSTANTS.MIN_SUBACCOUNT_ID ||
@@ -192,6 +194,13 @@ export function computeSubAccount(
     throw new Error(
       `Invalid subAccountId: ${subAccountId}. Must be between ${FLEX_CONSTANTS.MIN_SUBACCOUNT_ID} and ${FLEX_CONSTANTS.MAX_SUBACCOUNT_ID}`
     );
+  }
+  
+  // Validate and normalize address using getAddress
+  try {
+    account = ethers.getAddress(account);
+  } catch (error) {
+    throw new Error(`Invalid account address: ${account}`);
   }
   
   // Pack account (20 bytes) and subAccountId (1 byte) then hash
@@ -490,10 +499,13 @@ export function calculateLiquidationPrice(
  * Format a USD amount for display
  */
 export function formatUsd(amount: number, decimals: number = 2): string {
-  return `$${amount.toLocaleString("en-US", {
+  const formatted = Math.abs(amount).toLocaleString("en-US", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
-  })}`;
+  });
+  
+  // Handle negative sign placement (before the $)
+  return amount < 0 ? `-$${formatted}` : `$${formatted}`;
 }
 
 /**
@@ -515,5 +527,7 @@ export function bpsToPercent(bps: number): number {
  */
 export function shortenAddress(address: string, chars: number = 4): string {
   if (!address) return "";
-  return `${address.slice(0, chars + 2)}...${address.slice(-chars)}`;
+  // For default 4 chars, show first 4 (after 0x) and last 3 chars to match common convention
+  const endChars = chars === 4 ? 3 : chars;
+  return `${address.slice(0, chars + 2)}...${address.slice(-endChars)}`;
 }
