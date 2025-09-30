@@ -87,10 +87,241 @@ npm run dev -- flp:compound
 Notes:
 - Network: Base mainnet (chainId 8453). The command validates the connected network and exits if not on Base.
 - RPC: Uses https://mainnet.base.org by default; if ALCHEMY_API_KEY is set, uses https://base-mainnet.g.alchemy.com/v2/$ALCHEMY_API_KEY.
-- Live execution: Requires MAIN_PRIVATE_KEY in the environment to sign the transaction. Keep this key secure and never commit it.
+- Live execution: Requires MAIN_PRIVATE_KEY in the environment to sign and submit the transaction. Keep this key secure and never commit it.
 - Output:
   - Gas used, effective gas price, total ETH paid
   - USDC received (computed from Transfer logs to your address, with a balance-delta fallback)
+
+### Flex Perpetuals Trading
+
+Trade BTC, ETH, and other perpetual futures on Flex (Base mainnet) with comprehensive risk management.
+
+**Network**: Base mainnet (chain ID 8453)
+**Collateral**: USDC
+**Markets**: 22 markets including BTC, ETH, SOL, XRP, and more
+
+#### View Market Prices and Funding Rates
+```bash
+# Get BTC market info (default)
+npm run dev -- flex:price
+
+# Get specific market
+npm run dev -- flex:price --market ETH
+
+# View all markets
+npm run dev -- flex:price --all
+```
+
+**Output includes:**
+- Current market price
+- Funding rate (per hour) with direction
+- Market skew (long/short imbalance)
+- Max leverage and margin requirements
+- Open interest (long and short position sizes)
+
+#### Check Account Balance and Equity
+```bash
+# Check balance on subaccount 0 (default)
+npm run dev -- flex:balance
+
+# Check specific subaccount
+npm run dev -- flex:balance --sub 1
+
+# Check multiple subaccounts
+npm run dev -- flex:balance --subs 0,1,2
+
+# Use specific wallet address
+npm run dev -- flex:balance --address 0xYourAddress
+```
+
+**Output includes:**
+- Total collateral (USDC)
+- Total equity (collateral + unrealized PnL - fees)
+- Current leverage
+- Available margin
+- Open positions summary
+- Account health status
+
+#### View Open Positions
+```bash
+# View all positions on subaccount 0
+npm run dev -- flex:positions
+
+# View positions on specific subaccount
+npm run dev -- flex:positions --sub 1
+
+# Filter by market
+npm run dev -- flex:positions --market BTC
+
+# View across multiple subaccounts
+npm run dev -- flex:positions --subs 0,1,2
+```
+
+**Output includes:**
+- Position direction (LONG/SHORT)
+- Position size and entry price
+- Current price and liquidation price
+- Unrealized PnL ($ and %)
+- Fee breakdown (funding, borrowing, trading)
+- Risk assessment (safe/warning/danger/critical)
+- Distance to liquidation
+
+#### Place Market Orders
+```bash
+# Buy $1,000 BTC at market
+npm run dev -- flex:order market -m BTC -s long --size 1000
+
+# Short $500 ETH at market
+npm run dev -- flex:order market -m ETH -s short --size 500
+
+# With custom slippage (default 1%)
+npm run dev -- flex:order market -m BTC -s buy --size 1000 --slippage 0.5
+
+# Dry run (validate without executing)
+npm run dev -- flex:order market -m BTC -s long --size 1000 --dry-run
+
+# Use specific subaccount
+npm run dev -- flex:order market --sub 1 -m BTC -s long --size 1000
+```
+
+**Side options:** `long`, `buy`, `short`, `sell`
+
+**Pre-trade validation:**
+- Available margin check
+- Leverage limits
+- Position count limits
+- Projected leverage calculation
+
+#### Place Limit Orders
+```bash
+# Buy $1,000 BTC at $64,000
+npm run dev -- flex:order limit -m BTC -s long --size 1000 --price 64000
+
+# Sell $500 ETH at $3,500
+npm run dev -- flex:order limit -m ETH -s short --size 500 --price 3500
+
+# Reduce-only order (close position only)
+npm run dev -- flex:order limit -m BTC -s short --size 500 --price 65000 --reduce-only
+
+# Dry run to validate
+npm run dev -- flex:order limit -m BTC -s long --size 1000 --price 64000 --dry-run
+```
+
+**Limit orders execute when:**
+- Long orders: price reaches or falls below limit price
+- Short orders: price reaches or rises above limit price
+
+#### Close Positions
+```bash
+# Close 100% of BTC position (default)
+npm run dev -- flex:close -m BTC
+
+# Close 50% of position
+npm run dev -- flex:close -m ETH --percent 50
+
+# Close on specific subaccount
+npm run dev -- flex:close --sub 1 -m BTC --percent 75
+
+# Dry run to see outcome
+npm run dev -- flex:close -m BTC --dry-run
+```
+
+**Output includes:**
+- Current position details
+- Estimated PnL at close
+- Fee breakdown
+- Net PnL (profit - fees)
+- Remaining position (if partial close)
+
+#### Manage Pending Orders
+```bash
+# View all pending orders on subaccount 0
+npm run dev -- flex:orders
+
+# View on specific subaccount
+npm run dev -- flex:orders --sub 1
+
+# View across multiple subaccounts
+npm run dev -- flex:orders --subs 0,1,2
+
+# Filter by market
+npm run dev -- flex:orders -m BTC
+
+# Cancel an order by ID
+npm run dev -- flex:orders --sub 0 --cancel 123
+```
+
+**Order information:**
+- Order ID
+- Market and direction
+- Order type (LIMIT/TRIGGER)
+- Size and trigger price
+- Reduce-only flag
+- Creation timestamp
+
+#### Subaccounts
+
+Flex supports 256 isolated subaccounts (0-255) per wallet:
+- Each subaccount has separate collateral and positions
+- Use for different strategies or risk isolation
+- Default is subaccount 0 if not specified
+
+#### Risk Management
+
+Built-in risk management features:
+- **Pre-trade validation**: Checks leverage, margin, and limits before execution
+- **Liquidation monitoring**: Real-time risk assessment for open positions
+- **Position sizing**: Validates order size against available margin
+- **Leverage limits**: Enforces per-market and portfolio-wide limits
+- **Health indicators**: Visual warnings for high-risk positions
+
+#### Common Workflows
+
+**Check prices and open a position:**
+```bash
+# 1. Check BTC price and funding
+npm run dev -- flex:price --market BTC
+
+# 2. Check available margin
+npm run dev -- flex:balance
+
+# 3. Open long position
+npm run dev -- flex:order market -m BTC -s long --size 1000
+
+# 4. Monitor position
+npm run dev -- flex:positions --market BTC
+```
+
+**Set limit orders:**
+```bash
+# 1. Check current price
+npm run dev -- flex:price --market ETH
+
+# 2. Place buy limit below market
+npm run dev -- flex:order limit -m ETH -s long --size 500 --price 3400
+
+# 3. Check pending orders
+npm run dev -- flex:orders
+```
+
+**Close a position:**
+```bash
+# 1. Check position status
+npm run dev -- flex:positions --market BTC
+
+# 2. Dry run close to see outcome
+npm run dev -- flex:close -m BTC --dry-run
+
+# 3. Execute close
+npm run dev -- flex:close -m BTC
+```
+
+**Important Notes:**
+- **Live Execution**: Requires `MAIN_PRIVATE_KEY` environment variable
+- **Network**: All commands validate you're on Base mainnet (chain ID 8453)
+- **Gas Costs**: Monitor transaction gas costs on Base
+- **Risk**: Start with small position sizes when testing
+- **Liquidation**: Monitor positions regularly to avoid liquidation
 
 ### Scheduling (macOS launchd)
 ```bash
