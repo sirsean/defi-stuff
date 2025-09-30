@@ -11,6 +11,7 @@ import { daily } from "./commands/daily.js";
 import { history } from "./commands/history.js";
 import { chart } from "./commands/chart.js";
 import { fearGreedIndex } from "./commands/fearGreedIndex.js";
+import { btcPrediction } from "./commands/btcPrediction.js";
 
 // Load environment variables
 dotenv.config();
@@ -131,6 +132,16 @@ program
   .description("Get the crypto Fear and Greed Index with trend analysis")
   .option("-l, --limit <number>", "Number of days to analyze (default: 10)")
   .action(fearGreedIndex);
+
+program
+  .command("btc-prediction")
+  .description("Get BTC price prediction from Polymarket prediction markets")
+  .option(
+    "-d, --date <YYYY-MM-DD>",
+    "Target date for prediction (default: 2025-12-31)",
+  )
+  .option("-j, --json", "Output raw JSON data")
+  .action(btcPrediction);
 
 // New: baseUSD add (deposit + stake via router)
 import { baseusdAdd } from "./commands/baseusdAdd.js";
