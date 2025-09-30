@@ -100,19 +100,26 @@ export function toE30(n: number | string): bigint {
  * @returns Number
  */
 export function fromE30(b: bigint): number {
+  // Handle negative numbers
+  const isNegative = b < 0n;
+  const absoluteValue = isNegative ? -b : b;
+  
   // Convert to string and insert decimal point
-  const str = b.toString().padStart(31, "0");
+  const str = absoluteValue.toString().padStart(31, "0");
   const intPart = str.slice(0, -30) || "0";
   const decPart = str.slice(-30);
   
   // Remove trailing zeros from decimal part
   const trimmedDec = decPart.replace(/0+$/, "");
   
+  let result;
   if (trimmedDec.length === 0) {
-    return parseFloat(intPart);
+    result = parseFloat(intPart);
+  } else {
+    result = parseFloat(`${intPart}.${trimmedDec}`);
   }
   
-  return parseFloat(`${intPart}.${trimmedDec}`);
+  return isNegative ? -result : result;
 }
 
 /**
@@ -369,7 +376,7 @@ export function isUserRejection(error: any): boolean {
 /**
  * Calculate unrealized PnL for a position
  * @param isLong Whether position is long
- * @param sizeE30 Position size in e30
+ * @param sizeE30 Position size in e30 (absolute value)
  * @param entryPriceE30 Entry price in e30
  * @param currentPriceE30 Current price in e30
  * @returns PnL in e30 format
@@ -382,6 +389,8 @@ export function calculatePnL(
 ): bigint {
   if (sizeE30 === 0n) return 0n;
   
+  // Use absolute size for calculation
+  const absSizeE30 = sizeE30 < 0n ? -sizeE30 : sizeE30;
   const priceDiff = currentPriceE30 - entryPriceE30;
   
   // PnL = size * (currentPrice - entryPrice) for long
@@ -390,7 +399,7 @@ export function calculatePnL(
   
   // size is in USD (e30), priceDiff is in USD/unit (e30)
   // Result needs to be divided by e30 to get USD
-  return (sizeE30 * priceDiff * multiplier) / FLEX_CONSTANTS.E30;
+  return (absSizeE30 * priceDiff * multiplier) / FLEX_CONSTANTS.E30;
 }
 
 /**

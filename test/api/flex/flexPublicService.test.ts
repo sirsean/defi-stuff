@@ -1,0 +1,716 @@
+/**
+ * Tests for FlexPublicService
+ */
+
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { ethers } from "ethers";
+import { FlexPublicService } from "../../../src/api/flex/flexPublicService.js";
+import { MARKETS } from "../../../src/api/flex/constants.js";
+
+describe("FlexPublicService", () => {
+  let service: FlexPublicService;
+  let mockProvider: any;
+
+  beforeEach(() => {
+    // Create mock provider
+    mockProvider = {
+      getNetwork: vi.fn().mockResolvedValue({ chainId: 8453n }),
+    };
+
+    // Create service with mock provider
+    service = new FlexPublicService(mockProvider);
+  });
+
+  describe("Construction", () => {
+    it("should create service with provided provider", () => {
+      expect(service).toBeInstanceOf(FlexPublicService);
+    });
+
+    it("should create service with default provider if none provided", () => {
+      const defaultService = new FlexPublicService();
+      expect(defaultService).toBeInstanceOf(FlexPublicService);
+    });
+  });
+
+  describe("Network Validation", () => {
+    it("should validate Base network (8453)", async () => {
+      await expect(service.validateNetwork()).resolves.not.toThrow();
+      expect(mockProvider.getNetwork).toHaveBeenCalled();
+    });
+
+    it("should reject wrong network", async () => {
+      mockProvider.getNetwork.mockResolvedValue({ chainId: 1n }); // Ethereum
+      await expect(service.validateNetwork()).rejects.toThrow("Wrong network");
+    });
+  });
+
+  describe("Market Data Queries", () => {
+    describe("getMarketPrice", () => {
+      it("should fetch BTC market price", async () => {
+        const btcMarketIndex = 1;
+        const mockPriceE30 = 64000n * 10n ** 30n;
+        const mockTimestamp = Math.floor(Date.now() / 1000);
+
+        // Mock the orderbookOracle contract call
+        const mockOrderbookOracle = (service as any).orderbookOracle;
+        mockOrderbookOracle.getLatestPrice = vi
+          .fn()
+          .mockResolvedValue([mockPriceE30, BigInt(mockTimestamp)]);
+
+        const result = await service.getMarketPrice(btcMarketIndex);
+
+        expect(result.marketIndex).toBe(btcMarketIndex);
+        expect(result.symbol).toBe("BTC");
+        expect(result.price).toBe(64000);
+        expect(result.priceE30).toBe(mockPriceE30);
+        expect(result.timestamp).toBe(mockTimestamp);
+      });
+
+      it("should fetch ETH market price", async () => {
+        const ethMarketIndex = 0;
+        const mockPriceE30 = 3200n * 10n ** 30n;
+        const mockTimestamp = Math.floor(Date.now() / 1000);
+
+        const mockOrderbookOracle = (service as any).orderbookOracle;
+        mockOrderbookOracle.getLatestPrice = vi
+          .fn()
+          .mockResolvedValue([mockPriceE30, BigInt(mockTimestamp)]);
+
+        const result = await service.getMarketPrice(ethMarketIndex);
+
+        expect(result.marketIndex).toBe(ethMarketIndex);
+        expect(result.symbol).toBe("ETH");
+        expect(result.price).toBe(3200);
+      });
+
+      it("should throw error for invalid market index", async () => {
+        await expect(service.getMarketPrice(999)).rejects.toThrow(
+          "Market index 999 not found"
+        );
+      });
+
+      it("should handle price with decimals", async () => {
+        const btcMarketIndex = 1;
+        // $64,123.45
+        const mockPriceE30 = 64123450000000000000000000000000000n;
+
+        const mockOrderbookOracle = (service as any).orderbookOracle;
+        mockOrderbookOracle.getLatestPrice = vi
+          .fn()
+          .mockResolvedValue([mockPriceE30, BigInt(Math.floor(Date.now() / 1000))]);
+
+        const result = await service.getMarketPrice(btcMarketIndex);
+
+        expect(result.price).toBeCloseTo(64123.45, 2);
+      });
+    });
+
+    describe("getMarketInfo", () => {
+      it("should fetch market configuration", async () => {
+        const btcMarketIndex = 1;
+        const mockConfig = {
+          maxLeverage: 30n,
+          maxSkewScale: 1000000n * 10n ** 30n,
+          maxFundingRate: 5n * 10n ** 27n, // 0.005 = 0.5%
+          fundingRateFactor: 1n * 10n ** 27n, // 0.001 = 0.1%
+        };
+
+        const mockConfigStorage = (service as any).configStorage;
+        mockConfigStorage.getMarketConfigByIndex = vi
+          .fn()
+          .mockResolvedValue(mockConfig);
+
+        const result = await service.getMarketInfo(btcMarketIndex);
+
+        expect(result.marketIndex).toBe(btcMarketIndex);
+        expect(result.symbol).toBe("BTC");
+        expect(result.maxLeverage).toBe(30);
+        expect(result.maxFundingRate).toBeCloseTo(0.005, 6);
+      });
+
+      it("should throw error for invalid market", async () => {
+        await expect(service.getMarketInfo(999)).rejects.toThrow(
+          "Market index 999 not found"
+        );
+      });
+    });
+
+    describe("getFundingRate", () => {
+      it("should fetch current funding rate", async () => {
+        const btcMarketIndex = 1;
+        const mockMarketState = {
+          currentFundingRate: 1n * 10n ** 27n, // 0.001 = 0.1%
+          fundingAccrued: 5000n * 10n ** 30n,
+          lastFundingTime: BigInt(Math.floor(Date.now() / 1000)),
+          longPositionSize: 1000000n * 10n ** 30n,
+          shortPositionSize: 950000n * 10n ** 30n,
+        };
+
+        const mockPerpStorage = (service as any).perpStorage;
+        mockPerpStorage.getGlobalState = vi.fn().mockResolvedValue({});
+        mockPerpStorage.getMarketByIndex = vi
+          .fn()
+          .mockResolvedValue(mockMarketState);
+
+        const result = await service.getFundingRate(btcMarketIndex);
+
+        expect(result.marketIndex).toBe(btcMarketIndex);
+        expect(result.symbol).toBe("BTC");
+        expect(result.currentFundingRate).toBeCloseTo(0.001, 6);
+        expect(result.longPositionSize).toBe(1000000);
+        expect(result.shortPositionSize).toBe(950000);
+      });
+
+      it("should handle negative funding rate", async () => {
+        const mockMarketState = {
+          currentFundingRate: -2n * 10n ** 27n, // -0.002 = -0.2%
+          fundingAccrued: 3000n * 10n ** 30n,
+          lastFundingTime: BigInt(Math.floor(Date.now() / 1000)),
+          longPositionSize: 800000n * 10n ** 30n,
+          shortPositionSize: 900000n * 10n ** 30n,
+        };
+
+        const mockPerpStorage = (service as any).perpStorage;
+        mockPerpStorage.getGlobalState = vi.fn().mockResolvedValue({});
+        mockPerpStorage.getMarketByIndex = vi
+          .fn()
+          .mockResolvedValue(mockMarketState);
+
+        const result = await service.getFundingRate(1);
+
+        expect(result.currentFundingRate).toBeCloseTo(-0.002, 6);
+      });
+    });
+  });
+
+  describe("Position Queries", () => {
+    const testAccount = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
+    const testSubAccountId = 0;
+
+    describe("getPosition", () => {
+      it("should return null for non-existent position", async () => {
+        const mockPositionData = {
+          positionSizeE30: 0n,
+          avgEntryPriceE30: 0n,
+          reserveValueE30: 0n,
+          lastFundingAccrued: 0n,
+          entryBorrowingRate: 0n,
+        };
+
+        const mockPerpStorage = (service as any).perpStorage;
+        mockPerpStorage.getPositionBySubAccount = vi
+          .fn()
+          .mockResolvedValue(mockPositionData);
+
+        const result = await service.getPosition(testAccount, testSubAccountId, 1);
+
+        expect(result).toBeNull();
+      });
+
+      it("should fetch long BTC position with PnL", async () => {
+        const mockPositionData = {
+          positionSizeE30: 1000n * 10n ** 30n, // $1,000 long
+          avgEntryPriceE30: 60000n * 10n ** 30n, // Entry at $60,000
+          reserveValueE30: 100n * 10n ** 30n,
+          lastFundingAccrued: 1000n * 10n ** 30n,
+          entryBorrowingRate: 5n * 10n ** 27n,
+        };
+
+        const mockMarketState = {
+          fundingAccrued: 1100n * 10n ** 30n,
+          borrowingRate: 7n * 10n ** 27n,
+        };
+
+        const mockPerpStorage = (service as any).perpStorage;
+        mockPerpStorage.getPositionBySubAccount = vi
+          .fn()
+          .mockResolvedValue(mockPositionData);
+        mockPerpStorage.getMarketByIndex = vi
+          .fn()
+          .mockResolvedValue(mockMarketState);
+
+        // Mock price fetch
+        const mockOrderbookOracle = (service as any).orderbookOracle;
+        mockOrderbookOracle.getLatestPrice = vi
+          .fn()
+          .mockResolvedValue([64000n * 10n ** 30n, BigInt(Math.floor(Date.now() / 1000))]);
+
+        const result = await service.getPosition(testAccount, testSubAccountId, 1);
+
+        expect(result).not.toBeNull();
+        expect(result!.isLong).toBe(true);
+        expect(result!.size).toBe(1000);
+        expect(result!.avgEntryPrice).toBe(60000);
+        expect(result!.currentPrice).toBe(64000);
+        // Price went up $4000, so PnL should be positive
+        // PnL = size * (currentPrice - entryPrice) / entryPrice
+        // For $1000 position: (64000 - 60000) / 60000 * 1000 = ~$66.67
+        expect(result!.unrealizedPnl).toBeGreaterThan(0);
+      });
+
+      it("should fetch short BTC position with negative PnL", async () => {
+        const mockPositionData = {
+          positionSizeE30: -1000n * 10n ** 30n, // $1,000 short
+          avgEntryPriceE30: 60000n * 10n ** 30n,
+          reserveValueE30: 100n * 10n ** 30n,
+          lastFundingAccrued: 1000n * 10n ** 30n,
+          entryBorrowingRate: 5n * 10n ** 27n,
+        };
+
+        const mockMarketState = {
+          fundingAccrued: 1100n * 10n ** 30n,
+          borrowingRate: 7n * 10n ** 27n,
+        };
+
+        const mockPerpStorage = (service as any).perpStorage;
+        mockPerpStorage.getPositionBySubAccount = vi
+          .fn()
+          .mockResolvedValue(mockPositionData);
+        mockPerpStorage.getMarketByIndex = vi
+          .fn()
+          .mockResolvedValue(mockMarketState);
+
+        const mockOrderbookOracle = (service as any).orderbookOracle;
+        mockOrderbookOracle.getLatestPrice = vi
+          .fn()
+          .mockResolvedValue([64000n * 10n ** 30n, BigInt(Math.floor(Date.now() / 1000))]);
+
+        const result = await service.getPosition(testAccount, testSubAccountId, 1);
+
+        expect(result).not.toBeNull();
+        expect(result!.isLong).toBe(false);
+        expect(result!.size).toBe(1000);
+        // Short position lost money as price went up
+        expect(result!.unrealizedPnl).toBeLessThan(0);
+      });
+
+      it("should calculate funding and borrowing fees", async () => {
+        const mockPositionData = {
+          positionSizeE30: 1000n * 10n ** 30n,
+          avgEntryPriceE30: 60000n * 10n ** 30n,
+          reserveValueE30: 100n * 10n ** 30n,
+          lastFundingAccrued: 1000n * 10n ** 30n,
+          entryBorrowingRate: 5n * 10n ** 27n,
+        };
+
+        const mockMarketState = {
+          fundingAccrued: 1100n * 10n ** 30n, // Increased by 100
+          borrowingRate: 7n * 10n ** 27n, // Increased by 0.002
+        };
+
+        const mockPerpStorage = (service as any).perpStorage;
+        mockPerpStorage.getPositionBySubAccount = vi
+          .fn()
+          .mockResolvedValue(mockPositionData);
+        mockPerpStorage.getMarketByIndex = vi
+          .fn()
+          .mockResolvedValue(mockMarketState);
+
+        const mockOrderbookOracle = (service as any).orderbookOracle;
+        mockOrderbookOracle.getLatestPrice = vi
+          .fn()
+          .mockResolvedValue([64000n * 10n ** 30n, BigInt(Math.floor(Date.now() / 1000))]);
+
+        const result = await service.getPosition(testAccount, testSubAccountId, 1);
+
+        expect(result).not.toBeNull();
+        expect(result!.fundingFee).toBeGreaterThan(0);
+        expect(result!.borrowingFee).toBeGreaterThan(0);
+      });
+    });
+
+    describe("getAllPositions", () => {
+      it("should fetch all positions for multiple subaccounts", async () => {
+        // Mock position data for BTC on subaccount 0
+        const mockBtcPosition = {
+          positionSizeE30: 1000n * 10n ** 30n,
+          avgEntryPriceE30: 60000n * 10n ** 30n,
+          reserveValueE30: 100n * 10n ** 30n,
+          lastFundingAccrued: 1000n * 10n ** 30n,
+          entryBorrowingRate: 5n * 10n ** 27n,
+        };
+
+        const mockPerpStorage = (service as any).perpStorage;
+        mockPerpStorage.getPositionBySubAccount = vi
+          .fn()
+          .mockImplementation((subAccount, marketIndex) => {
+            // Only BTC (index 1) has position
+            if (marketIndex === 1) {
+              return Promise.resolve(mockBtcPosition);
+            }
+            return Promise.resolve({ positionSizeE30: 0n });
+          });
+        
+        mockPerpStorage.getMarketByIndex = vi.fn().mockResolvedValue({
+          fundingAccrued: 1100n * 10n ** 30n,
+          borrowingRate: 7n * 10n ** 27n,
+        });
+
+        const mockOrderbookOracle = (service as any).orderbookOracle;
+        mockOrderbookOracle.getLatestPrice = vi
+          .fn()
+          .mockResolvedValue([64000n * 10n ** 30n, BigInt(Math.floor(Date.now() / 1000))]);
+
+        const result = await service.getAllPositions(testAccount, [0]);
+
+        // Should only return the one BTC position
+        expect(result).toHaveLength(1);
+        expect(result[0].marketIndex).toBe(1);
+        expect(result[0].symbol).toBe("BTC");
+      });
+
+      it("should return empty array when no positions exist", async () => {
+        const mockPerpStorage = (service as any).perpStorage;
+        mockPerpStorage.getPositionBySubAccount = vi
+          .fn()
+          .mockResolvedValue({ positionSizeE30: 0n });
+
+        const result = await service.getAllPositions(testAccount, [0]);
+
+        expect(result).toHaveLength(0);
+      });
+    });
+  });
+
+  describe("Collateral & Equity Queries", () => {
+    const testAccount = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
+    const testSubAccountId = 0;
+
+    describe("getCollateral", () => {
+      it("should fetch USDC collateral balance", async () => {
+        const mockBalance = 10000n * 10n ** 30n; // $10,000
+
+        const mockVaultStorage = (service as any).vaultStorage;
+        mockVaultStorage.traderBalances = vi
+          .fn()
+          .mockResolvedValue(mockBalance);
+
+        const result = await service.getCollateral(testAccount, testSubAccountId);
+
+        expect(result.subAccountId).toBe(testSubAccountId);
+        expect(result.token).toBe("USDC");
+        expect(result.balance).toBe(10000);
+        expect(result.balanceE30).toBe(mockBalance);
+      });
+
+      it("should handle zero balance", async () => {
+        const mockVaultStorage = (service as any).vaultStorage;
+        mockVaultStorage.traderBalances = vi.fn().mockResolvedValue(0n);
+
+        const result = await service.getCollateral(testAccount, testSubAccountId);
+
+        expect(result.balance).toBe(0);
+      });
+    });
+
+    describe("getEquity", () => {
+      it("should calculate equity with no positions", async () => {
+        const mockBalance = 10000n * 10n ** 30n;
+
+        const mockVaultStorage = (service as any).vaultStorage;
+        mockVaultStorage.traderBalances = vi
+          .fn()
+          .mockResolvedValue(mockBalance);
+
+        const mockPerpStorage = (service as any).perpStorage;
+        mockPerpStorage.getPositionBySubAccount = vi
+          .fn()
+          .mockResolvedValue({ positionSizeE30: 0n });
+
+        const result = await service.getEquity(testAccount, testSubAccountId);
+
+        expect(result.collateral).toBe(10000);
+        expect(result.unrealizedPnl).toBe(0);
+        expect(result.fees).toBe(0);
+        expect(result.equity).toBe(10000);
+        expect(result.positions).toHaveLength(0);
+      });
+
+      it("should calculate equity with profitable position", async () => {
+        const mockBalance = 10000n * 10n ** 30n;
+        
+        const mockVaultStorage = (service as any).vaultStorage;
+        mockVaultStorage.traderBalances = vi
+          .fn()
+          .mockResolvedValue(mockBalance);
+
+        // Mock one profitable BTC position
+        const mockPositionData = {
+          positionSizeE30: 1000n * 10n ** 30n,
+          avgEntryPriceE30: 60000n * 10n ** 30n,
+          reserveValueE30: 100n * 10n ** 30n,
+          lastFundingAccrued: 1000n * 10n ** 30n,
+          entryBorrowingRate: 5n * 10n ** 27n,
+        };
+
+        const mockPerpStorage = (service as any).perpStorage;
+        mockPerpStorage.getPositionBySubAccount = vi
+          .fn()
+          .mockImplementation((subAccount, marketIndex) => {
+            if (marketIndex === 1) {
+              return Promise.resolve(mockPositionData);
+            }
+            return Promise.resolve({ positionSizeE30: 0n });
+          });
+        
+        mockPerpStorage.getMarketByIndex = vi.fn().mockResolvedValue({
+          fundingAccrued: 1050n * 10n ** 30n,
+          borrowingRate: 6n * 10n ** 27n,
+        });
+
+        const mockOrderbookOracle = (service as any).orderbookOracle;
+        mockOrderbookOracle.getLatestPrice = vi
+          .fn()
+          .mockResolvedValue([65000n * 10n ** 30n, BigInt(Math.floor(Date.now() / 1000))]);
+
+        const result = await service.getEquity(testAccount, testSubAccountId);
+
+        expect(result.collateral).toBe(10000);
+        expect(result.unrealizedPnl).toBeGreaterThan(0); // Profitable
+        expect(result.equity).toBeGreaterThan(10000); // Collateral + profit - fees
+        expect(result.positions).toHaveLength(1);
+      });
+    });
+
+    describe("getLeverage", () => {
+      it("should calculate 1x leverage with equal position and equity", async () => {
+        const mockBalance = 10000n * 10n ** 30n;
+        
+        const mockVaultStorage = (service as any).vaultStorage;
+        mockVaultStorage.traderBalances = vi
+          .fn()
+          .mockResolvedValue(mockBalance);
+
+        // $10,000 position at $60,000 BTC
+        const mockPositionData = {
+          positionSizeE30: 10000n * 10n ** 30n,
+          avgEntryPriceE30: 60000n * 10n ** 30n,
+          reserveValueE30: 100n * 10n ** 30n,
+          lastFundingAccrued: 1000n * 10n ** 30n,
+          entryBorrowingRate: 5n * 10n ** 27n,
+        };
+
+        const mockPerpStorage = (service as any).perpStorage;
+        mockPerpStorage.getPositionBySubAccount = vi
+          .fn()
+          .mockImplementation((subAccount, marketIndex) => {
+            if (marketIndex === 1) {
+              return Promise.resolve(mockPositionData);
+            }
+            return Promise.resolve({ positionSizeE30: 0n });
+          });
+        
+        mockPerpStorage.getMarketByIndex = vi.fn().mockResolvedValue({
+          fundingAccrued: 1000n * 10n ** 30n,
+          borrowingRate: 5n * 10n ** 27n,
+        });
+
+        const mockOrderbookOracle = (service as any).orderbookOracle;
+        mockOrderbookOracle.getLatestPrice = vi
+          .fn()
+          .mockResolvedValue([60000n * 10n ** 30n, BigInt(Math.floor(Date.now() / 1000))]);
+
+        const result = await service.getLeverage(testAccount, testSubAccountId);
+
+        expect(result.equity).toBe(10000);
+        expect(result.totalPositionSize).toBeCloseTo(10000, 0);
+        expect(result.leverage).toBeCloseTo(1, 1);
+      });
+
+      it("should calculate 3x leverage", async () => {
+        const mockBalance = 10000n * 10n ** 30n;
+        
+        const mockVaultStorage = (service as any).vaultStorage;
+        mockVaultStorage.traderBalances = vi
+          .fn()
+          .mockResolvedValue(mockBalance);
+
+        // $30,000 position with $10,000 collateral = 3x leverage
+        const mockPositionData = {
+          positionSizeE30: 30000n * 10n ** 30n,
+          avgEntryPriceE30: 60000n * 10n ** 30n,
+          reserveValueE30: 100n * 10n ** 30n,
+          lastFundingAccrued: 1000n * 10n ** 30n,
+          entryBorrowingRate: 5n * 10n ** 27n,
+        };
+
+        const mockPerpStorage = (service as any).perpStorage;
+        mockPerpStorage.getPositionBySubAccount = vi
+          .fn()
+          .mockImplementation((subAccount, marketIndex) => {
+            if (marketIndex === 1) {
+              return Promise.resolve(mockPositionData);
+            }
+            return Promise.resolve({ positionSizeE30: 0n });
+          });
+        
+        mockPerpStorage.getMarketByIndex = vi.fn().mockResolvedValue({
+          fundingAccrued: 1000n * 10n ** 30n,
+          borrowingRate: 5n * 10n ** 27n,
+        });
+
+        const mockOrderbookOracle = (service as any).orderbookOracle;
+        mockOrderbookOracle.getLatestPrice = vi
+          .fn()
+          .mockResolvedValue([60000n * 10n ** 30n, BigInt(Math.floor(Date.now() / 1000))]);
+
+        const result = await service.getLeverage(testAccount, testSubAccountId);
+
+        expect(result.leverage).toBeCloseTo(3, 1);
+      });
+    });
+
+    describe("getAvailableMargin", () => {
+      it("should calculate available margin for 1x leverage", async () => {
+        const mockBalance = 10000n * 10n ** 30n;
+        
+        const mockVaultStorage = (service as any).vaultStorage;
+        mockVaultStorage.traderBalances = vi
+          .fn()
+          .mockResolvedValue(mockBalance);
+
+        const mockPerpStorage = (service as any).perpStorage;
+        mockPerpStorage.getPositionBySubAccount = vi
+          .fn()
+          .mockResolvedValue({ positionSizeE30: 0n });
+
+        const result = await service.getAvailableMargin(
+          testAccount,
+          testSubAccountId,
+          1
+        );
+
+        // With $10,000 equity and no positions, available = $10,000 at 1x
+        expect(result).toBe(10000);
+      });
+
+      it("should calculate available margin for 5x leverage", async () => {
+        const mockBalance = 10000n * 10n ** 30n;
+        
+        const mockVaultStorage = (service as any).vaultStorage;
+        mockVaultStorage.traderBalances = vi
+          .fn()
+          .mockResolvedValue(mockBalance);
+
+        // Already using $10,000 at current price
+        const mockPositionData = {
+          positionSizeE30: 10000n * 10n ** 30n,
+          avgEntryPriceE30: 60000n * 10n ** 30n,
+          reserveValueE30: 100n * 10n ** 30n,
+          lastFundingAccrued: 1000n * 10n ** 30n,
+          entryBorrowingRate: 5n * 10n ** 27n,
+        };
+
+        const mockPerpStorage = (service as any).perpStorage;
+        mockPerpStorage.getPositionBySubAccount = vi
+          .fn()
+          .mockImplementation((subAccount, marketIndex) => {
+            if (marketIndex === 1) {
+              return Promise.resolve(mockPositionData);
+            }
+            return Promise.resolve({ positionSizeE30: 0n });
+          });
+        
+        mockPerpStorage.getMarketByIndex = vi.fn().mockResolvedValue({
+          fundingAccrued: 1000n * 10n ** 30n,
+          borrowingRate: 5n * 10n ** 27n,
+        });
+
+        const mockOrderbookOracle = (service as any).orderbookOracle;
+        mockOrderbookOracle.getLatestPrice = vi
+          .fn()
+          .mockResolvedValue([60000n * 10n ** 30n, BigInt(Math.floor(Date.now() / 1000))]);
+
+        const result = await service.getAvailableMargin(
+          testAccount,
+          testSubAccountId,
+          5
+        );
+
+        // $10,000 equity * 5x = $50,000 capacity
+        // Already using $10,000, so $40,000 available
+        expect(result).toBeCloseTo(40000, 0);
+      });
+
+      it("should return 0 when over-leveraged", async () => {
+        const mockBalance = 10000n * 10n ** 30n;
+        
+        const mockVaultStorage = (service as any).vaultStorage;
+        mockVaultStorage.traderBalances = vi
+          .fn()
+          .mockResolvedValue(mockBalance);
+
+        // Using $40,000 position with $10,000 equity = 4x leverage
+        const mockPositionData = {
+          positionSizeE30: 40000n * 10n ** 30n,
+          avgEntryPriceE30: 60000n * 10n ** 30n,
+          reserveValueE30: 100n * 10n ** 30n,
+          lastFundingAccrued: 1000n * 10n ** 30n,
+          entryBorrowingRate: 5n * 10n ** 27n,
+        };
+
+        const mockPerpStorage = (service as any).perpStorage;
+        mockPerpStorage.getPositionBySubAccount = vi
+          .fn()
+          .mockImplementation((subAccount, marketIndex) => {
+            if (marketIndex === 1) {
+              return Promise.resolve(mockPositionData);
+            }
+            return Promise.resolve({ positionSizeE30: 0n });
+          });
+        
+        mockPerpStorage.getMarketByIndex = vi.fn().mockResolvedValue({
+          fundingAccrued: 1000n * 10n ** 30n,
+          borrowingRate: 5n * 10n ** 27n,
+        });
+
+        const mockOrderbookOracle = (service as any).orderbookOracle;
+        mockOrderbookOracle.getLatestPrice = vi
+          .fn()
+          .mockResolvedValue([60000n * 10n ** 30n, BigInt(Math.floor(Date.now() / 1000))]);
+
+        const result = await service.getAvailableMargin(
+          testAccount,
+          testSubAccountId,
+          3 // Target 3x but already at 4x
+        );
+
+        // Already over target leverage, so no available margin
+        expect(result).toBe(0);
+      });
+    });
+  });
+
+  describe("Pending Orders", () => {
+    const testAccount = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
+    const testSubAccountId = 0;
+
+    it("should fetch pending orders", async () => {
+      const mockOrders = [
+        { orderId: 1n, marketIndex: 1, size: 1000n },
+        { orderId: 2n, marketIndex: 0, size: 500n },
+      ];
+
+      const mockLimitTradeHandler = (service as any).limitTradeHandler;
+      mockLimitTradeHandler.getLimitOrders = vi
+        .fn()
+        .mockResolvedValue(mockOrders);
+
+      const result = await service.getPendingOrders(testAccount, testSubAccountId);
+
+      expect(result).toHaveLength(2);
+      expect(result[0].orderId).toBe(1n);
+    });
+
+    it("should return empty array if method not available", async () => {
+      const mockLimitTradeHandler = (service as any).limitTradeHandler;
+      mockLimitTradeHandler.getLimitOrders = vi
+        .fn()
+        .mockRejectedValue(new Error("Method not found"));
+
+      const result = await service.getPendingOrders(testAccount, testSubAccountId);
+
+      expect(result).toHaveLength(0);
+    });
+  });
+});

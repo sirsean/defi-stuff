@@ -18,6 +18,19 @@ export interface Price {
 }
 
 /**
+ * Market data from oracle
+ */
+export interface MarketData {
+  marketIndex: number;
+  symbol: string;
+  assetId: string;
+  price: number;
+  priceE30: bigint;
+  timestamp: number;
+  oracleType: string;
+}
+
+/**
  * Detailed market information including rates and configuration
  */
 export interface MarketInfo {
@@ -140,6 +153,42 @@ export interface PositionSummary {
   sizeUsd: number;
   pnlUsd: number;
   leverage: number;
+}
+
+/**
+ * Collateral information
+ */
+export interface CollateralInfo {
+  subAccountId: number;
+  subAccount: string;
+  token: string;
+  tokenAddress: string;
+  balance: number;
+  balanceE30: bigint;
+}
+
+/**
+ * Equity data for subaccount
+ */
+export interface EquityData {
+  subAccountId: number;
+  subAccount: string;
+  collateral: number;
+  unrealizedPnl: number;
+  fees: number;
+  equity: number;
+  positions: any[]; // PositionData[] from FlexPublicService
+}
+
+/**
+ * Leverage information
+ */
+export interface LeverageInfo {
+  subAccountId: number;
+  equity: number;
+  totalPositionSize: number;
+  leverage: number;
+  availableMargin: number;
 }
 
 // ============================================================================
