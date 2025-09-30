@@ -123,20 +123,76 @@ BASE_MARKET_XRP_USD = 3
 
 ## Implementation Phases
 
-### Phase 1: Foundation (COMPLETED)
-- ✅ Directory structure created
+### Phase 1: Foundation ✅ COMPLETED
+
+#### Phase 1.1: Project Structure ✅
+- ✅ Directory structure created (`src/api/flex/`, `src/commands/flex/`, `test/api/flex/`)
 - ✅ Scaffold files with placeholders
 - ✅ TypeScript compilation verified
-- ⏳ Need to acquire ABIs
-- ⏳ Need to populate constants
-- ⏳ Need to implement utilities
-- ⏳ Need to define types
 
-### Phase 2: Public Service (Read-Only)
-- Market data queries
-- Position queries
-- Account queries
-- Multicall batching
+#### Phase 1.2: Smart Contract ABIs ✅
+- ✅ Acquired 12 contract ABIs from BaseScan using existing `abi` command
+- ✅ Saved to `src/api/flex/contracts/`:
+  - `CrossMarginHandler.json` - Margin deposit/withdrawal
+  - `LimitTradeHandler.json` - Order execution
+  - `VaultStorage.json` - Collateral management
+  - `PerpStorage.json` - Position data
+  - `ConfigStorage.json` - Market configuration
+  - `Calculator.json` - PnL/liquidation calculations
+  - `TradeHelper.json` - Trade utilities
+  - `EcoPythCalldataBuilder3.json` - Pyth price feeds
+  - `PythAdapter.json` - Price oracle
+  - `OracleMiddleware.json` - Price middleware
+  - `ERC20.json` - Token operations
+  - `Multicall3.json` - Batch calls
+
+#### Phase 1.3: Constants & Configuration ✅
+- ✅ Populated `constants.ts` with verified Base mainnet addresses
+- ✅ Defined all 22 markets with complete metadata:
+  - Market IDs, symbols, oracle types
+  - Asset IDs and configurations
+  - BTC (index 1) confirmed as primary market
+- ✅ Token definitions (USDC on Base: `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`)
+- ✅ Protocol constants (precision, limits, fees)
+
+#### Phase 1.4: TypeScript Type Definitions ✅
+- ✅ Comprehensive type definitions in `src/types/flex.ts`:
+  - Market data structures (`MarketData`, `MarketConfig`, `FundingRate`)
+  - Position data (`Position`, `PositionData`, `PositionRisk`)
+  - Order types (`OrderParams`, `LimitOrderParams`, `TriggerOrderParams`)
+  - Collateral & equity (`CollateralInfo`, `EquityData`)
+  - Risk management (`LeverageInfo`, `RiskParams`, `PositionSizeParams`)
+  - Transaction receipts (`TransactionReceipt`)
+- ✅ Strong typing throughout with proper interfaces
+
+#### Phase 1.5: Core Utilities ✅
+- ✅ Implemented `utils.ts` with comprehensive utility functions:
+  - **Provider & Signer**: `getProvider()`, `getSigner()`, `assertBaseNetwork()`
+  - **Unit Conversions**: `toE30()`, `fromE30()`, `toToken()`, `fromToken()`
+    - Uses string manipulation for precision (no floating-point errors)
+  - **Subaccount Calculation**: `computeSubAccount()`, `validateSubAccountId()`
+  - **Multicall**: `multicall()` for efficient batch contract calls
+  - **Error Handling**: `parseRevertError()`, `isUserRejection()`
+  - **Math Helpers**: PnL, funding fees, borrowing fees, leverage, liquidation prices
+  - **Formatting**: `formatUsd()`, `formatPercent()`, `shortenAddress()`
+  - **Array Utilities**: `chunk()` for batching operations
+- ✅ All 73 utility tests passing with 100% coverage
+- ✅ TypeScript compilation clean with no errors
+
+**Phase 1 Achievements**:
+- Solid foundation with verified contract addresses and ABIs
+- Type-safe architecture ready for service implementation
+- Production-ready utility functions with comprehensive tests
+- String-based precision handling eliminates floating-point issues
+- Network validation ensures Base mainnet only
+- Ready for Phase 2 (Public Service implementation)
+
+### Phase 2: Public Service (Read-Only) ⏳ IN PROGRESS
+- ⏳ Market data queries (prices, funding rates, market info)
+- ⏳ Position queries (open positions, PnL calculations)
+- ⏳ Account queries (collateral, equity, leverage)
+- ⏳ Pending order queries
+- ✅ Multicall batching utilities (implemented in Phase 1.5)
 
 ### Phase 3: Private Service (Transactions)
 - Collateral management
@@ -231,15 +287,24 @@ WALLET_ADDRESS=0x...
 
 ## Next Steps
 
-1. **Acquire ABIs** - Download from Flex SDK or BaseScan
-2. **Populate Constants** - Verify USDC address on Base
-3. **Implement Utils** - Core conversion and helper functions
-4. **Build Public Service** - Read-only operations
-5. **Build Private Service** - Transaction operations
-6. **Implement Risk Module** - Position sizing & validation
-7. **Create CLI Commands** - User-facing interfaces
-8. **Write Tests** - Comprehensive test coverage
-9. **Documentation** - Update WARP.md
+### Immediate (Phase 2)
+1. ✅ ~~Acquire ABIs~~ - COMPLETED
+2. ✅ ~~Populate Constants~~ - COMPLETED
+3. ✅ ~~Implement Utils~~ - COMPLETED
+4. **Build Public Service** - Read-only operations (NEXT)
+   - Implement `FlexPublicService` class
+   - Market data queries (prices, funding rates)
+   - Position queries with PnL calculations
+   - Account queries (collateral, equity)
+   - Pending order queries
+   - Use multicall for efficient batching
+
+### Future Phases
+5. **Build Private Service** - Transaction operations (Phase 3)
+6. **Implement Risk Module** - Position sizing & validation (Phase 4)
+7. **Create CLI Commands** - User-facing interfaces (Phase 5)
+8. **Write Tests** - Comprehensive test coverage (Phase 6)
+9. **Documentation** - Update WARP.md (Phase 7)
 
 ## Security Considerations
 
@@ -273,6 +338,7 @@ WALLET_ADDRESS=0x...
 
 ---
 
-**Status**: Phase 1.1 Complete (Directory structure and scaffolds created)
-**Next**: Phase 1.2 (Acquire and add ABIs)
+**Status**: Phase 1 ✅ COMPLETE (Foundation fully implemented with tests)
+**Next**: Phase 2 (Public Service - Read-only operations)
 **Updated**: 2025-09-30
+**Test Status**: 73/73 tests passing, TypeScript compilation clean
