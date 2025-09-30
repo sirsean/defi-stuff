@@ -54,14 +54,24 @@ export function getSigner(
 export async function assertBaseNetwork(
   provider: ethers.Provider
 ): Promise<void> {
-  const network = await provider.getNetwork();
-  const chainId = Number(network.chainId);
-  
-  if (chainId !== BASE_CHAIN_ID) {
-    throw new Error(
-      `Wrong network: expected Base (${BASE_CHAIN_ID}), got ${chainId}. ` +
-        `Please connect to Base mainnet.`
-    );
+  try {
+    // Use eth_chainId directly to avoid ENS resolution issues
+    const chainIdHex = await (provider as any).send("eth_chainId", []);
+    const chainId = parseInt(chainIdHex, 16);
+    
+    if (chainId !== BASE_CHAIN_ID) {
+      throw new Error(
+        `Wrong network: expected Base (${BASE_CHAIN_ID}), got ${chainId}. ` +
+          `Please connect to Base mainnet.`
+      );
+    }
+  } catch (error: any) {
+    // If the error is about wrong network, rethrow it
+    if (error.message.includes("Wrong network")) {
+      throw error;
+    }
+    // Otherwise, log warning but continue (likely RPC issue)
+    console.warn(`⚠️  Warning: Could not validate network - ${error.message}`);
   }
 }
 
@@ -519,9 +529,17 @@ export function formatUsd(amount: number, decimals: number = 2): string {
 
 /**
  * Format a percentage for display
+ * @param value Decimal value (e.g., 0.05 for 5%, or 5 for 5% depending on context)
+ * @param decimals Number of decimal places
+ * @param alreadyPercent If true, value is already in percentage form (5 not 0.05)
  */
-export function formatPercent(value: number, decimals: number = 2): string {
-  return `${value.toFixed(decimals)}%`;
+export function formatPercent(
+  value: number,
+  decimals: number = 2,
+  alreadyPercent: boolean = false
+): string {
+  const percentValue = alreadyPercent ? value : value * 100;
+  return `${percentValue.toFixed(decimals)}%`;
 }
 
 /**

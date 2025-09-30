@@ -79,7 +79,7 @@ describe("Flex Utils - Provider & Signer", () => {
   describe("assertBaseNetwork", () => {
     it("should not throw for Base mainnet (8453)", async () => {
       const mockProvider = {
-        getNetwork: vi.fn().mockResolvedValue({ chainId: BigInt(8453) }),
+        send: vi.fn().mockResolvedValue("0x2105"), // 0x2105 = 8453 in hex
       } as any;
 
       await expect(assertBaseNetwork(mockProvider)).resolves.not.toThrow();
@@ -87,7 +87,7 @@ describe("Flex Utils - Provider & Signer", () => {
 
     it("should throw for wrong network", async () => {
       const mockProvider = {
-        getNetwork: vi.fn().mockResolvedValue({ chainId: BigInt(1) }),
+        send: vi.fn().mockResolvedValue("0x1"), // 0x1 = Ethereum mainnet
       } as any;
 
       await expect(assertBaseNetwork(mockProvider)).rejects.toThrow(
@@ -486,22 +486,28 @@ describe("Flex Utils - Formatting", () => {
   });
 
   describe("formatPercent", () => {
-    it("should format percentages", () => {
-      expect(formatPercent(12.34)).toBe("12.34%");
-      expect(formatPercent(0.5)).toBe("0.50%");
-      expect(formatPercent(100)).toBe("100.00%");
+    it("should format percentages (already in percent form)", () => {
+      expect(formatPercent(12.34, 2, true)).toBe("12.34%");
+      expect(formatPercent(0, 2, true)).toBe("0.00%");
+      expect(formatPercent(100, 2, true)).toBe("100.00%");
+    });
+
+    it("should format decimal values (convert to percent)", () => {
+      expect(formatPercent(0.1234)).toBe("12.34%");
+      expect(formatPercent(0.05)).toBe("5.00%");
+      expect(formatPercent(1.0)).toBe("100.00%");
     });
 
     it("should handle custom decimals", () => {
-      expect(formatPercent(12.345, 3)).toBe("12.345%");
-      expect(formatPercent(12.345, 1)).toBe("12.3%");
+      expect(formatPercent(12.345, 3, true)).toBe("12.345%");
+      expect(formatPercent(0.00123, 4)).toBe("0.1230%");
     });
 
     it("should handle negative values", () => {
-      expect(formatPercent(-5.25)).toBe("-5.25%");
+      expect(formatPercent(-5.25, 2, true)).toBe("-5.25%");
+      expect(formatPercent(-0.005, 3)).toBe("-0.500%");
     });
   });
-
   describe("bpsToPercent", () => {
     it("should convert basis points to percent", () => {
       expect(bpsToPercent(100)).toBe(1);

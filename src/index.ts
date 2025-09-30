@@ -12,6 +12,9 @@ import { history } from "./commands/history.js";
 import { chart } from "./commands/chart.js";
 import { fearGreedIndex } from "./commands/fearGreedIndex.js";
 import { btcPrediction } from "./commands/btcPrediction.js";
+import { flexBalance } from "./commands/flex/flexBalance.js";
+import { flexPositions } from "./commands/flex/flexPositions.js";
+import { flexPrice } from "./commands/flex/flexPrice.js";
 
 // Load environment variables
 dotenv.config();
@@ -170,6 +173,49 @@ program
   )
   .option("--dry-run", "Estimate gas and show summary without sending")
   .action(flpCompound);
+
+// Flex Perpetuals Commands
+program
+  .command("flex:balance")
+  .description("Check Flex account balance, collateral, equity, and leverage")
+  .option(
+    "-a, --address <address>",
+    "Override the wallet address from environment variables",
+  )
+  .option("--sub <id>", "Subaccount ID to query (0-255, default: 0)")
+  .option(
+    "--subs <ids>",
+    "Multiple subaccount IDs separated by commas (e.g., 0,1,2)",
+  )
+  .action(flexBalance);
+
+program
+  .command("flex:positions")
+  .description("View open positions with PnL, liquidation prices, and risk levels")
+  .option(
+    "-a, --address <address>",
+    "Override the wallet address from environment variables",
+  )
+  .option("--sub <id>", "Subaccount ID to query (0-255, default: 0)")
+  .option(
+    "--subs <ids>",
+    "Multiple subaccount IDs separated by commas (e.g., 0,1,2)",
+  )
+  .option(
+    "-m, --market <symbol>",
+    "Filter by market symbol (e.g., BTC, ETH, SOL)",
+  )
+  .action(flexPositions);
+
+program
+  .command("flex:price")
+  .description("Get market prices, funding rates, and market information")
+  .option(
+    "-m, --market <symbol>",
+    "Market symbol to query (e.g., BTC, ETH, SOL)",
+  )
+  .option("--all", "Show prices for all markets")
+  .action(flexPrice);
 
 // If no arguments, show help and exit successfully
 if (process.argv.length <= 2) {

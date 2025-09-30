@@ -16,7 +16,7 @@ describe("FlexPrivateService", () => {
   beforeEach(() => {
     // Create mock provider
     mockProvider = {
-      getNetwork: vi.fn().mockResolvedValue({ chainId: 8453n }),
+      send: vi.fn().mockResolvedValue("0x2105"), // 8453 in hex (Base network)
       getFeeData: vi.fn().mockResolvedValue({
         gasPrice: 1000000000n, // 1 gwei
       }),
@@ -118,11 +118,11 @@ describe("FlexPrivateService", () => {
   describe("Network Validation", () => {
     it("should validate Base network (8453)", async () => {
       await expect(service.validateNetwork()).resolves.not.toThrow();
-      expect(mockProvider.getNetwork).toHaveBeenCalled();
+      expect(mockProvider.send).toHaveBeenCalledWith("eth_chainId", []);
     });
 
     it("should reject wrong network", async () => {
-      mockProvider.getNetwork.mockResolvedValue({ chainId: 1n }); // Ethereum
+      mockProvider.send.mockResolvedValue("0x1"); // Ethereum (chain ID 1)
       await expect(service.validateNetwork()).rejects.toThrow("Wrong network");
     });
   });

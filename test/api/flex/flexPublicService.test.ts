@@ -14,7 +14,7 @@ describe("FlexPublicService", () => {
   beforeEach(() => {
     // Create mock provider
     mockProvider = {
-      getNetwork: vi.fn().mockResolvedValue({ chainId: 8453n }),
+      send: vi.fn().mockResolvedValue("0x2105"), // 0x2105 = 8453 in hex
     };
 
     // Create service with mock provider
@@ -35,11 +35,11 @@ describe("FlexPublicService", () => {
   describe("Network Validation", () => {
     it("should validate Base network (8453)", async () => {
       await expect(service.validateNetwork()).resolves.not.toThrow();
-      expect(mockProvider.getNetwork).toHaveBeenCalled();
+      expect(mockProvider.send).toHaveBeenCalled();
     });
 
     it("should reject wrong network", async () => {
-      mockProvider.getNetwork.mockResolvedValue({ chainId: 1n }); // Ethereum
+      mockProvider.send = vi.fn().mockResolvedValue("0x1"); // Ethereum chainId 1
       await expect(service.validateNetwork()).rejects.toThrow("Wrong network");
     });
   });
@@ -109,10 +109,11 @@ describe("FlexPublicService", () => {
       it("should fetch market configuration", async () => {
         const btcMarketIndex = 1;
         const mockConfig = {
-          maxLeverage: 30n,
-          maxSkewScale: 1000000n * 10n ** 30n,
-          maxFundingRate: 5n * 10n ** 27n, // 0.005 = 0.5%
-          fundingRateFactor: 1n * 10n ** 27n, // 0.001 = 0.1%
+          initialMarginFractionBPS: 200, // 200 BPS = 2% = 50x leverage
+          fundingRate: {
+            maxSkewScaleUSD: 3000000000n * 10n ** 30n,
+            maxFundingRate: 8n * 10n ** 18n, // 8 in e18 = 8%
+          },
         };
 
         const mockConfigStorage = (service as any).configStorage;
@@ -124,8 +125,8 @@ describe("FlexPublicService", () => {
 
         expect(result.marketIndex).toBe(btcMarketIndex);
         expect(result.symbol).toBe("BTC");
-        expect(result.maxLeverage).toBe(30);
-        expect(result.maxFundingRate).toBeCloseTo(0.005, 6);
+        expect(result.maxLeverage).toBe(50); // 10000 / 200
+        expect(result.maxFundingRate).toBe(8); // Already in percentage form
       });
 
       it("should throw error for invalid market", async () => {
@@ -139,11 +140,11 @@ describe("FlexPublicService", () => {
       it("should fetch current funding rate", async () => {
         const btcMarketIndex = 1;
         const mockMarketState = {
-          currentFundingRate: 1n * 10n ** 27n, // 0.001 = 0.1%
-          fundingAccrued: 5000n * 10n ** 30n,
+          currentFundingRate: 1n * 10n ** 15n, // e18 format: 0.001 in decimal = 1e15
+          fundingAccrued: 5n * 10n ** 15n, // e18 format
           lastFundingTime: BigInt(Math.floor(Date.now() / 1000)),
-          longPositionSize: 1000000n * 10n ** 30n,
-          shortPositionSize: 950000n * 10n ** 30n,
+          longPositionSize: 1000000n * 10n ** 30n, // e30 format
+          shortPositionSize: 950000n * 10n ** 30n, // e30 format
         };
 
         const mockPerpStorage = (service as any).perpStorage;
@@ -163,11 +164,11 @@ describe("FlexPublicService", () => {
 
       it("should handle negative funding rate", async () => {
         const mockMarketState = {
-          currentFundingRate: -2n * 10n ** 27n, // -0.002 = -0.2%
-          fundingAccrued: 3000n * 10n ** 30n,
+          currentFundingRate: -2n * 10n ** 15n, // e18 format: -0.002 in decimal
+          fundingAccrued: 3n * 10n ** 15n, // e18 format
           lastFundingTime: BigInt(Math.floor(Date.now() / 1000)),
-          longPositionSize: 800000n * 10n ** 30n,
-          shortPositionSize: 900000n * 10n ** 30n,
+          longPositionSize: 800000n * 10n ** 30n, // e30 format
+          shortPositionSize: 900000n * 10n ** 30n, // e30 format
         };
 
         const mockPerpStorage = (service as any).perpStorage;

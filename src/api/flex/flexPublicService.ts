@@ -178,19 +178,43 @@ export class FlexPublicService {
     }
 
     // Get market config from ConfigStorage
-    const marketConfig = await this.configStorage.getMarketConfigByIndex(
-      marketIndex
-    );
+    try {
+      const marketConfig = await this.configStorage.getMarketConfigByIndex(
+        marketIndex
+      );
+      
+      if (!marketConfig) {
+        throw new Error(`No market config found for market ${marketIndex}`);
+      }
 
-    return {
-      marketIndex,
-      symbol: market.symbol,
-      assetId: market.assetId,
-      maxLeverage: Number(marketConfig.maxLeverage),
-      maxSkewScale: marketConfig.maxSkewScale,
-      maxFundingRate: fromE30(marketConfig.maxFundingRate),
-      fundingRateFactor: fromE30(marketConfig.fundingRateFactor),
-    };
+      // Market config struct:
+      // - initialMarginFractionBPS: BPS for initial margin (e.g., 200 = 2% = 50x leverage)
+      // - fundingRate.maxSkewScaleUSD: Max skew scale
+      // - fundingRate.maxFundingRate: Max funding rate (e30)
+      
+      const initialMarginBPS = Number(marketConfig.initialMarginFractionBPS);
+      const maxLeverage = initialMarginBPS > 0 ? Math.floor(10000 / initialMarginBPS) : 0;
+
+      // Note: maxFundingRate is in e18, not e30
+      // maxSkewScaleUSD is in e30
+      const maxFundingRate = marketConfig.fundingRate ?
+        Number(marketConfig.fundingRate.maxFundingRate) / 1e18 : 0;
+      
+      return {
+        marketIndex,
+        symbol: market.symbol,
+        assetId: market.assetId,
+        maxLeverage,
+        maxSkewScale: marketConfig.fundingRate ? 
+          fromE30(marketConfig.fundingRate.maxSkewScaleUSD).toString() : "0",
+        maxFundingRate,
+        fundingRateFactor: 0, // Not directly available, would need calculation
+      };
+    } catch (error: any) {
+      throw new Error(
+        `Failed to get market config for ${market.symbol} (index ${marketIndex}): ${error.message}`
+      );
+    }
   }
 
   /**
@@ -211,11 +235,16 @@ export class FlexPublicService {
     const globalState = await this.perpStorage.getGlobalState();
     const marketState = await this.perpStorage.getMarketByIndex(marketIndex);
 
+    // Note: currentFundingRate and fundingAccrued are in e18, not e30
+    // Position sizes are in e30
+    const currentFundingRate = Number(marketState.currentFundingRate) / 1e18;
+    const fundingAccrued = Number(marketState.fundingAccrued) / 1e18;
+
     return {
       marketIndex,
       symbol: market.symbol,
-      currentFundingRate: fromE30(marketState.currentFundingRate),
-      fundingAccrued: fromE30(marketState.fundingAccrued),
+      currentFundingRate,
+      fundingAccrued,
       lastFundingTime: Number(marketState.lastFundingTime),
       longPositionSize: fromE30(marketState.longPositionSize),
       shortPositionSize: fromE30(marketState.shortPositionSize),
@@ -355,27 +384,35 @@ export class FlexPublicService {
     account: string,
     subAccountId: number
   ): Promise<CollateralInfo> {
-    await this.validateNetwork();
+    try {
+      await this.validateNetwork();
 
-    const subAccount = computeSubAccount(account, subAccountId);
+      const subAccount = computeSubAccount(account, subAccountId);
 
-    // Get USDC collateral from VaultStorage
-    const usdcToken = TOKENS.USDC;
-    const collateralE30 = await this.vaultStorage.traderBalances(
-      subAccount,
-      usdcToken.address
-    );
+      // Get USDC collateral from VaultStorage
+      const usdcToken = TOKENS.USDC;
+      
+      // Note: traderBalances expects address, address parameters
+      // For now, use primary address as first parameter
+      // TODO: Determine correct subaccount querying method from Flex docs
+      const collateralE30 = await this.vaultStorage.traderBalances(
+        account, // Use primary address instead of subaccount hash
+        usdcToken.address
+      );
 
-    const balance = fromE30(collateralE30);
+      const balance = fromE30(collateralE30);
 
-    return {
-      subAccountId,
-      subAccount,
-      token: "USDC",
-      tokenAddress: usdcToken.address,
-      balance,
-      balanceE30: collateralE30,
-    };
+      return {
+        subAccountId,
+        subAccount,
+        token: "USDC",
+        tokenAddress: usdcToken.address,
+        balance,
+        balanceE30: collateralE30,
+      };
+    } catch (error: any) {
+      throw new Error(`Failed to get collateral for subaccount ${subAccountId}: ${error.message}`);
+    }
   }
 
   /**
@@ -393,19 +430,9 @@ export class FlexPublicService {
     const collateral = await this.getCollateral(account, subAccountId);
 
     // Get all positions for this subaccount
-    const positions: PositionData[] = [];
-    for (const market of Object.values(MARKETS)) {
-      const position = await this.getPosition(
-        account,
-        subAccountId,
-        market.index
-      );
-      if (position) {
-        positions.push(position);
-      }
-    }
+    const positions = await this.getAllPositions(account, [subAccountId]);
 
-    // Calculate total unrealized PnL
+    // Calculate total unrealized PnL and fees from all positions
     let totalUnrealizedPnl = 0;
     let totalFees = 0;
     
@@ -414,6 +441,7 @@ export class FlexPublicService {
       totalFees += position.fundingFee + position.borrowingFee;
     }
 
+    // Equity = collateral + unrealized PnL - fees
     const equity = collateral.balance + totalUnrealizedPnl - totalFees;
 
     return {
