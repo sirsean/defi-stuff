@@ -15,6 +15,9 @@ import { btcPrediction } from "./commands/btcPrediction.js";
 import { flexBalance } from "./commands/flex/flexBalance.js";
 import { flexPositions } from "./commands/flex/flexPositions.js";
 import { flexPrice } from "./commands/flex/flexPrice.js";
+import { flexOrder } from "./commands/flex/flexOrder.js";
+import { flexClose } from "./commands/flex/flexClose.js";
+import { flexOrders } from "./commands/flex/flexOrders.js";
 
 // Load environment variables
 dotenv.config();
@@ -216,6 +219,54 @@ program
   )
   .option("--all", "Show prices for all markets")
   .action(flexPrice);
+
+program
+  .command("flex:order <type>")
+  .description("Place market or limit orders (type: market or limit)")
+  .option("--sub <id>", "Subaccount ID to use (0-255, default: 0)")
+  .option("-m, --market <symbol>", "Market symbol (e.g., BTC, ETH, SOL)", "")
+  .option(
+    "-s, --side <side>",
+    "Order side: long/buy or short/sell",
+    "",
+  )
+  .option("--size <usd>", "Position size in USD", "")
+  .option("-p, --price <price>", "Limit price (required for limit orders)")
+  .option("--slippage <percent>", "Slippage tolerance in percent (default: 1)")
+  .option("--reduce-only", "Reduce-only order (limit orders only)")
+  .option("--dry-run", "Validate order without executing")
+  .action((type, options) => {
+    if (type !== "market" && type !== "limit") {
+      console.error(`❌ Error: Invalid order type '${type}'. Use 'market' or 'limit'`);
+      process.exit(1);
+    }
+    flexOrder(type as "market" | "limit", options);
+  });
+
+program
+  .command("flex:close")
+  .description("Close an open position (full or partial)")
+  .option("--sub <id>", "Subaccount ID to use (0-255, default: 0)")
+  .option("-m, --market <symbol>", "Market symbol (e.g., BTC, ETH, SOL)", "")
+  .option(
+    "--percent <percent>",
+    "Percentage of position to close (1-100, default: 100)",
+  )
+  .option("--slippage <percent>", "Slippage tolerance in percent (default: 1)")
+  .option("--dry-run", "Show close details without executing")
+  .action(flexClose);
+
+program
+  .command("flex:orders")
+  .description("View pending orders and cancel orders")
+  .option("--sub <id>", "Subaccount ID to query (0-255, default: 0)")
+  .option(
+    "--subs <ids>",
+    "Multiple subaccount IDs separated by commas (e.g., 0,1,2)",
+  )
+  .option("-m, --market <symbol>", "Filter by market symbol (e.g., BTC, ETH)")
+  .option("--cancel <orderId>", "Cancel an order by ID")
+  .action(flexOrders);
 
 // If no arguments, show help and exit successfully
 if (process.argv.length <= 2) {
