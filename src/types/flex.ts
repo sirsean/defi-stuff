@@ -51,11 +51,11 @@ export interface MarketInfo {
   longPositionSize: number; // USD
   shortPositionSize: number; // USD
 
-  // Rates (annualized percentages)
+  // Rates (note: protocol provides daily rate, these are derived values)
   fundingRate: {
-    hourly: number;
-    daily: number;
-    yearly: number;
+    hourly: number;  // Derived: daily / 24
+    daily: number;   // Base rate from protocol (per 24h period)
+    yearly: number;  // Derived: daily * 365
   };
   borrowingRate: {
     hourly: number;

@@ -147,12 +147,12 @@ export async function flexPrice(options: FlexPriceOptions): Promise<void> {
             if (skew < 0) {
               // Net short - shorts pay longs
               console.log(
-                `  💡 Shorts pay longs (${currentFundingPercent.toFixed(4)}% per 8h)`,
+                `  💡 Shorts pay longs (${currentFundingPercent.toFixed(4)}% per 24h)`,
               );
             } else if (skew > 0) {
               // Net long - longs pay shorts
               console.log(
-                `  💡 Longs pay shorts (${currentFundingPercent.toFixed(4)}% per 8h)`,
+                `  💡 Longs pay shorts (${currentFundingPercent.toFixed(4)}% per 24h)`,
               );
             } else {
               console.log(`  💡 Market balanced, minimal funding`);
@@ -160,12 +160,12 @@ export async function flexPrice(options: FlexPriceOptions): Promise<void> {
           } else if (currentFundingPercent < 0) {
             // Negative rate - opposite direction
             if (skew < 0) {
-              console.log(
-                `  💡 Longs pay shorts (${Math.abs(currentFundingPercent).toFixed(4)}% per 8h)`,
+            console.log(
+                `  💡 Longs pay shorts (${Math.abs(currentFundingPercent).toFixed(4)}% per 24h)`,
               );
             } else if (skew > 0) {
               console.log(
-                `  💡 Shorts pay longs (${Math.abs(currentFundingPercent).toFixed(4)}% per 8h)`,
+                `  💡 Shorts pay longs (${Math.abs(currentFundingPercent).toFixed(4)}% per 24h)`,
               );
             } else {
               console.log(`  💡 Market balanced, minimal funding`);
@@ -207,7 +207,7 @@ export async function flexPrice(options: FlexPriceOptions): Promise<void> {
           console.log(`  Max Skew Scale:      ${marketInfo.maxSkewScale}`);
 
           console.log("\n💡 Note:");
-          console.log(`  • Funding rates are paid every 8 hours`);
+          console.log(`  • Funding rates are paid daily`);
           console.log(
             `  • Rates increase when market is skewed in one direction`,
           );

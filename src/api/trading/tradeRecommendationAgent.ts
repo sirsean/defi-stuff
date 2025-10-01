@@ -123,9 +123,11 @@ Polymarket Predictions (Retail Sentiment Proxy):
 - Expected price vs current price gap shows crowd's forward expectations
 
 Funding Rates (Cost & Sentiment):
+- Rates are quoted per 24 hours (daily), paid once per day
 - Positive funding (longs pay shorts): Bullish crowd, costs to hold longs
 - Negative funding (shorts pay longs): Bearish crowd, costs to hold shorts
-- Magnitude matters: >0.01% (3.6%/year) is meaningful cost
+- Magnitude matters: >0.01%/day (3.65%/year) is meaningful cost
+- Reference: 0.03%/day ≈ 10.95%/year; 0.10%/day ≈ 36.5%/year
 - High positive + consolidation = potential long squeeze
 - High negative + consolidation = potential short squeeze
 - Trend: Rising funding = increasing bullish positioning
@@ -225,12 +227,12 @@ Be conservative - it's better to miss a trade than to force a bad one.`;
     // Market Data
     lines.push("Markets:");
     for (const market of context.markets) {
-      const fundingAnnualized = market.funding_rate * 3 * 365 * 100; // Convert to annualized %
+      const fundingAnnualized = market.funding_rate * 365 * 100; // Convert to annualized %
       const oiSkew = market.long_oi > 0 ? market.long_oi / (market.long_oi + market.short_oi) : 0.5;
       
       lines.push(`  ${market.symbol}:`);
       lines.push(`    Price: $${market.price.toLocaleString()}`);
-      lines.push(`    Funding Rate: ${(market.funding_rate * 100).toFixed(4)}% per 8h (${fundingAnnualized.toFixed(2)}% annualized)`);
+      lines.push(`    Funding Rate: ${(market.funding_rate * 100).toFixed(4)}% per 24h (${fundingAnnualized.toFixed(2)}% annualized)`);
       lines.push(`    Open Interest: $${(market.long_oi + market.short_oi).toLocaleString()} (${(oiSkew * 100).toFixed(1)}% long / ${((1 - oiSkew) * 100).toFixed(1)}% short)`);
       lines.push("");
     }

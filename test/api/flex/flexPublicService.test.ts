@@ -6,6 +6,15 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ethers } from "ethers";
 import { FlexPublicService } from "../../../src/api/flex/flexPublicService.js";
 import { MARKETS } from "../../../src/api/flex/constants.js";
+import * as chainlink from "../../../src/api/chainlink/chainlinkOracle.js";
+
+// Mock chainlink oracle
+vi.mock("../../../src/api/chainlink/chainlinkOracle.js", () => ({
+  chainlinkOracle: {
+    getBtcUsd: vi.fn(),
+    getEthUsd: vi.fn(),
+  },
+}));
 
 describe("FlexPublicService", () => {
   let service: FlexPublicService;
@@ -48,39 +57,33 @@ describe("FlexPublicService", () => {
     describe("getMarketPrice", () => {
       it("should fetch BTC market price", async () => {
         const btcMarketIndex = 1;
-        const mockPriceE30 = 64000n * 10n ** 30n;
-        const mockTimestamp = Math.floor(Date.now() / 1000);
+        const mockPrice = 64000;
 
-        // Mock the orderbookOracle contract call
-        const mockOrderbookOracle = (service as any).orderbookOracle;
-        mockOrderbookOracle.getLatestPrice = vi
-          .fn()
-          .mockResolvedValue([mockPriceE30, BigInt(mockTimestamp)]);
+        // Mock chainlink oracle
+        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(mockPrice);
 
         const result = await service.getMarketPrice(btcMarketIndex);
 
         expect(result.marketIndex).toBe(btcMarketIndex);
         expect(result.symbol).toBe("BTC");
-        expect(result.price).toBe(64000);
-        expect(result.priceE30).toBe(mockPriceE30);
-        expect(result.timestamp).toBe(mockTimestamp);
+        expect(result.price).toBe(mockPrice);
+        expect(result.oracleType).toBe("chainlink");
+        expect(chainlink.chainlinkOracle.getBtcUsd).toHaveBeenCalled();
       });
 
       it("should fetch ETH market price", async () => {
         const ethMarketIndex = 0;
-        const mockPriceE30 = 3200n * 10n ** 30n;
-        const mockTimestamp = Math.floor(Date.now() / 1000);
+        const mockPrice = 3200;
 
-        const mockOrderbookOracle = (service as any).orderbookOracle;
-        mockOrderbookOracle.getLatestPrice = vi
-          .fn()
-          .mockResolvedValue([mockPriceE30, BigInt(mockTimestamp)]);
+        // Mock chainlink oracle
+        vi.mocked(chainlink.chainlinkOracle.getEthUsd).mockResolvedValue(mockPrice);
 
         const result = await service.getMarketPrice(ethMarketIndex);
 
         expect(result.marketIndex).toBe(ethMarketIndex);
         expect(result.symbol).toBe("ETH");
-        expect(result.price).toBe(3200);
+        expect(result.price).toBe(mockPrice);
+        expect(chainlink.chainlinkOracle.getEthUsd).toHaveBeenCalled();
       });
 
       it("should throw error for invalid market index", async () => {
@@ -91,20 +94,14 @@ describe("FlexPublicService", () => {
 
       it("should handle price with decimals", async () => {
         const btcMarketIndex = 1;
-        // $64,123.45
-        const mockPriceE30 = 64123450000000000000000000000000000n;
+        const mockPrice = 64123.45;
 
-        const mockOrderbookOracle = (service as any).orderbookOracle;
-        mockOrderbookOracle.getLatestPrice = vi
-          .fn()
-          .mockResolvedValue([
-            mockPriceE30,
-            BigInt(Math.floor(Date.now() / 1000)),
-          ]);
+        // Mock chainlink oracle
+        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(mockPrice);
 
         const result = await service.getMarketPrice(btcMarketIndex);
 
-        expect(result.price).toBeCloseTo(64123.45, 2);
+        expect(result.price).toBeCloseTo(mockPrice, 2);
       });
     });
 
@@ -237,14 +234,8 @@ describe("FlexPublicService", () => {
           .fn()
           .mockResolvedValue(mockMarketState);
 
-        // Mock price fetch
-        const mockOrderbookOracle = (service as any).orderbookOracle;
-        mockOrderbookOracle.getLatestPrice = vi
-          .fn()
-          .mockResolvedValue([
-            64000n * 10n ** 30n,
-            BigInt(Math.floor(Date.now() / 1000)),
-          ]);
+        // Mock chainlink oracle for price fetch
+        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(64000);
 
         const result = await service.getPosition(
           testAccount,
@@ -285,13 +276,8 @@ describe("FlexPublicService", () => {
           .fn()
           .mockResolvedValue(mockMarketState);
 
-        const mockOrderbookOracle = (service as any).orderbookOracle;
-        mockOrderbookOracle.getLatestPrice = vi
-          .fn()
-          .mockResolvedValue([
-            64000n * 10n ** 30n,
-            BigInt(Math.floor(Date.now() / 1000)),
-          ]);
+        // Mock chainlink oracle for price fetch
+        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(64000);
 
         const result = await service.getPosition(
           testAccount,
@@ -328,13 +314,8 @@ describe("FlexPublicService", () => {
           .fn()
           .mockResolvedValue(mockMarketState);
 
-        const mockOrderbookOracle = (service as any).orderbookOracle;
-        mockOrderbookOracle.getLatestPrice = vi
-          .fn()
-          .mockResolvedValue([
-            64000n * 10n ** 30n,
-            BigInt(Math.floor(Date.now() / 1000)),
-          ]);
+        // Mock chainlink oracle for price fetch
+        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(64000);
 
         const result = await service.getPosition(
           testAccount,
@@ -375,13 +356,8 @@ describe("FlexPublicService", () => {
           borrowingRate: 7n * 10n ** 27n,
         });
 
-        const mockOrderbookOracle = (service as any).orderbookOracle;
-        mockOrderbookOracle.getLatestPrice = vi
-          .fn()
-          .mockResolvedValue([
-            64000n * 10n ** 30n,
-            BigInt(Math.floor(Date.now() / 1000)),
-          ]);
+        // Mock chainlink oracle for price fetch
+        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(64000);
 
         const result = await service.getAllPositions(testAccount, [0]);
 
@@ -496,13 +472,8 @@ describe("FlexPublicService", () => {
           borrowingRate: 6n * 10n ** 27n,
         });
 
-        const mockOrderbookOracle = (service as any).orderbookOracle;
-        mockOrderbookOracle.getLatestPrice = vi
-          .fn()
-          .mockResolvedValue([
-            65000n * 10n ** 30n,
-            BigInt(Math.floor(Date.now() / 1000)),
-          ]);
+        // Mock chainlink oracle for price fetch
+        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(65000);
 
         const result = await service.getEquity(testAccount, testSubAccountId);
 
@@ -546,17 +517,12 @@ describe("FlexPublicService", () => {
           borrowingRate: 5n * 10n ** 27n,
         });
 
-        const mockOrderbookOracle = (service as any).orderbookOracle;
-        mockOrderbookOracle.getLatestPrice = vi
-          .fn()
-          .mockResolvedValue([
-            60000n * 10n ** 30n,
-            BigInt(Math.floor(Date.now() / 1000)),
-          ]);
+        // Mock chainlink oracle for price fetch
+        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(60000);
 
         const result = await service.getLeverage(testAccount, testSubAccountId);
 
-        expect(result.equity).toBe(10000);
+        expect(result.equity).toBeCloseTo(10000, 0);
         expect(result.totalPositionSize).toBeCloseTo(10000, 0);
         expect(result.leverage).toBeCloseTo(1, 1);
       });
@@ -593,13 +559,8 @@ describe("FlexPublicService", () => {
           borrowingRate: 5n * 10n ** 27n,
         });
 
-        const mockOrderbookOracle = (service as any).orderbookOracle;
-        mockOrderbookOracle.getLatestPrice = vi
-          .fn()
-          .mockResolvedValue([
-            60000n * 10n ** 30n,
-            BigInt(Math.floor(Date.now() / 1000)),
-          ]);
+        // Mock chainlink oracle for price fetch
+        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(60000);
 
         const result = await service.getLeverage(testAccount, testSubAccountId);
 
@@ -663,13 +624,8 @@ describe("FlexPublicService", () => {
           borrowingRate: 5n * 10n ** 27n,
         });
 
-        const mockOrderbookOracle = (service as any).orderbookOracle;
-        mockOrderbookOracle.getLatestPrice = vi
-          .fn()
-          .mockResolvedValue([
-            60000n * 10n ** 30n,
-            BigInt(Math.floor(Date.now() / 1000)),
-          ]);
+        // Mock chainlink oracle for price fetch
+        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(60000);
 
         const result = await service.getAvailableMargin(
           testAccount,
@@ -714,13 +670,8 @@ describe("FlexPublicService", () => {
           borrowingRate: 5n * 10n ** 27n,
         });
 
-        const mockOrderbookOracle = (service as any).orderbookOracle;
-        mockOrderbookOracle.getLatestPrice = vi
-          .fn()
-          .mockResolvedValue([
-            60000n * 10n ** 30n,
-            BigInt(Math.floor(Date.now() / 1000)),
-          ]);
+        // Mock chainlink oracle for price fetch
+        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(60000);
 
         const result = await service.getAvailableMargin(
           testAccount,

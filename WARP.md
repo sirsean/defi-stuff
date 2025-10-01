@@ -163,7 +163,7 @@ npm run dev -- flex:price --all
 
 **Output includes:**
 - Current market price
-- Funding rate (per hour) with direction
+- Funding rate (per 24h) with direction
 - Market skew (long/short imbalance)
 - Max leverage and margin requirements
 - Open interest (long and short position sizes)

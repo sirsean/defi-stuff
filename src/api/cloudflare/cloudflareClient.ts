@@ -172,7 +172,7 @@ export class CloudflareClient {
           data?.errors?.[0]?.message ||
           data?.message ||
           error.message;
-        throw new Error(`Cloudflare AI request failed (${status}): ${msg}`);
+        throw new Error(`Cloudflare AI API request failed (${status}): ${msg}`);
       }
       throw error;
     }
@@ -277,39 +277,56 @@ export class CloudflareClient {
         throw new Error(msg);
       }
 
-      // New API format returns data directly, not in a result field
-      const result = (data as any).result ?? data;
+      // Extract result from response
+      // Check if data has a result field first
+      const hasResultField = (data as any).hasOwnProperty('result');
+      const result = hasResultField ? (data as any).result : data;
       let raw: any;
-
+      
+      // Result must not be null or undefined
+      if (result === null || result === undefined) {
+        throw new Error("Cloudflare AI API response missing JSON content");
+      }
+      
       // New API format: has "output" array with message objects
       if (result?.output && Array.isArray(result.output)) {
-        // Find the assistant message
         const message = result.output.find((item: any) => item.role === "assistant" || item.type === "message");
         if (message?.content && Array.isArray(message.content)) {
-          // Extract text from content array
           const textContent = message.content.find((c: any) => c.type === "output_text" || c.text);
           raw = textContent?.text;
         }
       }
-      
+
       // Legacy format: result.response
-      if (!raw) {
-        raw = result?.response;
+      if (raw === undefined && result?.response !== undefined) {
+        raw = result.response;
+      }
+      
+      // If result itself is a string, use it directly
+      if (raw === undefined && typeof result === "string") {
+        raw = result;
+      }
+      
+      // If result itself is the object (no response or output field)
+      if (raw === undefined && typeof result === "object" && result !== null) {
+        raw = result;
       }
 
-      if (raw && typeof raw === "object") {
-        return raw as T;
-      }
-
-      if (typeof raw === "string") {
-        try {
-          return JSON.parse(raw) as T;
-        } catch (e: any) {
-          throw new Error(`Failed to parse JSON response: ${e?.message || "invalid JSON"}`);
+      if (raw !== undefined && raw !== null) {
+        if (typeof raw === "object") {
+          return raw as T;
+        }
+  
+        if (typeof raw === "string") {
+          try {
+            return JSON.parse(raw) as T;
+          } catch (e: any) {
+            throw new Error(`Cloudflare AI JSON parse failed: ${e?.message || "invalid JSON"}`);
+          }
         }
       }
 
-      throw new Error("Response missing JSON content");
+      throw new Error("Cloudflare AI API response missing JSON content");
     } catch (error) {
       if (axios.isAxiosError(error)) {
         const status = error.response?.status ?? "unknown";
@@ -318,7 +335,7 @@ export class CloudflareClient {
           data?.errors?.[0]?.message ||
           data?.message ||
           error.message;
-        throw new Error(`Cloudflare AI request failed (${status}): ${msg}`);
+        throw new Error(`Cloudflare AI API request failed (${status}): ${msg}`);
       }
       throw error;
     }
