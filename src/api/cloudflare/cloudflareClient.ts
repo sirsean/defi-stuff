@@ -21,7 +21,7 @@ cloudflareAxios.interceptors.request.use((config) => {
   const token = process.env.CLOUDFLARE_AUTH_TOKEN;
   if (!token) {
     throw new Error(
-      "CLOUDFLARE_AUTH_TOKEN is not set. Please set it in your .env file."
+      "CLOUDFLARE_AUTH_TOKEN is not set. Please set it in your .env file.",
     );
   }
   config.headers.Authorization = `Bearer ${token}`;
@@ -81,7 +81,7 @@ export class CloudflareClient {
     const accountId = this.accountId || process.env.CLOUDFLARE_ACCOUNT_ID || "";
     if (!accountId) {
       throw new Error(
-        "CLOUDFLARE_ACCOUNT_ID is not set. Please set it in your .env file."
+        "CLOUDFLARE_ACCOUNT_ID is not set. Please set it in your .env file.",
       );
     }
     return `/accounts/${accountId}/ai/v1/responses`;
@@ -91,22 +91,24 @@ export class CloudflareClient {
    * Extracts response text from Cloudflare AI result
    * Handles nested response structures from the new API format
    */
-  private static extractResponseText(
-    result: any,
-  ): string {
+  private static extractResponseText(result: any): string {
     // New API format: result has "output" array with message objects
     if (result?.output && Array.isArray(result.output)) {
       // Find the assistant message
-      const message = result.output.find((item: any) => item.role === "assistant" || item.type === "message");
+      const message = result.output.find(
+        (item: any) => item.role === "assistant" || item.type === "message",
+      );
       if (message?.content && Array.isArray(message.content)) {
         // Extract text from content array
-        const textContent = message.content.find((c: any) => c.type === "output_text" || c.text);
+        const textContent = message.content.find(
+          (c: any) => c.type === "output_text" || c.text,
+        );
         if (textContent?.text) {
           return textContent.text;
         }
       }
     }
-    
+
     // Legacy format: result.response
     const candidate = result?.response ?? result;
     if (typeof candidate === "string") return candidate;
@@ -156,7 +158,7 @@ export class CloudflareClient {
         const msg = data.errors[0]?.message || "Unknown error";
         throw new Error(msg);
       }
-      
+
       // Legacy API format check
       if (data?.success === false) {
         const msg = data?.errors?.[0]?.message || "Request failed";
@@ -169,9 +171,7 @@ export class CloudflareClient {
         const status = error.response?.status ?? "unknown";
         const data = error.response?.data as any;
         const msg =
-          data?.errors?.[0]?.message ||
-          data?.message ||
-          error.message;
+          data?.errors?.[0]?.message || data?.message || error.message;
         throw new Error(`Cloudflare AI API request failed (${status}): ${msg}`);
       }
       throw error;
@@ -270,7 +270,7 @@ export class CloudflareClient {
         const msg = data.errors[0]?.message || "Unknown error";
         throw new Error(msg);
       }
-      
+
       // Legacy API format check
       if (data?.success === false) {
         const msg = data?.errors?.[0]?.message || "Request failed";
@@ -279,20 +279,24 @@ export class CloudflareClient {
 
       // Extract result from response
       // Check if data has a result field first
-      const hasResultField = (data as any).hasOwnProperty('result');
+      const hasResultField = (data as any).hasOwnProperty("result");
       const result = hasResultField ? (data as any).result : data;
       let raw: any;
-      
+
       // Result must not be null or undefined
       if (result === null || result === undefined) {
         throw new Error("Cloudflare AI API response missing JSON content");
       }
-      
+
       // New API format: has "output" array with message objects
       if (result?.output && Array.isArray(result.output)) {
-        const message = result.output.find((item: any) => item.role === "assistant" || item.type === "message");
+        const message = result.output.find(
+          (item: any) => item.role === "assistant" || item.type === "message",
+        );
         if (message?.content && Array.isArray(message.content)) {
-          const textContent = message.content.find((c: any) => c.type === "output_text" || c.text);
+          const textContent = message.content.find(
+            (c: any) => c.type === "output_text" || c.text,
+          );
           raw = textContent?.text;
         }
       }
@@ -301,12 +305,12 @@ export class CloudflareClient {
       if (raw === undefined && result?.response !== undefined) {
         raw = result.response;
       }
-      
+
       // If result itself is a string, use it directly
       if (raw === undefined && typeof result === "string") {
         raw = result;
       }
-      
+
       // If result itself is the object (no response or output field)
       if (raw === undefined && typeof result === "object" && result !== null) {
         raw = result;
@@ -316,12 +320,14 @@ export class CloudflareClient {
         if (typeof raw === "object") {
           return raw as T;
         }
-  
+
         if (typeof raw === "string") {
           try {
             return JSON.parse(raw) as T;
           } catch (e: any) {
-            throw new Error(`Cloudflare AI JSON parse failed: ${e?.message || "invalid JSON"}`);
+            throw new Error(
+              `Cloudflare AI JSON parse failed: ${e?.message || "invalid JSON"}`,
+            );
           }
         }
       }
@@ -332,9 +338,7 @@ export class CloudflareClient {
         const status = error.response?.status ?? "unknown";
         const data = error.response?.data as any;
         const msg =
-          data?.errors?.[0]?.message ||
-          data?.message ||
-          error.message;
+          data?.errors?.[0]?.message || data?.message || error.message;
         throw new Error(`Cloudflare AI API request failed (${status}): ${msg}`);
       }
       throw error;

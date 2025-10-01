@@ -160,7 +160,7 @@ export async function flexPrice(options: FlexPriceOptions): Promise<void> {
           } else if (currentFundingPercent < 0) {
             // Negative rate - opposite direction
             if (skew < 0) {
-            console.log(
+              console.log(
                 `  💡 Longs pay shorts (${Math.abs(currentFundingPercent).toFixed(4)}% per 24h)`,
               );
             } else if (skew > 0) {

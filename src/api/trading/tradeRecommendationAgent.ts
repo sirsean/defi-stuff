@@ -1,7 +1,16 @@
-import { fearGreedService, FearGreedService } from "../feargreed/fearGreedService.js";
-import { polymarketService, PolymarketService } from "../polymarket/polymarketService.js";
+import {
+  fearGreedService,
+  FearGreedService,
+} from "../feargreed/fearGreedService.js";
+import {
+  polymarketService,
+  PolymarketService,
+} from "../polymarket/polymarketService.js";
 import { FlexPublicService } from "../flex/flexPublicService.js";
-import { cloudflareClient, CloudflareClient } from "../cloudflare/cloudflareClient.js";
+import {
+  cloudflareClient,
+  CloudflareClient,
+} from "../cloudflare/cloudflareClient.js";
 import { MARKETS } from "../flex/constants.js";
 import type {
   MarketContext,
@@ -12,7 +21,7 @@ import type {
 
 /**
  * AI-powered trade recommendation agent
- * 
+ *
  * Gathers market data from multiple sources and uses Cloudflare AI to generate
  * trading recommendations for perpetual futures on Flex (Base mainnet).
  */
@@ -26,7 +35,7 @@ export class TradeRecommendationAgent {
 
   /**
    * Gather comprehensive market context data
-   * 
+   *
    * @param markets Market symbols to analyze (e.g., ['BTC', 'ETH'])
    * @param walletAddress Wallet address to check positions
    * @param subAccountIds Subaccount IDs to query
@@ -93,7 +102,7 @@ export class TradeRecommendationAgent {
 
   /**
    * Build comprehensive system prompt for the AI agent
-   * 
+   *
    * Defines the agent's role, trading philosophy, and analysis framework
    */
   private buildSystemPrompt(): string {
@@ -195,7 +204,7 @@ Be conservative - it's better to miss a trade than to force a bad one.`;
 
   /**
    * Build user prompt from gathered market context
-   * 
+   *
    * Formats all market data into a clear, structured prompt for AI analysis
    */
   private buildUserPrompt(context: MarketContext): string {
@@ -207,8 +216,12 @@ Be conservative - it's better to miss a trade than to force a bad one.`;
 
     // Fear & Greed Index
     lines.push("Fear & Greed Index:");
-    lines.push(`  Current: ${context.fear_greed.current.value} (${context.fear_greed.current.classification})`);
-    lines.push(`  Range (10d): ${context.fear_greed.min.value} - ${context.fear_greed.max.value}`);
+    lines.push(
+      `  Current: ${context.fear_greed.current.value} (${context.fear_greed.current.classification})`,
+    );
+    lines.push(
+      `  Range (10d): ${context.fear_greed.min.value} - ${context.fear_greed.max.value}`,
+    );
     lines.push(`  Trend: ${context.fear_greed.trend}`);
     lines.push("");
 
@@ -217,8 +230,12 @@ Be conservative - it's better to miss a trade than to force a bad one.`;
       const pm = context.polymarket_prediction;
       lines.push("Polymarket BTC Prediction:");
       lines.push(`  Target Date: ${pm.targetDate}`);
-      lines.push(`  Expected Price: $${pm.analysis.expectedPrice.toLocaleString()}`);
-      lines.push(`  Likely Range: $${pm.analysis.likelyRange.min.toLocaleString()} - $${pm.analysis.likelyRange.max.toLocaleString()}`);
+      lines.push(
+        `  Expected Price: $${pm.analysis.expectedPrice.toLocaleString()}`,
+      );
+      lines.push(
+        `  Likely Range: $${pm.analysis.likelyRange.min.toLocaleString()} - $${pm.analysis.likelyRange.max.toLocaleString()}`,
+      );
       lines.push(`  Sentiment: ${pm.analysis.sentiment}`);
       lines.push(`  Confidence: ${(pm.analysis.confidence * 100).toFixed(0)}%`);
       lines.push("");
@@ -228,12 +245,19 @@ Be conservative - it's better to miss a trade than to force a bad one.`;
     lines.push("Markets:");
     for (const market of context.markets) {
       const fundingAnnualized = market.funding_rate * 365 * 100; // Convert to annualized %
-      const oiSkew = market.long_oi > 0 ? market.long_oi / (market.long_oi + market.short_oi) : 0.5;
-      
+      const oiSkew =
+        market.long_oi > 0
+          ? market.long_oi / (market.long_oi + market.short_oi)
+          : 0.5;
+
       lines.push(`  ${market.symbol}:`);
       lines.push(`    Price: $${market.price.toLocaleString()}`);
-      lines.push(`    Funding Rate: ${(market.funding_rate * 100).toFixed(4)}% per 24h (${fundingAnnualized.toFixed(2)}% annualized)`);
-      lines.push(`    Open Interest: $${(market.long_oi + market.short_oi).toLocaleString()} (${(oiSkew * 100).toFixed(1)}% long / ${((1 - oiSkew) * 100).toFixed(1)}% short)`);
+      lines.push(
+        `    Funding Rate: ${(market.funding_rate * 100).toFixed(4)}% per 24h (${fundingAnnualized.toFixed(2)}% annualized)`,
+      );
+      lines.push(
+        `    Open Interest: $${(market.long_oi + market.short_oi).toLocaleString()} (${(oiSkew * 100).toFixed(1)}% long / ${((1 - oiSkew) * 100).toFixed(1)}% short)`,
+      );
       lines.push("");
     }
 
@@ -244,12 +268,18 @@ Be conservative - it's better to miss a trade than to force a bad one.`;
         const pnlSign = pos.pnl_usd >= 0 ? "+" : "";
         lines.push(`  ${pos.market} ${pos.direction.toUpperCase()}:`);
         lines.push(`    Size: $${pos.size_usd.toLocaleString()}`);
-        lines.push(`    Entry: $${pos.entry_price.toLocaleString()} | Current: $${pos.current_price.toLocaleString()}`);
-        lines.push(`    PnL: ${pnlSign}$${pos.pnl_usd.toLocaleString()} (${pnlSign}${pos.pnl_percent.toFixed(2)}%)`);
+        lines.push(
+          `    Entry: $${pos.entry_price.toLocaleString()} | Current: $${pos.current_price.toLocaleString()}`,
+        );
+        lines.push(
+          `    PnL: ${pnlSign}$${pos.pnl_usd.toLocaleString()} (${pnlSign}${pos.pnl_percent.toFixed(2)}%)`,
+        );
         lines.push(`    Leverage: ${pos.leverage.toFixed(2)}x`);
         lines.push("");
       }
-      lines.push(`Total Portfolio Value: $${context.portfolio_value_usd.toLocaleString()}`);
+      lines.push(
+        `Total Portfolio Value: $${context.portfolio_value_usd.toLocaleString()}`,
+      );
       lines.push("");
     } else {
       lines.push("Open Positions: None");
@@ -257,16 +287,22 @@ Be conservative - it's better to miss a trade than to force a bad one.`;
     }
 
     // Request
-    lines.push("Based on this market context, provide trade recommendations for each market.");
-    lines.push("Consider the current setup, sentiment indicators, funding costs, and open positions.");
-    lines.push("Be selective - only recommend trades with clear edge and reasonable risk/reward.");
+    lines.push(
+      "Based on this market context, provide trade recommendations for each market.",
+    );
+    lines.push(
+      "Consider the current setup, sentiment indicators, funding costs, and open positions.",
+    );
+    lines.push(
+      "Be selective - only recommend trades with clear edge and reasonable risk/reward.",
+    );
 
     return lines.join("\n");
   }
 
   /**
    * Generate trade recommendations using AI analysis
-   * 
+   *
    * @param markets Market symbols to analyze (e.g., ['BTC', 'ETH'])
    * @param walletAddress Optional wallet address to check existing positions
    * @param subAccountIds Optional subaccount IDs (default: [0])
@@ -280,12 +316,18 @@ Be conservative - it's better to miss a trade than to force a bad one.`;
     // Validate markets
     for (const symbol of markets) {
       if (!MARKETS[symbol]) {
-        throw new Error(`Unknown market: ${symbol}. Available: ${Object.keys(MARKETS).join(", ")}`);
+        throw new Error(
+          `Unknown market: ${symbol}. Available: ${Object.keys(MARKETS).join(", ")}`,
+        );
       }
     }
 
     // Gather market context
-    const context = await this.gatherMarketContext(markets, walletAddress, subAccountIds);
+    const context = await this.gatherMarketContext(
+      markets,
+      walletAddress,
+      subAccountIds,
+    );
 
     // Build prompts
     const systemPrompt = this.buildSystemPrompt();
@@ -293,14 +335,15 @@ Be conservative - it's better to miss a trade than to force a bad one.`;
 
     // Call Cloudflare AI
     try {
-      const analysis = await this.cloudflare.generateStructuredResponse<AgentAnalysis>({
-        input: [
-          { role: "developer", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.2, // Deterministic but not rigid
-        reasoning: { effort: "medium" }, // Balanced analysis
-      });
+      const analysis =
+        await this.cloudflare.generateStructuredResponse<AgentAnalysis>({
+          input: [
+            { role: "developer", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.2, // Deterministic but not rigid
+          reasoning: { effort: "medium" }, // Balanced analysis
+        });
 
       // Add timestamp if not present
       if (!analysis.timestamp) {

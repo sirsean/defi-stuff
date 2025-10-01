@@ -53,9 +53,9 @@ export interface MarketInfo {
 
   // Rates (note: protocol provides daily rate, these are derived values)
   fundingRate: {
-    hourly: number;  // Derived: daily / 24
-    daily: number;   // Base rate from protocol (per 24h period)
-    yearly: number;  // Derived: daily * 365
+    hourly: number; // Derived: daily / 24
+    daily: number; // Base rate from protocol (per 24h period)
+    yearly: number; // Derived: daily * 365
   };
   borrowingRate: {
     hourly: number;

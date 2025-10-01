@@ -4,7 +4,10 @@
  */
 
 import { ethers } from "ethers";
-import { CHAINLINK_ORACLE_ADDRESSES, DEFAULT_RPC_URL } from "../flex/constants.js";
+import {
+  CHAINLINK_ORACLE_ADDRESSES,
+  DEFAULT_RPC_URL,
+} from "../flex/constants.js";
 import ChainlinkPriceFeedABI from "../flex/contracts/ChainlinkPriceFeed.json" with { type: "json" };
 
 type ChainlinkSymbol = "BTC" | "ETH";
@@ -27,7 +30,11 @@ function getProvider(): ethers.Provider {
  */
 async function readAggregatorUsd(address: string): Promise<number> {
   const provider = getProvider();
-  const contract = new ethers.Contract(address, ChainlinkPriceFeedABI, provider);
+  const contract = new ethers.Contract(
+    address,
+    ChainlinkPriceFeedABI,
+    provider,
+  );
 
   // Read both price and decimals in parallel
   const [rawPrice, decimals] = await Promise.all([

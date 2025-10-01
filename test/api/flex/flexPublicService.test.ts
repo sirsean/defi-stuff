@@ -60,7 +60,9 @@ describe("FlexPublicService", () => {
         const mockPrice = 64000;
 
         // Mock chainlink oracle
-        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(mockPrice);
+        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(
+          mockPrice,
+        );
 
         const result = await service.getMarketPrice(btcMarketIndex);
 
@@ -76,7 +78,9 @@ describe("FlexPublicService", () => {
         const mockPrice = 3200;
 
         // Mock chainlink oracle
-        vi.mocked(chainlink.chainlinkOracle.getEthUsd).mockResolvedValue(mockPrice);
+        vi.mocked(chainlink.chainlinkOracle.getEthUsd).mockResolvedValue(
+          mockPrice,
+        );
 
         const result = await service.getMarketPrice(ethMarketIndex);
 
@@ -97,7 +101,9 @@ describe("FlexPublicService", () => {
         const mockPrice = 64123.45;
 
         // Mock chainlink oracle
-        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(mockPrice);
+        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(
+          mockPrice,
+        );
 
         const result = await service.getMarketPrice(btcMarketIndex);
 

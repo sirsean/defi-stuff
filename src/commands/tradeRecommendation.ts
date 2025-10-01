@@ -86,7 +86,7 @@ function formatRecommendation(rec: TradeRecommendation): string[] {
 
   // Header
   lines.push(
-    `${emoji} ${rec.market} ${actionEmoji} ${rec.action.toUpperCase()}`
+    `${emoji} ${rec.market} ${actionEmoji} ${rec.action.toUpperCase()}`,
   );
   lines.push("");
 
@@ -134,7 +134,7 @@ function formatRecommendation(rec: TradeRecommendation): string[] {
  * Command to generate AI-powered trade recommendations
  */
 export async function tradeRecommendation(
-  opts: TradeRecommendationOptions = {}
+  opts: TradeRecommendationOptions = {},
 ): Promise<void> {
   try {
     // Parse markets (default: BTC,ETH)
@@ -162,7 +162,7 @@ export async function tradeRecommendation(
     const analysis = await tradeRecommendationAgent.generateRecommendation(
       markets,
       walletAddress,
-      subAccountIds
+      subAccountIds,
     );
 
     // JSON output mode
@@ -213,35 +213,35 @@ export async function tradeRecommendation(
     console.log("─".repeat(80));
     console.log("");
     console.log(
-      "  This is AI-generated analysis based on current market data and should"
+      "  This is AI-generated analysis based on current market data and should",
     );
     console.log(
-      "  NOT be considered financial advice. Always do your own research and"
+      "  NOT be considered financial advice. Always do your own research and",
     );
     console.log(
-      "  never risk more than you can afford to lose. Past performance does"
+      "  never risk more than you can afford to lose. Past performance does",
     );
     console.log("  not guarantee future results.");
     console.log("");
   } catch (error: any) {
     console.error(
-      `\n❌ Failed to generate trade recommendations: ${error?.message ?? "Unknown error"}`
+      `\n❌ Failed to generate trade recommendations: ${error?.message ?? "Unknown error"}`,
     );
 
     // Provide helpful hints for common errors
     if (error?.message?.includes("CLOUDFLARE")) {
       console.error(
-        "\n💡 Hint: Make sure CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_AUTH_TOKEN are set in your .env file"
+        "\n💡 Hint: Make sure CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_AUTH_TOKEN are set in your .env file",
       );
     }
     if (error?.message?.includes("Unknown market")) {
       console.error(
-        "\n💡 Hint: Use valid market symbols (BTC, ETH, SOL, etc.)"
+        "\n💡 Hint: Use valid market symbols (BTC, ETH, SOL, etc.)",
       );
     }
     if (error?.message?.includes("Failed to fetch")) {
       console.error(
-        "\n💡 Hint: Check your network connection and Base RPC endpoint"
+        "\n💡 Hint: Check your network connection and Base RPC endpoint",
       );
     }
 
