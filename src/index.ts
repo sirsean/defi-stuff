@@ -20,6 +20,7 @@ import { flexClose } from "./commands/flex/flexClose.js";
 import { flexOrders } from "./commands/flex/flexOrders.js";
 import { flexDeposit } from "./commands/flex/flexDeposit.js";
 import { flexWithdraw } from "./commands/flex/flexWithdraw.js";
+import { tradeRecommendation } from "./commands/tradeRecommendation.js";
 
 // Load environment variables
 dotenv.config();
@@ -287,6 +288,24 @@ program
   .action((amount, options) => {
     flexWithdraw({ ...options, amount });
   });
+
+program
+  .command("trade:recommend")
+  .description("Generate AI-powered trade recommendations")
+  .option(
+    "-m, --markets <markets>",
+    "Comma-separated market symbols (default: BTC,ETH)",
+  )
+  .option(
+    "-a, --address <address>",
+    "Override the wallet address from environment variables",
+  )
+  .option(
+    "--subs <ids>",
+    "Subaccount IDs to query (comma-separated, default: 0)",
+  )
+  .option("-j, --json", "Output raw JSON data")
+  .action(tradeRecommendation);
 
 // If no arguments, show help and exit successfully
 if (process.argv.length <= 2) {

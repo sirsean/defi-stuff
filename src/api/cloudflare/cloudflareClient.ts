@@ -13,8 +13,19 @@ export const cloudflareAxios: AxiosInstance = axios.create({
   timeout: 30000,
   headers: {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${process.env.CLOUDFLARE_AUTH_TOKEN || ""}`,
   },
+});
+
+// Add request interceptor to set Authorization header at runtime
+cloudflareAxios.interceptors.request.use((config) => {
+  const token = process.env.CLOUDFLARE_AUTH_TOKEN;
+  if (!token) {
+    throw new Error(
+      "CLOUDFLARE_AUTH_TOKEN is not set. Please set it in your .env file."
+    );
+  }
+  config.headers.Authorization = `Bearer ${token}`;
+  return config;
 });
 
 /**
@@ -48,34 +59,56 @@ export class CloudflareClient {
    * Creates a new Cloudflare AI client
    *
    * @param model - The Cloudflare model identifier (e.g., "@cf/openai/gpt-oss-120b")
-   * @param accountId - Cloudflare account ID (defaults to CLOUDFLARE_ACCOUNT_ID env var)
+   * @param accountId - Cloudflare account ID (defaults to CLOUDFLARE_ACCOUNT_ID env var at runtime)
    * @param http - Axios instance for dependency injection (defaults to cloudflareAxios)
    */
   constructor(
     model: string,
-    accountId: string = process.env.CLOUDFLARE_ACCOUNT_ID || "",
+    accountId?: string,
     http: AxiosInstance = cloudflareAxios,
   ) {
     this.model = model;
-    this.accountId = accountId;
+    // Read from env at runtime if not explicitly provided
+    this.accountId = accountId ?? process.env.CLOUDFLARE_ACCOUNT_ID ?? "";
     this.http = http;
   }
 
   /**
    * Returns the API endpoint for this account
+   * Reads accountId at runtime to ensure env vars are loaded
    */
   private endpoint(): string {
-    return `/accounts/${this.accountId}/ai/v1/responses`;
+    const accountId = this.accountId || process.env.CLOUDFLARE_ACCOUNT_ID || "";
+    if (!accountId) {
+      throw new Error(
+        "CLOUDFLARE_ACCOUNT_ID is not set. Please set it in your .env file."
+      );
+    }
+    return `/accounts/${accountId}/ai/v1/responses`;
   }
 
   /**
    * Extracts response text from Cloudflare AI result
-   * Handles nested response structures and stringifies objects
+   * Handles nested response structures from the new API format
    */
   private static extractResponseText(
-    result: CloudflareResponse["result"],
+    result: any,
   ): string {
-    const candidate = (result as any)?.response ?? result;
+    // New API format: result has "output" array with message objects
+    if (result?.output && Array.isArray(result.output)) {
+      // Find the assistant message
+      const message = result.output.find((item: any) => item.role === "assistant" || item.type === "message");
+      if (message?.content && Array.isArray(message.content)) {
+        // Extract text from content array
+        const textContent = message.content.find((c: any) => c.type === "output_text" || c.text);
+        if (textContent?.text) {
+          return textContent.text;
+        }
+      }
+    }
+    
+    // Legacy format: result.response
+    const candidate = result?.response ?? result;
     if (typeof candidate === "string") return candidate;
     if (candidate && typeof candidate === "object")
       return JSON.stringify(candidate);
@@ -118,8 +151,15 @@ export class CloudflareClient {
         payload,
       );
 
-      if (!data?.success) {
-        const msg = data?.errors?.[0]?.message || "Unknown error";
+      // Check for errors
+      if (data?.errors && data.errors.length > 0) {
+        const msg = data.errors[0]?.message || "Unknown error";
+        throw new Error(msg);
+      }
+      
+      // Legacy API format check
+      if (data?.success === false) {
+        const msg = data?.errors?.[0]?.message || "Request failed";
         throw new Error(msg);
       }
 
@@ -127,13 +167,14 @@ export class CloudflareClient {
     } catch (error) {
       if (axios.isAxiosError(error)) {
         const status = error.response?.status ?? "unknown";
+        const data = error.response?.data as any;
         const msg =
-          (error.response?.data as any)?.errors?.[0]?.message ||
-          (error.response?.data as any)?.message ||
+          data?.errors?.[0]?.message ||
+          data?.message ||
           error.message;
-        throw new Error(`Cloudflare AI API request failed (${status}): ${msg}`);
+        throw new Error(`Cloudflare AI request failed (${status}): ${msg}`);
       }
-      throw new Error(`Cloudflare AI API request failed: ${String(error)}`);
+      throw error;
     }
   }
 
@@ -224,12 +265,37 @@ export class CloudflareClient {
         payload,
       );
 
-      if (!data?.success) {
-        const msg = data?.errors?.[0]?.message || "Unknown error";
+      // Check for errors
+      if (data?.errors && data.errors.length > 0) {
+        const msg = data.errors[0]?.message || "Unknown error";
+        throw new Error(msg);
+      }
+      
+      // Legacy API format check
+      if (data?.success === false) {
+        const msg = data?.errors?.[0]?.message || "Request failed";
         throw new Error(msg);
       }
 
-      const raw = (data.result as any)?.response ?? data.result;
+      // New API format returns data directly, not in a result field
+      const result = (data as any).result ?? data;
+      let raw: any;
+
+      // New API format: has "output" array with message objects
+      if (result?.output && Array.isArray(result.output)) {
+        // Find the assistant message
+        const message = result.output.find((item: any) => item.role === "assistant" || item.type === "message");
+        if (message?.content && Array.isArray(message.content)) {
+          // Extract text from content array
+          const textContent = message.content.find((c: any) => c.type === "output_text" || c.text);
+          raw = textContent?.text;
+        }
+      }
+      
+      // Legacy format: result.response
+      if (!raw) {
+        raw = result?.response;
+      }
 
       if (raw && typeof raw === "object") {
         return raw as T;
@@ -239,23 +305,22 @@ export class CloudflareClient {
         try {
           return JSON.parse(raw) as T;
         } catch (e: any) {
-          throw new Error(
-            `Cloudflare AI JSON parse failed: ${e?.message || "invalid JSON"}`,
-          );
+          throw new Error(`Failed to parse JSON response: ${e?.message || "invalid JSON"}`);
         }
       }
 
-      throw new Error("Cloudflare AI API response missing JSON content");
+      throw new Error("Response missing JSON content");
     } catch (error) {
       if (axios.isAxiosError(error)) {
         const status = error.response?.status ?? "unknown";
+        const data = error.response?.data as any;
         const msg =
-          (error.response?.data as any)?.errors?.[0]?.message ||
-          (error.response?.data as any)?.message ||
+          data?.errors?.[0]?.message ||
+          data?.message ||
           error.message;
-        throw new Error(`Cloudflare AI API request failed (${status}): ${msg}`);
+        throw new Error(`Cloudflare AI request failed (${status}): ${msg}`);
       }
-      throw new Error(`Cloudflare AI API request failed: ${String(error)}`);
+      throw error;
     }
   }
 }

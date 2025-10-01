@@ -11,6 +11,7 @@ import {
   FLEX_CONSTANTS,
   BASE_CHAIN_ID,
 } from "./constants.js";
+import { chainlinkOracle } from "../chainlink/chainlinkOracle.js";
 import {
   getProvider,
   assertBaseNetwork,
@@ -59,6 +60,7 @@ import ConfigStorageABI from "./contracts/ConfigStorage.json" with { type: "json
 import VaultStorageABI from "./contracts/VaultStorage.json" with { type: "json" };
 import CalculatorABI from "./contracts/Calculator.json" with { type: "json" };
 import OrderbookOracleABI from "./contracts/OrderbookOracle.json" with { type: "json" };
+import OnchainPricelensABI from "./contracts/OnchainPricelens.json" with { type: "json" };
 import LimitTradeHandlerABI from "./contracts/LimitTradeHandler.json" with { type: "json" };
 
 /**
@@ -71,6 +73,7 @@ export class FlexPublicService {
   private vaultStorage: ethers.Contract;
   private calculator: ethers.Contract;
   private orderbookOracle: ethers.Contract;
+  private onchainPricelens: ethers.Contract;
   private limitTradeHandler: ethers.Contract;
 
   constructor(provider?: ethers.Provider) {
@@ -107,6 +110,12 @@ export class FlexPublicService {
       this.provider,
     );
 
+    this.onchainPricelens = new ethers.Contract(
+      FLEX_ADDRESSES.ONCHAIN_PRICELENS,
+      OnchainPricelensABI,
+      this.provider,
+    );
+
     this.limitTradeHandler = new ethers.Contract(
       FLEX_ADDRESSES.LIMIT_TRADE_HANDLER,
       LimitTradeHandlerABI,
@@ -127,6 +136,7 @@ export class FlexPublicService {
 
   /**
    * Get current market price from oracle
+   * Uses Chainlink price feeds on Base for BTC and ETH
    * @param marketIndex Market index (e.g., 1 for BTC)
    * @returns Market data with current price
    */
@@ -139,25 +149,31 @@ export class FlexPublicService {
       throw new Error(`Market index ${marketIndex} not found`);
     }
 
-    // Get asset ID for this market
-    const assetId = market.assetId;
+    let price: number;
 
-    // Get price from orderbook oracle
-    const [priceE30, timestamp] = await this.orderbookOracle.getLatestPrice(
-      assetId,
-      false, // isMax - use false for mid price
-    );
+    // Use Chainlink oracle for BTC and ETH
+    if (market.symbol === "BTC") {
+      price = await chainlinkOracle.getBtcUsd();
+    } else if (market.symbol === "ETH") {
+      price = await chainlinkOracle.getEthUsd();
+    } else {
+      // For other markets, we don't have Chainlink feeds yet
+      throw new Error(
+        `Chainlink price feed not available for ${market.symbol}. Only BTC and ETH are supported.`,
+      );
+    }
 
-    const price = fromE30(priceE30);
+    // Convert price to e30 format (used by Flex)
+    const priceE30 = BigInt(Math.floor(price * 1e30));
 
     return {
       marketIndex,
       symbol: market.symbol,
-      assetId,
+      assetId: market.assetId,
       price,
       priceE30,
-      timestamp: Number(timestamp),
-      oracleType: "onchain", // Default oracle type for Base markets
+      timestamp: Math.floor(Date.now() / 1000),
+      oracleType: "chainlink", // Using Chainlink oracle
     };
   }
 

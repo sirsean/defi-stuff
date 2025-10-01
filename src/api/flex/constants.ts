@@ -240,6 +240,19 @@ export const MARKET_INDEX_TO_SYMBOL: Record<number, string> = Object.entries(
 );
 
 // ============================================================================
+// CHAINLINK ORACLE ADDRESSES (Base Mainnet)
+// ============================================================================
+
+/**
+ * Chainlink price feed addresses on Base mainnet
+ * Source: https://docs.chain.link/data-feeds/price-feeds/addresses?network=base
+ */
+export const CHAINLINK_ORACLE_ADDRESSES = {
+  BTC_USD: "0x64c911996D3c6aC71f9b455B1E8E7266BcbD848F",
+  ETH_USD: "0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70",
+} as const;
+
+// ============================================================================
 // PROTOCOL CONSTANTS
 // ============================================================================
 
