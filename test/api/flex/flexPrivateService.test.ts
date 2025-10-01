@@ -29,7 +29,9 @@ describe("FlexPrivateService", () => {
 
     // Create mock signer
     mockSigner = {
-      getAddress: vi.fn().mockResolvedValue("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"),
+      getAddress: vi
+        .fn()
+        .mockResolvedValue("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"),
       provider: mockProvider,
     };
 
@@ -97,7 +99,7 @@ describe("FlexPrivateService", () => {
 
     // Create service with mocked dependencies
     service = new FlexPrivateService(mockSigner, mockProvider);
-    
+
     // Override contract instances with mocks
     (service as any).usdcToken = mockContracts.usdc;
     (service as any).crossMarginHandler = mockContracts.crossMarginHandler;
@@ -138,7 +140,9 @@ describe("FlexPrivateService", () => {
         expect(result.success).toBe(true);
         expect(result.transactionHash).toBe("0xdeposit");
         expect(mockContracts.usdc.approve).toHaveBeenCalled();
-        expect(mockContracts.crossMarginHandler.depositCollateral).toHaveBeenCalled();
+        expect(
+          mockContracts.crossMarginHandler.depositCollateral,
+        ).toHaveBeenCalled();
       });
 
       it("should skip approval if already approved", async () => {
@@ -149,7 +153,9 @@ describe("FlexPrivateService", () => {
 
         expect(result.success).toBe(true);
         expect(mockContracts.usdc.approve).not.toHaveBeenCalled();
-        expect(mockContracts.crossMarginHandler.depositCollateral).toHaveBeenCalled();
+        expect(
+          mockContracts.crossMarginHandler.depositCollateral,
+        ).toHaveBeenCalled();
       });
 
       it("should convert USD amount to USDC tokens correctly", async () => {
@@ -158,25 +164,26 @@ describe("FlexPrivateService", () => {
         await service.depositCollateral(0, 100);
 
         // 100 USD = 100,000,000 tokens (6 decimals)
-        const call = mockContracts.crossMarginHandler.depositCollateral.mock.calls[0];
+        const call =
+          mockContracts.crossMarginHandler.depositCollateral.mock.calls[0];
         expect(call[2]).toBe(100000000n);
       });
 
       it("should throw for negative amount", async () => {
         await expect(service.depositCollateral(0, -100)).rejects.toThrow(
-          "Deposit amount must be positive"
+          "Deposit amount must be positive",
         );
       });
 
       it("should throw for zero amount", async () => {
         await expect(service.depositCollateral(0, 0)).rejects.toThrow(
-          "Deposit amount must be positive"
+          "Deposit amount must be positive",
         );
       });
 
       it("should throw for invalid subaccount ID", async () => {
         await expect(service.depositCollateral(256, 100)).rejects.toThrow(
-          "Invalid subAccountId"
+          "Invalid subAccountId",
         );
       });
     });
@@ -187,26 +194,29 @@ describe("FlexPrivateService", () => {
 
         expect(result.success).toBe(true);
         expect(result.transactionHash).toBe("0xwithdraw");
-        expect(mockContracts.crossMarginHandler.withdrawCollateral).toHaveBeenCalled();
+        expect(
+          mockContracts.crossMarginHandler.withdrawCollateral,
+        ).toHaveBeenCalled();
       });
 
       it("should convert USD amount to USDC tokens correctly", async () => {
         await service.withdrawCollateral(0, 50);
 
         // 50 USD = 50,000,000 tokens (6 decimals)
-        const call = mockContracts.crossMarginHandler.withdrawCollateral.mock.calls[0];
+        const call =
+          mockContracts.crossMarginHandler.withdrawCollateral.mock.calls[0];
         expect(call[2]).toBe(50000000n);
       });
 
       it("should throw for negative amount", async () => {
         await expect(service.withdrawCollateral(0, -50)).rejects.toThrow(
-          "Withdrawal amount must be positive"
+          "Withdrawal amount must be positive",
         );
       });
 
       it("should throw for zero amount", async () => {
         await expect(service.withdrawCollateral(0, 0)).rejects.toThrow(
-          "Withdrawal amount must be positive"
+          "Withdrawal amount must be positive",
         );
       });
     });
@@ -236,8 +246,9 @@ describe("FlexPrivateService", () => {
 
         // Verify order parameters
         const call = mockContracts.crossMarginHandler.createOrder.mock.calls[0];
-        const [subAccount, marketIndex, sizeDelta, acceptablePrice, options] = call;
-        
+        const [subAccount, marketIndex, sizeDelta, acceptablePrice, options] =
+          call;
+
         expect(marketIndex).toBe(1);
         expect(sizeDelta).toBe(1000n * 10n ** 30n); // Absolute value
         expect(options.value).toBe(FLEX_CONSTANTS.EXECUTION_FEE);
@@ -251,7 +262,7 @@ describe("FlexPrivateService", () => {
         });
 
         expect(result.success).toBe(true);
-        
+
         // Verify size is still positive (direction handled elsewhere)
         const call = mockContracts.crossMarginHandler.createOrder.mock.calls[0];
         const sizeDelta = call[2];
@@ -267,7 +278,7 @@ describe("FlexPrivateService", () => {
 
         const call = mockContracts.crossMarginHandler.createOrder.mock.calls[0];
         const acceptablePrice = call[3];
-        
+
         // For long: price * 1.01 = 64000 * 1.01 = 64640
         expect(acceptablePrice).toBe(64640n * 10n ** 30n);
       });
@@ -282,7 +293,7 @@ describe("FlexPrivateService", () => {
 
         const call = mockContracts.crossMarginHandler.createOrder.mock.calls[0];
         const acceptablePrice = call[3];
-        
+
         expect(acceptablePrice).toBe(65000n * 10n ** 30n);
       });
 
@@ -292,7 +303,7 @@ describe("FlexPrivateService", () => {
             marketIndex: 1,
             subAccountId: 0,
             sizeDelta: 0,
-          })
+          }),
         ).rejects.toThrow("Order size cannot be zero");
       });
 
@@ -302,7 +313,7 @@ describe("FlexPrivateService", () => {
             marketIndex: 1,
             subAccountId: -1,
             sizeDelta: 1000,
-          })
+          }),
         ).rejects.toThrow("Invalid subAccountId");
       });
     });
@@ -334,10 +345,18 @@ describe("FlexPrivateService", () => {
         });
 
         expect(result.success).toBe(true);
-        
+
         const call = mockContracts.limitTradeHandler.createOrder.mock.calls[0];
-        const [subAccount, marketIndex, sizeDelta, triggerPrice, acceptablePrice, triggerAbove, reduceOnly] = call;
-        
+        const [
+          subAccount,
+          marketIndex,
+          sizeDelta,
+          triggerPrice,
+          acceptablePrice,
+          triggerAbove,
+          reduceOnly,
+        ] = call;
+
         expect(triggerPrice).toBe(65000n * 10n ** 30n);
         expect(triggerAbove).toBe(true);
       });
@@ -353,7 +372,7 @@ describe("FlexPrivateService", () => {
 
         const call = mockContracts.limitTradeHandler.createOrder.mock.calls[0];
         const acceptablePrice = call[4];
-        
+
         // For long: trigger * 1.01 = 64000 * 1.01 = 64640
         expect(acceptablePrice).toBe(64640n * 10n ** 30n);
       });
@@ -370,7 +389,7 @@ describe("FlexPrivateService", () => {
 
         const call = mockContracts.limitTradeHandler.createOrder.mock.calls[0];
         const acceptablePrice = call[4];
-        
+
         expect(acceptablePrice).toBe(64500n * 10n ** 30n);
       });
 
@@ -386,7 +405,7 @@ describe("FlexPrivateService", () => {
 
         const call = mockContracts.limitTradeHandler.createOrder.mock.calls[0];
         const reduceOnly = call[6];
-        
+
         expect(reduceOnly).toBe(true);
       });
 
@@ -401,7 +420,7 @@ describe("FlexPrivateService", () => {
 
         const call = mockContracts.limitTradeHandler.createOrder.mock.calls[0];
         const options = call[7];
-        
+
         expect(options.value).toBe(FLEX_CONSTANTS.EXECUTION_FEE);
       });
 
@@ -413,7 +432,7 @@ describe("FlexPrivateService", () => {
             sizeDelta: 0,
             triggerPrice: 64000,
             triggerAboveThreshold: false,
-          })
+          }),
         ).rejects.toThrow("Order size cannot be zero");
       });
     });
@@ -434,13 +453,13 @@ describe("FlexPrivateService", () => {
 
         const call = mockContracts.limitTradeHandler.cancelOrder.mock.calls[0];
         const [subAccount, orderIndex] = call;
-        
+
         expect(orderIndex).toBe(456);
       });
 
       it("should throw for invalid subaccount ID", async () => {
         await expect(service.cancelOrder(300, 123)).rejects.toThrow(
-          "Invalid subAccountId"
+          "Invalid subAccountId",
         );
       });
     });
@@ -467,11 +486,11 @@ describe("FlexPrivateService", () => {
         const result = await service.closePosition(1, 0, 100);
 
         expect(result.success).toBe(true);
-        
+
         // Should create opposite order (short)
         const call = mockContracts.crossMarginHandler.createOrder.mock.calls[0];
         const sizeDelta = call[2];
-        
+
         expect(sizeDelta).toBe(1000n * 10n ** 30n); // Full size
       });
 
@@ -479,10 +498,10 @@ describe("FlexPrivateService", () => {
         const result = await service.closePosition(1, 0, 50);
 
         expect(result.success).toBe(true);
-        
+
         const call = mockContracts.crossMarginHandler.createOrder.mock.calls[0];
         const sizeDelta = call[2];
-        
+
         expect(sizeDelta).toBe(500n * 10n ** 30n); // Half size
       });
 
@@ -499,11 +518,11 @@ describe("FlexPrivateService", () => {
         const result = await service.closePosition(1, 0, 100);
 
         expect(result.success).toBe(true);
-        
+
         // Closing short should be a long order
         const call = mockContracts.crossMarginHandler.createOrder.mock.calls[0];
         const sizeDelta = call[2];
-        
+
         expect(sizeDelta).toBe(1000n * 10n ** 30n);
       });
 
@@ -512,17 +531,17 @@ describe("FlexPrivateService", () => {
         mockPublicService.getPosition = vi.fn().mockResolvedValue(null);
 
         await expect(service.closePosition(1, 0, 100)).rejects.toThrow(
-          "No position found to close"
+          "No position found to close",
         );
       });
 
       it("should throw for invalid percent", async () => {
         await expect(service.closePosition(1, 0, 0)).rejects.toThrow(
-          "Percent to close must be between 0 and 100"
+          "Percent to close must be between 0 and 100",
         );
-        
+
         await expect(service.closePosition(1, 0, 101)).rejects.toThrow(
-          "Percent to close must be between 0 and 100"
+          "Percent to close must be between 0 and 100",
         );
       });
     });
@@ -532,7 +551,7 @@ describe("FlexPrivateService", () => {
     describe("getGasPrice", () => {
       it("should fetch current gas price", async () => {
         const gasPrice = await service.getGasPrice();
-        
+
         expect(gasPrice).toBe(1000000000n);
         expect(mockProvider.getFeeData).toHaveBeenCalled();
       });
@@ -541,16 +560,24 @@ describe("FlexPrivateService", () => {
     describe("waitForTransaction", () => {
       it("should wait for transaction confirmation", async () => {
         const receipt = await service.waitForTransaction("0x123", 1);
-        
+
         expect(receipt).toBeDefined();
         expect(receipt?.status).toBe(1);
-        expect(mockProvider.waitForTransaction).toHaveBeenCalledWith("0x123", 1, 120000);
+        expect(mockProvider.waitForTransaction).toHaveBeenCalledWith(
+          "0x123",
+          1,
+          120000,
+        );
       });
 
       it("should use default timeout", async () => {
         await service.waitForTransaction("0x123");
-        
-        expect(mockProvider.waitForTransaction).toHaveBeenCalledWith("0x123", 1, 120000);
+
+        expect(mockProvider.waitForTransaction).toHaveBeenCalledWith(
+          "0x123",
+          1,
+          120000,
+        );
       });
     });
   });
@@ -562,7 +589,7 @@ describe("FlexPrivateService", () => {
       });
 
       await expect(service.depositCollateral(0, 1000)).rejects.toThrow(
-        "Transaction rejected by user"
+        "Transaction rejected by user",
       );
     });
 
@@ -583,7 +610,7 @@ describe("FlexPrivateService", () => {
           marketIndex: 1,
           subAccountId: 0,
           sizeDelta: 10000,
-        })
+        }),
       ).rejects.toThrow("Market order failed: Insufficient margin");
     });
   });

@@ -42,7 +42,7 @@ describe("Flex Utils - Provider & Signer", () => {
     it("should use FLEX_RPC_URL from environment", () => {
       const customRpc = "https://custom.rpc.url";
       process.env.FLEX_RPC_URL = customRpc;
-      
+
       const provider = getProvider();
       expect(provider).toBeInstanceOf(ethers.JsonRpcProvider);
     });
@@ -51,7 +51,7 @@ describe("Flex Utils - Provider & Signer", () => {
   describe("getSigner", () => {
     it("should throw error if MAIN_PRIVATE_KEY is not set", () => {
       expect(() => getSigner()).toThrow(
-        "MAIN_PRIVATE_KEY environment variable is required"
+        "MAIN_PRIVATE_KEY environment variable is required",
       );
     });
 
@@ -91,7 +91,7 @@ describe("Flex Utils - Provider & Signer", () => {
       } as any;
 
       await expect(assertBaseNetwork(mockProvider)).rejects.toThrow(
-        "Wrong network: expected Base (8453), got 1"
+        "Wrong network: expected Base (8453), got 1",
       );
     });
   });
@@ -123,7 +123,7 @@ describe("Flex Utils - Unit Conversions", () => {
 
     it("should round-trip correctly", () => {
       const testValues = [100, 1.5, 0.1, 0.000001, 12345.6789];
-      
+
       for (const value of testValues) {
         const e30 = toE30(value);
         const back = fromE30(e30);
@@ -218,14 +218,24 @@ describe("Flex Utils - Subaccount", () => {
     });
 
     it("should throw on invalid address", () => {
-      expect(() => computeSubAccount("invalid", 0)).toThrow("Invalid account address");
-      expect(() => computeSubAccount("0x123", 0)).toThrow("Invalid account address");
+      expect(() => computeSubAccount("invalid", 0)).toThrow(
+        "Invalid account address",
+      );
+      expect(() => computeSubAccount("0x123", 0)).toThrow(
+        "Invalid account address",
+      );
     });
 
     it("should throw on invalid subaccount ID", () => {
-      expect(() => computeSubAccount(testAddress, -1)).toThrow("Invalid subAccountId");
-      expect(() => computeSubAccount(testAddress, 256)).toThrow("Invalid subAccountId");
-      expect(() => computeSubAccount(testAddress, 1.5)).toThrow("Invalid subAccountId");
+      expect(() => computeSubAccount(testAddress, -1)).toThrow(
+        "Invalid subAccountId",
+      );
+      expect(() => computeSubAccount(testAddress, 256)).toThrow(
+        "Invalid subAccountId",
+      );
+      expect(() => computeSubAccount(testAddress, 1.5)).toThrow(
+        "Invalid subAccountId",
+      );
     });
 
     it("should accept all valid subaccount IDs (0-255)", () => {
@@ -275,14 +285,17 @@ describe("Flex Utils - Error Handling", () => {
     });
 
     it("should detect common error patterns", () => {
-      expect(parseRevertError({ message: "insufficient funds for transfer" }))
-        .toContain("Insufficient funds");
-      
-      expect(parseRevertError({ message: "nonce too low" }))
-        .toContain("nonce too low");
-      
-      expect(parseRevertError({ message: "gas required exceeds allowance" }))
-        .toContain("Gas required exceeds");
+      expect(
+        parseRevertError({ message: "insufficient funds for transfer" }),
+      ).toContain("Insufficient funds");
+
+      expect(parseRevertError({ message: "nonce too low" })).toContain(
+        "nonce too low",
+      );
+
+      expect(
+        parseRevertError({ message: "gas required exceeds allowance" }),
+      ).toContain("Gas required exceeds");
     });
 
     it("should return generic message for unknown errors", () => {
@@ -293,7 +306,9 @@ describe("Flex Utils - Error Handling", () => {
 
   describe("isUserRejection", () => {
     it("should detect user rejection", () => {
-      expect(isUserRejection({ message: "User rejected transaction" })).toBe(true);
+      expect(isUserRejection({ message: "User rejected transaction" })).toBe(
+        true,
+      );
       expect(isUserRejection({ message: "User denied signature" })).toBe(true);
       expect(isUserRejection({ message: "Transaction cancelled" })).toBe(true);
     });
@@ -352,7 +367,7 @@ describe("Flex Utils - Math Helpers", () => {
       const size = 1000n * 10n ** 30n;
       const current = 100n * 10n ** 18n;
       const last = 80n * 10n ** 18n;
-      
+
       const fee = calculateFundingFee(size, current, last);
       expect(fee).toBeGreaterThan(0n);
     });
@@ -361,7 +376,7 @@ describe("Flex Utils - Math Helpers", () => {
       const size = 1000n * 10n ** 30n;
       const current = 80n * 10n ** 18n;
       const last = 100n * 10n ** 18n;
-      
+
       const fee = calculateFundingFee(size, current, last);
       expect(fee).toBeLessThan(0n);
     });
@@ -381,7 +396,7 @@ describe("Flex Utils - Math Helpers", () => {
       const reserve = 1000n * 10n ** 30n;
       const current = 200n * 10n ** 18n;
       const entry = 150n * 10n ** 18n;
-      
+
       const fee = calculateBorrowingFee(reserve, current, entry);
       expect(fee).toBeGreaterThan(0n);
     });
@@ -402,7 +417,7 @@ describe("Flex Utils - Math Helpers", () => {
       const shortSize = 800000n * 10n ** 30n;
       const maxSkew = 500000n * 10n ** 30n;
       const delta = 100000n * 10n ** 30n;
-      
+
       const impact = calculatePriceImpact(longSize, shortSize, maxSkew, delta);
       expect(impact).not.toBe(0n);
     });
@@ -439,7 +454,7 @@ describe("Flex Utils - Math Helpers", () => {
         true,
         entryPrice,
         leverage,
-        maintenanceMargin
+        maintenanceMargin,
       );
       expect(liqPrice).toBeLessThan(entryPrice);
       expect(liqPrice).toBeGreaterThan(0);
@@ -450,18 +465,28 @@ describe("Flex Utils - Math Helpers", () => {
         false,
         entryPrice,
         leverage,
-        maintenanceMargin
+        maintenanceMargin,
       );
       expect(liqPrice).toBeGreaterThan(entryPrice);
     });
 
     it("should give closer liquidation price for higher leverage", () => {
-      const lowLevLiq = calculateLiquidationPrice(true, entryPrice, 5, maintenanceMargin);
-      const highLevLiq = calculateLiquidationPrice(true, entryPrice, 20, maintenanceMargin);
-      
+      const lowLevLiq = calculateLiquidationPrice(
+        true,
+        entryPrice,
+        5,
+        maintenanceMargin,
+      );
+      const highLevLiq = calculateLiquidationPrice(
+        true,
+        entryPrice,
+        20,
+        maintenanceMargin,
+      );
+
       const lowLevDistance = entryPrice - lowLevLiq;
       const highLevDistance = entryPrice - highLevLiq;
-      
+
       expect(highLevDistance).toBeLessThan(lowLevDistance);
     });
   });
@@ -541,7 +566,11 @@ describe("Flex Utils - Array Utilities", () => {
   describe("chunk", () => {
     it("should chunk array into specified sizes", () => {
       const arr = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-      expect(chunk(arr, 3)).toEqual([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+      expect(chunk(arr, 3)).toEqual([
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+      ]);
       expect(chunk(arr, 4)).toEqual([[1, 2, 3, 4], [5, 6, 7, 8], [9]]);
     });
 

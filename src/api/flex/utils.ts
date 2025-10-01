@@ -27,23 +27,21 @@ export function getProvider(): ethers.JsonRpcProvider {
  * Get a signer from MAIN_PRIVATE_KEY
  * Throws if private key is not set
  */
-export function getSigner(
-  provider?: ethers.Provider
-): ethers.Wallet {
+export function getSigner(provider?: ethers.Provider): ethers.Wallet {
   const privateKey = process.env.MAIN_PRIVATE_KEY;
-  
+
   if (!privateKey) {
     throw new Error(
-      "MAIN_PRIVATE_KEY environment variable is required for transaction operations"
+      "MAIN_PRIVATE_KEY environment variable is required for transaction operations",
     );
   }
-  
+
   const wallet = new ethers.Wallet(privateKey);
-  
+
   if (provider) {
     return wallet.connect(provider);
   }
-  
+
   return wallet;
 }
 
@@ -52,17 +50,17 @@ export function getSigner(
  * Throws if on wrong network
  */
 export async function assertBaseNetwork(
-  provider: ethers.Provider
+  provider: ethers.Provider,
 ): Promise<void> {
   try {
     // Use eth_chainId directly to avoid ENS resolution issues
     const chainIdHex = await (provider as any).send("eth_chainId", []);
     const chainId = parseInt(chainIdHex, 16);
-    
+
     if (chainId !== BASE_CHAIN_ID) {
       throw new Error(
         `Wrong network: expected Base (${BASE_CHAIN_ID}), got ${chainId}. ` +
-          `Please connect to Base mainnet.`
+          `Please connect to Base mainnet.`,
       );
     }
   } catch (error: any) {
@@ -87,20 +85,20 @@ export async function assertBaseNetwork(
  */
 export function toE30(n: number | string): bigint {
   const str = typeof n === "string" ? n : n.toString();
-  
+
   // Match number format: optional sign, integer part, optional decimal part
   const match = str.match(/^(-?)(\d+)(\.\d+)?$/);
   if (!match) {
     throw new Error(`Invalid number for e30 conversion: ${n}`);
   }
-  
+
   const [, sign, intPart, decPart = ""] = match;
   const decimals = decPart.slice(1); // Remove the dot
-  
+
   // Pad to exactly 30 decimals or truncate if longer
   const paddedDecimals = decimals.padEnd(30, "0").slice(0, 30);
   const fullNumber = sign + intPart + paddedDecimals;
-  
+
   return BigInt(fullNumber);
 }
 
@@ -113,22 +111,22 @@ export function fromE30(b: bigint): number {
   // Handle negative numbers
   const isNegative = b < 0n;
   const absoluteValue = isNegative ? -b : b;
-  
+
   // Convert to string and insert decimal point
   const str = absoluteValue.toString().padStart(31, "0");
   const intPart = str.slice(0, -30) || "0";
   const decPart = str.slice(-30);
-  
+
   // Remove trailing zeros from decimal part
   const trimmedDec = decPart.replace(/0+$/, "");
-  
+
   let result;
   if (trimmedDec.length === 0) {
     result = parseFloat(intPart);
   } else {
     result = parseFloat(`${intPart}.${trimmedDec}`);
   }
-  
+
   return isNegative ? -result : result;
 }
 
@@ -143,22 +141,22 @@ export function toToken(amount: number, decimals: number): bigint {
   if (decimals < 0 || decimals > 77) {
     throw new Error(`Invalid decimals: ${decimals}`);
   }
-  
+
   const str = amount.toString();
-  
+
   // Match number format: optional sign, integer part, optional decimal part
   const match = str.match(/^(-?)(\d+)(\.\d+)?$/);
   if (!match) {
     throw new Error(`Invalid amount for token conversion: ${amount}`);
   }
-  
+
   const [, sign, intPart, decPart = ""] = match;
   const decimalDigits = decPart.slice(1); // Remove the dot
-  
+
   // Pad to exactly decimals or truncate if longer
   const paddedDecimals = decimalDigits.padEnd(decimals, "0").slice(0, decimals);
   const fullNumber = sign + intPart + paddedDecimals;
-  
+
   return BigInt(fullNumber);
 }
 
@@ -172,18 +170,18 @@ export function fromToken(b: bigint, decimals: number): number {
   if (decimals < 0 || decimals > 77) {
     throw new Error(`Invalid decimals: ${decimals}`);
   }
-  
+
   const str = b.toString().padStart(decimals + 1, "0");
   const intPart = str.slice(0, -decimals) || "0";
   const decPart = str.slice(-decimals);
-  
+
   // Remove trailing zeros
   const trimmedDec = decPart.replace(/0+$/, "");
-  
+
   if (trimmedDec.length === 0) {
     return parseFloat(intPart);
   }
-  
+
   return parseFloat(`${intPart}.${trimmedDec}`);
 }
 
@@ -200,7 +198,7 @@ export function fromToken(b: bigint, decimals: number): number {
  */
 export function computeSubAccount(
   account: string,
-  subAccountId: number
+  subAccountId: number,
 ): string {
   // Validate subAccountId first (before address validation)
   if (
@@ -209,24 +207,24 @@ export function computeSubAccount(
     subAccountId > FLEX_CONSTANTS.MAX_SUBACCOUNT_ID
   ) {
     throw new Error(
-      `Invalid subAccountId: ${subAccountId}. Must be between ${FLEX_CONSTANTS.MIN_SUBACCOUNT_ID} and ${FLEX_CONSTANTS.MAX_SUBACCOUNT_ID}`
+      `Invalid subAccountId: ${subAccountId}. Must be between ${FLEX_CONSTANTS.MIN_SUBACCOUNT_ID} and ${FLEX_CONSTANTS.MAX_SUBACCOUNT_ID}`,
     );
   }
-  
+
   // Validate and normalize address using getAddress
   try {
     account = ethers.getAddress(account);
   } catch (error) {
     throw new Error(`Invalid account address: ${account}`);
   }
-  
+
   // Pack account (20 bytes) and subAccountId (1 byte) then hash
   // Similar to Solidity's keccak256(abi.encodePacked(account, uint8(subAccountId)))
   const packed = ethers.solidityPacked(
     ["address", "uint8"],
-    [account, subAccountId]
+    [account, subAccountId],
   );
-  
+
   return ethers.keccak256(packed);
 }
 
@@ -240,7 +238,7 @@ export function validateSubAccountId(subAccountId: number): void {
     subAccountId > FLEX_CONSTANTS.MAX_SUBACCOUNT_ID
   ) {
     throw new Error(
-      `Invalid subAccountId: ${subAccountId}. Must be between ${FLEX_CONSTANTS.MIN_SUBACCOUNT_ID} and ${FLEX_CONSTANTS.MAX_SUBACCOUNT_ID}`
+      `Invalid subAccountId: ${subAccountId}. Must be between ${FLEX_CONSTANTS.MIN_SUBACCOUNT_ID} and ${FLEX_CONSTANTS.MAX_SUBACCOUNT_ID}`,
     );
   }
 }
@@ -275,37 +273,35 @@ export interface MulticallResult {
 export async function multicall(
   provider: ethers.Provider,
   calls: MulticallCall[],
-  allowFailure: boolean = false
+  allowFailure: boolean = false,
 ): Promise<MulticallResult[]> {
   const multicallAddress = FLEX_ADDRESSES.MULTICALL;
-  
+
   // Multicall3 ABI for aggregate3 function
   const multicallAbi = [
     "function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) returns (tuple(bool success, bytes returnData)[] returnData)",
   ];
-  
+
   const multicallContract = new ethers.Contract(
     multicallAddress,
     multicallAbi,
-    provider
+    provider,
   );
-  
+
   // Convert calls to Multicall3 format
   const multicallCalls = calls.map((call) => ({
     target: call.target,
     allowFailure,
     callData: call.callData,
   }));
-  
+
   // Execute multicall
   const results = await multicallContract.aggregate3(multicallCalls);
-  
-  return results.map(
-    (result: { success: boolean; returnData: string }) => ({
-      success: result.success,
-      returnData: result.returnData,
-    })
-  );
+
+  return results.map((result: { success: boolean; returnData: string }) => ({
+    success: result.success,
+    returnData: result.returnData,
+  }));
 }
 
 /**
@@ -332,38 +328,38 @@ export function parseRevertError(error: any): string {
   if (error?.reason) {
     return error.reason;
   }
-  
+
   if (error?.data?.message) {
     return error.data.message;
   }
-  
+
   if (error?.error?.message) {
     return error.error.message;
   }
-  
+
   if (error?.message) {
     // Try to extract revert reason from message
     const match = error.message.match(/reverted with reason string '(.+)'/);
     if (match) {
       return match[1];
     }
-    
+
     // Check for common error patterns
     if (error.message.includes("insufficient funds")) {
       return "Insufficient funds for transaction";
     }
-    
+
     if (error.message.includes("nonce too low")) {
       return "Transaction nonce too low";
     }
-    
+
     if (error.message.includes("gas required exceeds allowance")) {
       return "Gas required exceeds allowance";
     }
-    
+
     return error.message;
   }
-  
+
   return "Unknown error occurred";
 }
 
@@ -395,18 +391,18 @@ export function calculatePnL(
   isLong: boolean,
   sizeE30: bigint,
   entryPriceE30: bigint,
-  currentPriceE30: bigint
+  currentPriceE30: bigint,
 ): bigint {
   if (sizeE30 === 0n) return 0n;
-  
+
   // Use absolute size for calculation
   const absSizeE30 = sizeE30 < 0n ? -sizeE30 : sizeE30;
   const priceDiff = currentPriceE30 - entryPriceE30;
-  
+
   // PnL = size * (currentPrice - entryPrice) for long
   // PnL = size * (entryPrice - currentPrice) for short
   const multiplier = isLong ? 1n : -1n;
-  
+
   // size is in USD (e30), priceDiff is in USD/unit (e30)
   // Result needs to be divided by e30 to get USD
   return (absSizeE30 * priceDiff * multiplier) / FLEX_CONSTANTS.E30;
@@ -422,12 +418,12 @@ export function calculatePnL(
 export function calculateFundingFee(
   sizeE30: bigint,
   currentFundingAccrued: bigint,
-  lastFundingAccrued: bigint
+  lastFundingAccrued: bigint,
 ): bigint {
   if (sizeE30 === 0n) return 0n;
-  
+
   const fundingDelta = currentFundingAccrued - lastFundingAccrued;
-  
+
   // Funding fee = size * fundingDelta / e30
   return (sizeE30 * fundingDelta) / FLEX_CONSTANTS.E30;
 }
@@ -442,12 +438,12 @@ export function calculateFundingFee(
 export function calculateBorrowingFee(
   reserveValueE30: bigint,
   currentBorrowingRate: bigint,
-  entryBorrowingRate: bigint
+  entryBorrowingRate: bigint,
 ): bigint {
   if (reserveValueE30 === 0n) return 0n;
-  
+
   const borrowingDelta = currentBorrowingRate - entryBorrowingRate;
-  
+
   // Borrowing fee = reserveValue * borrowingDelta / e30
   return (reserveValueE30 * borrowingDelta) / FLEX_CONSTANTS.E30;
 }
@@ -464,13 +460,13 @@ export function calculatePriceImpact(
   longPositionSize: bigint,
   shortPositionSize: bigint,
   maxSkewScale: bigint,
-  sizeDelta: bigint
+  sizeDelta: bigint,
 ): bigint {
   if (maxSkewScale === 0n) return 0n;
-  
+
   const currentSkew = longPositionSize - shortPositionSize;
   const newSkew = currentSkew + sizeDelta;
-  
+
   // Impact = newSkew / maxSkewScale
   // This is a simplified version - actual implementation may vary
   return (newSkew * FLEX_CONSTANTS.E30) / maxSkewScale;
@@ -481,7 +477,7 @@ export function calculatePriceImpact(
  */
 export function calculateLeverage(
   positionSizeUsd: number,
-  equityUsd: number
+  equityUsd: number,
 ): number {
   if (equityUsd === 0) return 0;
   return positionSizeUsd / equityUsd;
@@ -495,14 +491,14 @@ export function calculateLiquidationPrice(
   isLong: boolean,
   entryPrice: number,
   leverage: number,
-  maintenanceMarginFraction: number
+  maintenanceMarginFraction: number,
 ): number {
   // Liquidation occurs when equity falls below maintenance margin
   // For long: liquidationPrice = entryPrice * (1 - (1 - maintenanceMargin) / leverage)
   // For short: liquidationPrice = entryPrice * (1 + (1 - maintenanceMargin) / leverage)
-  
+
   const factor = (1 - maintenanceMarginFraction) / leverage;
-  
+
   if (isLong) {
     return entryPrice * (1 - factor);
   } else {
@@ -522,7 +518,7 @@ export function formatUsd(amount: number, decimals: number = 2): string {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });
-  
+
   // Handle negative sign placement (before the $)
   return amount < 0 ? `-$${formatted}` : `$${formatted}`;
 }
@@ -536,7 +532,7 @@ export function formatUsd(amount: number, decimals: number = 2): string {
 export function formatPercent(
   value: number,
   decimals: number = 2,
-  alreadyPercent: boolean = false
+  alreadyPercent: boolean = false,
 ): string {
   const percentValue = alreadyPercent ? value : value * 100;
   return `${percentValue.toFixed(decimals)}%`;

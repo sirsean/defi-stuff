@@ -196,7 +196,9 @@ program
 
 program
   .command("flex:positions")
-  .description("View open positions with PnL, liquidation prices, and risk levels")
+  .description(
+    "View open positions with PnL, liquidation prices, and risk levels",
+  )
   .option(
     "-a, --address <address>",
     "Override the wallet address from environment variables",
@@ -227,11 +229,7 @@ program
   .description("Place market or limit orders (type: market or limit)")
   .option("--sub <id>", "Subaccount ID to use (0-255, default: 0)")
   .option("-m, --market <symbol>", "Market symbol (e.g., BTC, ETH, SOL)", "")
-  .option(
-    "-s, --side <side>",
-    "Order side: long/buy or short/sell",
-    "",
-  )
+  .option("-s, --side <side>", "Order side: long/buy or short/sell", "")
   .option("--size <usd>", "Position size in USD", "")
   .option("-p, --price <price>", "Limit price (required for limit orders)")
   .option("--slippage <percent>", "Slippage tolerance in percent (default: 1)")
@@ -239,7 +237,9 @@ program
   .option("--dry-run", "Validate order without executing")
   .action((type, options) => {
     if (type !== "market" && type !== "limit") {
-      console.error(`❌ Error: Invalid order type '${type}'. Use 'market' or 'limit'`);
+      console.error(
+        `❌ Error: Invalid order type '${type}'. Use 'market' or 'limit'`,
+      );
       process.exit(1);
     }
     flexOrder(type as "market" | "limit", options);

@@ -48,7 +48,10 @@ export async function flexDeposit(options: FlexDepositOptions): Promise<void> {
 
     // Get current balance
     try {
-      const currentBalance = await publicService.getCollateral(address, subAccountId);
+      const currentBalance = await publicService.getCollateral(
+        address,
+        subAccountId,
+      );
       console.log(`Current Balance:`);
       console.log(`  Subaccount: ${subAccountId}`);
       console.log(`  USDC Balance: ${formatUsd(currentBalance.balance)}`);
@@ -68,14 +71,19 @@ export async function flexDeposit(options: FlexDepositOptions): Promise<void> {
 
     // Calculate projected balance
     try {
-      const currentBalance = await publicService.getCollateral(address, subAccountId);
+      const currentBalance = await publicService.getCollateral(
+        address,
+        subAccountId,
+      );
       const projectedBalance = currentBalance.balance + amount;
       console.log(`Projected Balance:`);
       console.log(`  New USDC Balance: ${formatUsd(projectedBalance)}`);
       console.log();
     } catch {
       console.log(`Projected Balance:`);
-      console.log(`  New USDC Balance: ${formatUsd(amount)} (or more if current balance exists)`);
+      console.log(
+        `  New USDC Balance: ${formatUsd(amount)} (or more if current balance exists)`,
+      );
       console.log();
     }
 
@@ -104,18 +112,24 @@ export async function flexDeposit(options: FlexDepositOptions): Promise<void> {
 
     // Show updated balance
     try {
-      const updatedBalance = await publicService.getCollateral(address, subAccountId);
+      const updatedBalance = await publicService.getCollateral(
+        address,
+        subAccountId,
+      );
       console.log(`Updated Balance:`);
       console.log(`  USDC Balance: ${formatUsd(updatedBalance.balance)}`);
       console.log();
     } catch {
-      console.log(`✅ Deposit complete. Check balance with: npm run dev -- flex:balance --sub ${subAccountId}\n`);
+      console.log(
+        `✅ Deposit complete. Check balance with: npm run dev -- flex:balance --sub ${subAccountId}\n`,
+      );
     }
-
   } catch (error: any) {
     console.error(`\n❌ Error: ${error.message}`);
     if (error.message.includes("Wrong network")) {
-      console.error(`   Make sure you are connected to Base mainnet (chain ID 8453)`);
+      console.error(
+        `   Make sure you are connected to Base mainnet (chain ID 8453)`,
+      );
     }
     if (error.message.includes("user rejected")) {
       console.error(`   Transaction was rejected in wallet`);

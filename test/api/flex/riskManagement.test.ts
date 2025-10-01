@@ -84,7 +84,7 @@ describe("RiskManager", () => {
           riskPercentage: 1,
           entryPrice: 100,
           stopLossPrice: 95,
-        })
+        }),
       ).toThrow("Equity must be positive");
 
       expect(() =>
@@ -93,7 +93,7 @@ describe("RiskManager", () => {
           riskPercentage: 1,
           entryPrice: 100,
           stopLossPrice: 95,
-        })
+        }),
       ).toThrow("Equity must be positive");
     });
 
@@ -104,7 +104,7 @@ describe("RiskManager", () => {
           riskPercentage: 0,
           entryPrice: 100,
           stopLossPrice: 95,
-        })
+        }),
       ).toThrow("Risk percentage must be between 0 and 100");
 
       expect(() =>
@@ -113,7 +113,7 @@ describe("RiskManager", () => {
           riskPercentage: 101,
           entryPrice: 100,
           stopLossPrice: 95,
-        })
+        }),
       ).toThrow("Risk percentage must be between 0 and 100");
     });
 
@@ -124,7 +124,7 @@ describe("RiskManager", () => {
           riskPercentage: 1,
           entryPrice: 0,
           stopLossPrice: 95,
-        })
+        }),
       ).toThrow("Prices must be positive");
 
       expect(() =>
@@ -133,7 +133,7 @@ describe("RiskManager", () => {
           riskPercentage: 1,
           entryPrice: 100,
           stopLossPrice: -95,
-        })
+        }),
       ).toThrow("Prices must be positive");
     });
 
@@ -144,7 +144,7 @@ describe("RiskManager", () => {
           riskPercentage: 1,
           entryPrice: 100,
           stopLossPrice: 100,
-        })
+        }),
       ).toThrow("Stop loss cannot equal entry price");
     });
 
@@ -176,7 +176,7 @@ describe("RiskManager", () => {
         winRate,
         avgWin,
         avgLoss,
-        0.25
+        0.25,
       );
 
       expect(result).toBe(1000);
@@ -194,7 +194,7 @@ describe("RiskManager", () => {
         equity,
         winRate,
         avgWin,
-        avgLoss
+        avgLoss,
       );
 
       expect(result).toBe(0);
@@ -211,7 +211,7 @@ describe("RiskManager", () => {
         winRate,
         avgWin,
         avgLoss,
-        1.0 // Full Kelly
+        1.0, // Full Kelly
       );
 
       expect(result).toBeLessThanOrEqual(equity);
@@ -227,7 +227,7 @@ describe("RiskManager", () => {
         equity,
         winRate,
         avgWin,
-        avgLoss
+        avgLoss,
       );
 
       // Should use 25% Kelly by default
@@ -236,11 +236,11 @@ describe("RiskManager", () => {
 
     it("should throw error for invalid win rate", () => {
       expect(() =>
-        riskManager.calculateKellyPositionSize(10000, -0.1, 100, 50)
+        riskManager.calculateKellyPositionSize(10000, -0.1, 100, 50),
       ).toThrow("Win rate must be between 0 and 1");
 
       expect(() =>
-        riskManager.calculateKellyPositionSize(10000, 1.5, 100, 50)
+        riskManager.calculateKellyPositionSize(10000, 1.5, 100, 50),
       ).toThrow("Win rate must be between 0 and 1");
     });
   });
@@ -254,7 +254,7 @@ describe("RiskManager", () => {
       const result = riskManager.calculateVolatilityAdjustedSize(
         baseSize,
         currentVolatility,
-        targetVolatility
+        targetVolatility,
       );
 
       // Higher volatility = smaller position
@@ -270,7 +270,7 @@ describe("RiskManager", () => {
       const result = riskManager.calculateVolatilityAdjustedSize(
         baseSize,
         currentVolatility,
-        targetVolatility
+        targetVolatility,
       );
 
       // Lower volatility = larger position
@@ -285,7 +285,7 @@ describe("RiskManager", () => {
       const result = riskManager.calculateVolatilityAdjustedSize(
         baseSize,
         volatility,
-        volatility
+        volatility,
       );
 
       expect(result).toBe(baseSize);
@@ -293,11 +293,11 @@ describe("RiskManager", () => {
 
     it("should throw error for zero or negative volatility", () => {
       expect(() =>
-        riskManager.calculateVolatilityAdjustedSize(10000, 0, 20)
+        riskManager.calculateVolatilityAdjustedSize(10000, 0, 20),
       ).toThrow("Volatility must be positive");
 
       expect(() =>
-        riskManager.calculateVolatilityAdjustedSize(10000, 20, -10)
+        riskManager.calculateVolatilityAdjustedSize(10000, 20, -10),
       ).toThrow("Volatility must be positive");
     });
   });
@@ -311,7 +311,7 @@ describe("RiskManager", () => {
       const result = riskManager.validateLeverage(
         10000, // position size
         1000, // available margin
-        MARKETS.BTC.index // BTC allows 30x
+        MARKETS.BTC.index, // BTC allows 30x
       );
 
       // Leverage = 10000 / 1000 = 10x
@@ -325,14 +325,14 @@ describe("RiskManager", () => {
       const result = riskManager.validateLeverage(
         35000, // position size
         1000, // available margin
-        MARKETS.BTC.index // BTC max 30x
+        MARKETS.BTC.index, // BTC max 30x
       );
 
       // Leverage = 35x, exceeds 30x max
       expect(result.valid).toBe(false);
       expect(result.leverage).toBe(35);
       expect(result.errors).toContain(
-        "Leverage 35.00x exceeds maximum 30x for this market"
+        "Leverage 35.00x exceeds maximum 30x for this market",
       );
     });
 
@@ -340,23 +340,19 @@ describe("RiskManager", () => {
       const result = riskManager.validateLeverage(
         20000, // position size
         1000, // available margin
-        MARKETS.SOL.index // SOL allows 20x
+        MARKETS.SOL.index, // SOL allows 20x
       );
 
       // Leverage = 20x, exceeds portfolio max of 15x
       expect(result.valid).toBe(false);
       expect(result.leverage).toBe(20);
       expect(result.errors).toContain(
-        `Leverage 20.00x exceeds portfolio maximum ${DEFAULT_RISK_PARAMS.maxPortfolioLeverage}x`
+        `Leverage 20.00x exceeds portfolio maximum ${DEFAULT_RISK_PARAMS.maxPortfolioLeverage}x`,
       );
     });
 
     it("should handle zero or negative margin", () => {
-      const result = riskManager.validateLeverage(
-        10000,
-        0,
-        MARKETS.BTC.index
-      );
+      const result = riskManager.validateLeverage(10000, 0, MARKETS.BTC.index);
 
       expect(result.valid).toBe(false);
       expect(result.errors).toContain("Available margin must be positive");
@@ -367,42 +363,42 @@ describe("RiskManager", () => {
   describe("getMaxLeverageForMarket", () => {
     it("should return 30x for BTC", () => {
       const maxLeverage = riskManager.getMaxLeverageForMarket(
-        MARKETS.BTC.index
+        MARKETS.BTC.index,
       );
       expect(maxLeverage).toBe(30);
     });
 
     it("should return 30x for ETH", () => {
       const maxLeverage = riskManager.getMaxLeverageForMarket(
-        MARKETS.ETH.index
+        MARKETS.ETH.index,
       );
       expect(maxLeverage).toBe(30);
     });
 
     it("should return 20x for SOL", () => {
       const maxLeverage = riskManager.getMaxLeverageForMarket(
-        MARKETS.SOL.index
+        MARKETS.SOL.index,
       );
       expect(maxLeverage).toBe(20);
     });
 
     it("should return 20x for LINK", () => {
       const maxLeverage = riskManager.getMaxLeverageForMarket(
-        MARKETS.LINK.index
+        MARKETS.LINK.index,
       );
       expect(maxLeverage).toBe(20);
     });
 
     it("should return 20x for AVAX", () => {
       const maxLeverage = riskManager.getMaxLeverageForMarket(
-        MARKETS.AVAX.index
+        MARKETS.AVAX.index,
       );
       expect(maxLeverage).toBe(20);
     });
 
     it("should return 10x for other markets", () => {
       const maxLeverage = riskManager.getMaxLeverageForMarket(
-        MARKETS.DOGE.index
+        MARKETS.DOGE.index,
       );
       expect(maxLeverage).toBe(10);
     });
@@ -430,7 +426,7 @@ describe("RiskManager", () => {
 
       const result = await riskManager.calculatePortfolioLeverage(
         "0x123",
-        [0, 1]
+        [0, 1],
       );
 
       // Total position size = 5000 + 3000 + 2000 = 10000
@@ -447,10 +443,7 @@ describe("RiskManager", () => {
         positions: [],
       } as any);
 
-      const result = await riskManager.calculatePortfolioLeverage(
-        "0x123",
-        [0]
-      );
+      const result = await riskManager.calculatePortfolioLeverage("0x123", [0]);
 
       expect(result.leverage).toBe(0);
     });
@@ -461,10 +454,7 @@ describe("RiskManager", () => {
         positions: [],
       } as any);
 
-      const result = await riskManager.calculatePortfolioLeverage(
-        "0x123",
-        [0]
-      );
+      const result = await riskManager.calculatePortfolioLeverage("0x123", [0]);
 
       expect(result.totalPositionSize).toBe(0);
       expect(result.leverage).toBe(0);
@@ -525,7 +515,9 @@ describe("RiskManager", () => {
       const risk = riskManager.assessLiquidationRisk(position, 60000);
 
       // Should return a valid risk level
-      expect(["safe", "warning", "danger", "critical"]).toContain(risk.riskLevel);
+      expect(["safe", "warning", "danger", "critical"]).toContain(
+        risk.riskLevel,
+      );
       expect(risk.liquidationDistance).toBeDefined();
     });
 
@@ -575,11 +567,11 @@ describe("RiskManager", () => {
       expect(risks).toHaveLength(2);
       expect(risks[0].symbol).toBeDefined();
       expect(risks[1].symbol).toBeDefined();
-      
+
       // Should be sorted by risk level (most critical first)
       const levels = { critical: 0, danger: 1, warning: 2, safe: 3 };
       expect(levels[risks[0].riskLevel]).toBeLessThanOrEqual(
-        levels[risks[1].riskLevel]
+        levels[risks[1].riskLevel],
       );
     });
 
@@ -644,7 +636,7 @@ describe("RiskManager", () => {
         0,
         MARKETS.BTC.index,
         5000, // $5000 position
-        50000
+        50000,
       );
 
       expect(validation.valid).toBe(true);
@@ -669,7 +661,7 @@ describe("RiskManager", () => {
         0,
         MARKETS.BTC.index,
         5000,
-        50000
+        50000,
       );
 
       expect(validation.valid).toBe(false);
@@ -692,12 +684,12 @@ describe("RiskManager", () => {
         0,
         MARKETS.DOGE.index, // DOGE max 10x
         15000, // $15k position on $1k equity = 15x
-        0.1
+        0.1,
       );
 
       expect(validation.valid).toBe(false);
       expect(validation.errors.some((e) => e.includes("market maximum"))).toBe(
-        true
+        true,
       );
     });
 
@@ -717,12 +709,12 @@ describe("RiskManager", () => {
         0,
         MARKETS.BTC.index,
         20000, // 20x leverage
-        50000
+        50000,
       );
 
       expect(validation.valid).toBe(false);
       expect(
-        validation.errors.some((e) => e.includes("portfolio maximum"))
+        validation.errors.some((e) => e.includes("portfolio maximum")),
       ).toBe(true);
     });
 
@@ -742,7 +734,7 @@ describe("RiskManager", () => {
         0,
         MARKETS.BTC.index, // BTC max 30x
         25000, // 25x leverage (83% of max)
-        50000
+        50000,
       );
 
       expect(validation.warnings.some((w) => w.includes("is high"))).toBe(true);
@@ -771,12 +763,12 @@ describe("RiskManager", () => {
         0,
         MARKETS.BTC.index,
         1000,
-        50000
+        50000,
       );
 
       expect(validation.valid).toBe(false);
       expect(
-        validation.errors.some((e) => e.includes("Maximum position count"))
+        validation.errors.some((e) => e.includes("Maximum position count")),
       ).toBe(true);
     });
 
@@ -802,11 +794,11 @@ describe("RiskManager", () => {
         0,
         MARKETS.BTC.index,
         2000, // Adding to existing long
-        50000
+        50000,
       );
 
       expect(
-        validation.warnings.some((w) => w.includes("Adding to existing"))
+        validation.warnings.some((w) => w.includes("Adding to existing")),
       ).toBe(true);
     });
 
@@ -826,12 +818,12 @@ describe("RiskManager", () => {
         0,
         MARKETS.DOGE.index, // 10x max
         5000, // Would exceed available margin
-        0.1
+        0.1,
       );
 
       expect(validation.valid).toBe(false);
       expect(
-        validation.errors.some((e) => e.includes("exceeds available margin"))
+        validation.errors.some((e) => e.includes("exceeds available margin")),
       ).toBe(true);
     });
 
@@ -851,7 +843,7 @@ describe("RiskManager", () => {
         0,
         MARKETS.BTC.index,
         10000,
-        50000
+        50000,
       );
 
       expect(validation.projectedLeverage).toBe(3); // (20000 + 10000) / 10000

@@ -25,7 +25,7 @@ interface FlexOrderOptions {
  */
 export async function flexOrder(
   orderType: "market" | "limit",
-  options: FlexOrderOptions
+  options: FlexOrderOptions,
 ): Promise<void> {
   try {
     // Validate required options
@@ -51,10 +51,16 @@ export async function flexOrder(
 
     // Parse market
     const marketSymbol = options.market.toUpperCase();
-    const market = Object.values(MARKETS).find(m => m.symbol === marketSymbol);
+    const market = Object.values(MARKETS).find(
+      (m) => m.symbol === marketSymbol,
+    );
     if (!market) {
       console.error(`❌ Error: Unknown market: ${options.market}`);
-      console.error(`Available markets: ${Object.values(MARKETS).map(m => m.symbol).join(", ")}`);
+      console.error(
+        `Available markets: ${Object.values(MARKETS)
+          .map((m) => m.symbol)
+          .join(", ")}`,
+      );
       process.exit(1);
     }
 
@@ -89,7 +95,9 @@ export async function flexOrder(
     }
 
     // Parse slippage (default 1%)
-    const slippageBps = options.slippage ? parseFloat(options.slippage) * 100 : 100;
+    const slippageBps = options.slippage
+      ? parseFloat(options.slippage) * 100
+      : 100;
 
     // Initialize services
     const signer = getSigner();
@@ -109,13 +117,13 @@ export async function flexOrder(
     console.log(`Side: ${isLong ? "LONG 📈" : "SHORT 📉"}`);
     console.log(`Size: ${formatUsd(sizeUsd)}`);
     console.log(`Current Price: ${formatUsd(currentPrice)}`);
-    
+
     if (orderType === "limit" && limitPrice) {
       console.log(`Limit Price: ${formatUsd(limitPrice)}`);
       const priceDistance = ((limitPrice - currentPrice) / currentPrice) * 100;
       console.log(`Price Distance: ${priceDistance.toFixed(2)}%`);
     }
-    
+
     console.log(`Subaccount: ${subAccountId}`);
     console.log();
 
@@ -137,7 +145,7 @@ export async function flexOrder(
         subAccountId,
         market.index,
         sizeUsd,
-        currentPrice
+        currentPrice,
       );
 
       if (!validation.valid) {
@@ -159,8 +167,9 @@ export async function flexOrder(
 
       // Show projected leverage
       const newPositionSize = leverage.totalPositionSize + sizeUsd;
-      const projectedLeverage = equity.equity > 0 ? newPositionSize / equity.equity : 0;
-      
+      const projectedLeverage =
+        equity.equity > 0 ? newPositionSize / equity.equity : 0;
+
       console.log(`📊 Projected Impact:\n`);
       console.log(`  New Position Size: ${formatUsd(newPositionSize)}`);
       console.log(`  Projected Leverage: ${projectedLeverage.toFixed(2)}x`);
@@ -187,7 +196,7 @@ export async function flexOrder(
           reduceOnly: false,
           tpToken: TOKENS.USDC.address,
         };
-        
+
         const result = await privateService.executeMarketOrder(orderParams);
 
         console.log(`✅ Market order executed successfully!\n`);
@@ -212,7 +221,7 @@ export async function flexOrder(
           reduceOnly: options.reduceOnly || false,
           tpToken: TOKENS.USDC.address,
         };
-        
+
         const result = await privateService.createLimitOrder(orderParams);
 
         console.log(`✅ Limit order placed successfully!\n`);
@@ -220,19 +229,21 @@ export async function flexOrder(
         console.log(`Block Number: ${result.blockNumber}`);
         console.log(`Gas Used: ${result.gasUsed}`);
         console.log();
-        console.log(`💡 Order will execute when price reaches ${formatUsd(limitPrice)}`);
+        console.log(
+          `💡 Order will execute when price reaches ${formatUsd(limitPrice)}`,
+        );
         console.log();
       }
-
     } catch (validationError: any) {
       console.error(`❌ Validation error: ${validationError.message}\n`);
       process.exit(1);
     }
-
   } catch (error: any) {
     console.error(`\n❌ Error: ${error.message}`);
     if (error.message.includes("Wrong network")) {
-      console.error(`   Make sure you are connected to Base mainnet (chain ID 8453)`);
+      console.error(
+        `   Make sure you are connected to Base mainnet (chain ID 8453)`,
+      );
     }
     if (error.message.includes("user rejected")) {
       console.error(`   Transaction was rejected in wallet`);

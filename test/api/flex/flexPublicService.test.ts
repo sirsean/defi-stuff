@@ -85,7 +85,7 @@ describe("FlexPublicService", () => {
 
       it("should throw error for invalid market index", async () => {
         await expect(service.getMarketPrice(999)).rejects.toThrow(
-          "Market index 999 not found"
+          "Market index 999 not found",
         );
       });
 
@@ -97,7 +97,10 @@ describe("FlexPublicService", () => {
         const mockOrderbookOracle = (service as any).orderbookOracle;
         mockOrderbookOracle.getLatestPrice = vi
           .fn()
-          .mockResolvedValue([mockPriceE30, BigInt(Math.floor(Date.now() / 1000))]);
+          .mockResolvedValue([
+            mockPriceE30,
+            BigInt(Math.floor(Date.now() / 1000)),
+          ]);
 
         const result = await service.getMarketPrice(btcMarketIndex);
 
@@ -131,7 +134,7 @@ describe("FlexPublicService", () => {
 
       it("should throw error for invalid market", async () => {
         await expect(service.getMarketInfo(999)).rejects.toThrow(
-          "Market index 999 not found"
+          "Market index 999 not found",
         );
       });
     });
@@ -203,7 +206,11 @@ describe("FlexPublicService", () => {
           .fn()
           .mockResolvedValue(mockPositionData);
 
-        const result = await service.getPosition(testAccount, testSubAccountId, 1);
+        const result = await service.getPosition(
+          testAccount,
+          testSubAccountId,
+          1,
+        );
 
         expect(result).toBeNull();
       });
@@ -234,9 +241,16 @@ describe("FlexPublicService", () => {
         const mockOrderbookOracle = (service as any).orderbookOracle;
         mockOrderbookOracle.getLatestPrice = vi
           .fn()
-          .mockResolvedValue([64000n * 10n ** 30n, BigInt(Math.floor(Date.now() / 1000))]);
+          .mockResolvedValue([
+            64000n * 10n ** 30n,
+            BigInt(Math.floor(Date.now() / 1000)),
+          ]);
 
-        const result = await service.getPosition(testAccount, testSubAccountId, 1);
+        const result = await service.getPosition(
+          testAccount,
+          testSubAccountId,
+          1,
+        );
 
         expect(result).not.toBeNull();
         expect(result!.isLong).toBe(true);
@@ -274,9 +288,16 @@ describe("FlexPublicService", () => {
         const mockOrderbookOracle = (service as any).orderbookOracle;
         mockOrderbookOracle.getLatestPrice = vi
           .fn()
-          .mockResolvedValue([64000n * 10n ** 30n, BigInt(Math.floor(Date.now() / 1000))]);
+          .mockResolvedValue([
+            64000n * 10n ** 30n,
+            BigInt(Math.floor(Date.now() / 1000)),
+          ]);
 
-        const result = await service.getPosition(testAccount, testSubAccountId, 1);
+        const result = await service.getPosition(
+          testAccount,
+          testSubAccountId,
+          1,
+        );
 
         expect(result).not.toBeNull();
         expect(result!.isLong).toBe(false);
@@ -310,9 +331,16 @@ describe("FlexPublicService", () => {
         const mockOrderbookOracle = (service as any).orderbookOracle;
         mockOrderbookOracle.getLatestPrice = vi
           .fn()
-          .mockResolvedValue([64000n * 10n ** 30n, BigInt(Math.floor(Date.now() / 1000))]);
+          .mockResolvedValue([
+            64000n * 10n ** 30n,
+            BigInt(Math.floor(Date.now() / 1000)),
+          ]);
 
-        const result = await service.getPosition(testAccount, testSubAccountId, 1);
+        const result = await service.getPosition(
+          testAccount,
+          testSubAccountId,
+          1,
+        );
 
         expect(result).not.toBeNull();
         expect(result!.fundingFee).toBeGreaterThan(0);
@@ -341,7 +369,7 @@ describe("FlexPublicService", () => {
             }
             return Promise.resolve({ positionSizeE30: 0n });
           });
-        
+
         mockPerpStorage.getMarketByIndex = vi.fn().mockResolvedValue({
           fundingAccrued: 1100n * 10n ** 30n,
           borrowingRate: 7n * 10n ** 27n,
@@ -350,7 +378,10 @@ describe("FlexPublicService", () => {
         const mockOrderbookOracle = (service as any).orderbookOracle;
         mockOrderbookOracle.getLatestPrice = vi
           .fn()
-          .mockResolvedValue([64000n * 10n ** 30n, BigInt(Math.floor(Date.now() / 1000))]);
+          .mockResolvedValue([
+            64000n * 10n ** 30n,
+            BigInt(Math.floor(Date.now() / 1000)),
+          ]);
 
         const result = await service.getAllPositions(testAccount, [0]);
 
@@ -386,7 +417,10 @@ describe("FlexPublicService", () => {
           .fn()
           .mockResolvedValue(mockBalance);
 
-        const result = await service.getCollateral(testAccount, testSubAccountId);
+        const result = await service.getCollateral(
+          testAccount,
+          testSubAccountId,
+        );
 
         expect(result.subAccountId).toBe(testSubAccountId);
         expect(result.token).toBe("USDC");
@@ -398,7 +432,10 @@ describe("FlexPublicService", () => {
         const mockVaultStorage = (service as any).vaultStorage;
         mockVaultStorage.traderBalances = vi.fn().mockResolvedValue(0n);
 
-        const result = await service.getCollateral(testAccount, testSubAccountId);
+        const result = await service.getCollateral(
+          testAccount,
+          testSubAccountId,
+        );
 
         expect(result.balance).toBe(0);
       });
@@ -429,7 +466,7 @@ describe("FlexPublicService", () => {
 
       it("should calculate equity with profitable position", async () => {
         const mockBalance = 10000n * 10n ** 30n;
-        
+
         const mockVaultStorage = (service as any).vaultStorage;
         mockVaultStorage.traderBalances = vi
           .fn()
@@ -453,7 +490,7 @@ describe("FlexPublicService", () => {
             }
             return Promise.resolve({ positionSizeE30: 0n });
           });
-        
+
         mockPerpStorage.getMarketByIndex = vi.fn().mockResolvedValue({
           fundingAccrued: 1050n * 10n ** 30n,
           borrowingRate: 6n * 10n ** 27n,
@@ -462,7 +499,10 @@ describe("FlexPublicService", () => {
         const mockOrderbookOracle = (service as any).orderbookOracle;
         mockOrderbookOracle.getLatestPrice = vi
           .fn()
-          .mockResolvedValue([65000n * 10n ** 30n, BigInt(Math.floor(Date.now() / 1000))]);
+          .mockResolvedValue([
+            65000n * 10n ** 30n,
+            BigInt(Math.floor(Date.now() / 1000)),
+          ]);
 
         const result = await service.getEquity(testAccount, testSubAccountId);
 
@@ -476,7 +516,7 @@ describe("FlexPublicService", () => {
     describe("getLeverage", () => {
       it("should calculate 1x leverage with equal position and equity", async () => {
         const mockBalance = 10000n * 10n ** 30n;
-        
+
         const mockVaultStorage = (service as any).vaultStorage;
         mockVaultStorage.traderBalances = vi
           .fn()
@@ -500,7 +540,7 @@ describe("FlexPublicService", () => {
             }
             return Promise.resolve({ positionSizeE30: 0n });
           });
-        
+
         mockPerpStorage.getMarketByIndex = vi.fn().mockResolvedValue({
           fundingAccrued: 1000n * 10n ** 30n,
           borrowingRate: 5n * 10n ** 27n,
@@ -509,7 +549,10 @@ describe("FlexPublicService", () => {
         const mockOrderbookOracle = (service as any).orderbookOracle;
         mockOrderbookOracle.getLatestPrice = vi
           .fn()
-          .mockResolvedValue([60000n * 10n ** 30n, BigInt(Math.floor(Date.now() / 1000))]);
+          .mockResolvedValue([
+            60000n * 10n ** 30n,
+            BigInt(Math.floor(Date.now() / 1000)),
+          ]);
 
         const result = await service.getLeverage(testAccount, testSubAccountId);
 
@@ -520,7 +563,7 @@ describe("FlexPublicService", () => {
 
       it("should calculate 3x leverage", async () => {
         const mockBalance = 10000n * 10n ** 30n;
-        
+
         const mockVaultStorage = (service as any).vaultStorage;
         mockVaultStorage.traderBalances = vi
           .fn()
@@ -544,7 +587,7 @@ describe("FlexPublicService", () => {
             }
             return Promise.resolve({ positionSizeE30: 0n });
           });
-        
+
         mockPerpStorage.getMarketByIndex = vi.fn().mockResolvedValue({
           fundingAccrued: 1000n * 10n ** 30n,
           borrowingRate: 5n * 10n ** 27n,
@@ -553,7 +596,10 @@ describe("FlexPublicService", () => {
         const mockOrderbookOracle = (service as any).orderbookOracle;
         mockOrderbookOracle.getLatestPrice = vi
           .fn()
-          .mockResolvedValue([60000n * 10n ** 30n, BigInt(Math.floor(Date.now() / 1000))]);
+          .mockResolvedValue([
+            60000n * 10n ** 30n,
+            BigInt(Math.floor(Date.now() / 1000)),
+          ]);
 
         const result = await service.getLeverage(testAccount, testSubAccountId);
 
@@ -564,7 +610,7 @@ describe("FlexPublicService", () => {
     describe("getAvailableMargin", () => {
       it("should calculate available margin for 1x leverage", async () => {
         const mockBalance = 10000n * 10n ** 30n;
-        
+
         const mockVaultStorage = (service as any).vaultStorage;
         mockVaultStorage.traderBalances = vi
           .fn()
@@ -578,7 +624,7 @@ describe("FlexPublicService", () => {
         const result = await service.getAvailableMargin(
           testAccount,
           testSubAccountId,
-          1
+          1,
         );
 
         // With $10,000 equity and no positions, available = $10,000 at 1x
@@ -587,7 +633,7 @@ describe("FlexPublicService", () => {
 
       it("should calculate available margin for 5x leverage", async () => {
         const mockBalance = 10000n * 10n ** 30n;
-        
+
         const mockVaultStorage = (service as any).vaultStorage;
         mockVaultStorage.traderBalances = vi
           .fn()
@@ -611,7 +657,7 @@ describe("FlexPublicService", () => {
             }
             return Promise.resolve({ positionSizeE30: 0n });
           });
-        
+
         mockPerpStorage.getMarketByIndex = vi.fn().mockResolvedValue({
           fundingAccrued: 1000n * 10n ** 30n,
           borrowingRate: 5n * 10n ** 27n,
@@ -620,12 +666,15 @@ describe("FlexPublicService", () => {
         const mockOrderbookOracle = (service as any).orderbookOracle;
         mockOrderbookOracle.getLatestPrice = vi
           .fn()
-          .mockResolvedValue([60000n * 10n ** 30n, BigInt(Math.floor(Date.now() / 1000))]);
+          .mockResolvedValue([
+            60000n * 10n ** 30n,
+            BigInt(Math.floor(Date.now() / 1000)),
+          ]);
 
         const result = await service.getAvailableMargin(
           testAccount,
           testSubAccountId,
-          5
+          5,
         );
 
         // $10,000 equity * 5x = $50,000 capacity
@@ -635,7 +684,7 @@ describe("FlexPublicService", () => {
 
       it("should return 0 when over-leveraged", async () => {
         const mockBalance = 10000n * 10n ** 30n;
-        
+
         const mockVaultStorage = (service as any).vaultStorage;
         mockVaultStorage.traderBalances = vi
           .fn()
@@ -659,7 +708,7 @@ describe("FlexPublicService", () => {
             }
             return Promise.resolve({ positionSizeE30: 0n });
           });
-        
+
         mockPerpStorage.getMarketByIndex = vi.fn().mockResolvedValue({
           fundingAccrued: 1000n * 10n ** 30n,
           borrowingRate: 5n * 10n ** 27n,
@@ -668,12 +717,15 @@ describe("FlexPublicService", () => {
         const mockOrderbookOracle = (service as any).orderbookOracle;
         mockOrderbookOracle.getLatestPrice = vi
           .fn()
-          .mockResolvedValue([60000n * 10n ** 30n, BigInt(Math.floor(Date.now() / 1000))]);
+          .mockResolvedValue([
+            60000n * 10n ** 30n,
+            BigInt(Math.floor(Date.now() / 1000)),
+          ]);
 
         const result = await service.getAvailableMargin(
           testAccount,
           testSubAccountId,
-          3 // Target 3x but already at 4x
+          3, // Target 3x but already at 4x
         );
 
         // Already over target leverage, so no available margin
@@ -697,7 +749,10 @@ describe("FlexPublicService", () => {
         .fn()
         .mockResolvedValue(mockOrders);
 
-      const result = await service.getPendingOrders(testAccount, testSubAccountId);
+      const result = await service.getPendingOrders(
+        testAccount,
+        testSubAccountId,
+      );
 
       expect(result).toHaveLength(2);
       expect(result[0].orderId).toBe(1n);
@@ -709,7 +764,10 @@ describe("FlexPublicService", () => {
         .fn()
         .mockRejectedValue(new Error("Method not found"));
 
-      const result = await service.getPendingOrders(testAccount, testSubAccountId);
+      const result = await service.getPendingOrders(
+        testAccount,
+        testSubAccountId,
+      );
 
       expect(result).toHaveLength(0);
     });

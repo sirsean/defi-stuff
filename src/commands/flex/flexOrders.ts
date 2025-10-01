@@ -22,7 +22,7 @@ export async function flexOrders(options: FlexOrdersOptions): Promise<void> {
   try {
     // Parse subaccount IDs
     let subAccountIds: number[] = [0]; // Default to subaccount 0
-    
+
     if (options.subs) {
       // Multiple subaccounts: --subs 0,1,2
       subAccountIds = options.subs.split(",").map((s) => {
@@ -82,7 +82,10 @@ export async function flexOrders(options: FlexOrdersOptions): Promise<void> {
     // Query each subaccount
     for (const subAccountId of subAccountIds) {
       try {
-        const orders = await publicService.getPendingOrders(address, subAccountId);
+        const orders = await publicService.getPendingOrders(
+          address,
+          subAccountId,
+        );
 
         if (orders.length === 0) {
           if (subAccountIds.length === 1) {
@@ -95,19 +98,27 @@ export async function flexOrders(options: FlexOrdersOptions): Promise<void> {
         let filteredOrders = orders;
         if (options.market) {
           const marketFilter = options.market.toUpperCase();
-          const market = Object.values(MARKETS).find(m => m.symbol === marketFilter);
+          const market = Object.values(MARKETS).find(
+            (m) => m.symbol === marketFilter,
+          );
           if (market) {
-            filteredOrders = orders.filter((o: any) => o.marketIndex === market.index);
+            filteredOrders = orders.filter(
+              (o: any) => o.marketIndex === market.index,
+            );
           }
-          
+
           if (filteredOrders.length === 0) {
-            console.log(`📁 Subaccount ${subAccountId}: No ${marketFilter} orders\n`);
+            console.log(
+              `📁 Subaccount ${subAccountId}: No ${marketFilter} orders\n`,
+            );
             continue;
           }
         }
 
         console.log(`${"=".repeat(80)}`);
-        console.log(`📁 Subaccount ${subAccountId} - ${filteredOrders.length} Order(s)`);
+        console.log(
+          `📁 Subaccount ${subAccountId} - ${filteredOrders.length} Order(s)`,
+        );
         console.log(`${"=".repeat(80)}\n`);
 
         // Display each order
@@ -115,7 +126,9 @@ export async function flexOrders(options: FlexOrdersOptions): Promise<void> {
           // Try to get market info
           let marketSymbol = "UNKNOWN";
           try {
-            const market = Object.values(MARKETS).find(m => m.index === order.marketIndex);
+            const market = Object.values(MARKETS).find(
+              (m) => m.index === order.marketIndex,
+            );
             if (market) {
               marketSymbol = market.symbol;
             }
@@ -126,34 +139,45 @@ export async function flexOrders(options: FlexOrdersOptions): Promise<void> {
           const direction = order.isLong ? "LONG 📈" : "SHORT 📉";
           const directionColor = order.isLong ? "🟢" : "🔴";
 
-          console.log(`${directionColor} Order #${order.orderId} - ${marketSymbol} ${direction}`);
+          console.log(
+            `${directionColor} Order #${order.orderId} - ${marketSymbol} ${direction}`,
+          );
           console.log(`${"─".repeat(80)}`);
           console.log(`  Order Type:          ${order.orderType || "LIMIT"}`);
           console.log(`  Size:                ${formatUsd(order.size)}`);
-          console.log(`  Trigger Price:       ${formatUsd(order.triggerPrice)}`);
-          
+          console.log(
+            `  Trigger Price:       ${formatUsd(order.triggerPrice)}`,
+          );
+
           if (order.acceptablePrice) {
-            console.log(`  Acceptable Price:    ${formatUsd(order.acceptablePrice)}`);
+            console.log(
+              `  Acceptable Price:    ${formatUsd(order.acceptablePrice)}`,
+            );
           }
-          
+
           if (order.reduceOnly) {
             console.log(`  Reduce Only:         ✅ Yes`);
           }
-          
+
           if (order.createdAt) {
             const createdDate = new Date(Number(order.createdAt) * 1000);
-            console.log(`  Created:             ${createdDate.toLocaleString()}`);
+            console.log(
+              `  Created:             ${createdDate.toLocaleString()}`,
+            );
           }
 
           console.log();
-          console.log(`  💡 To cancel: npm run dev -- flex:orders --sub ${subAccountId} --cancel ${order.orderId}`);
+          console.log(
+            `  💡 To cancel: npm run dev -- flex:orders --sub ${subAccountId} --cancel ${order.orderId}`,
+          );
           console.log("\n");
 
           totalOrders++;
         }
-
       } catch (error: any) {
-        console.error(`\n❌ Error fetching orders for subaccount ${subAccountId}:`);
+        console.error(
+          `\n❌ Error fetching orders for subaccount ${subAccountId}:`,
+        );
         console.error(`   ${error.message}\n`);
       }
     }
@@ -167,11 +191,12 @@ export async function flexOrders(options: FlexOrdersOptions): Promise<void> {
       console.log(`${"=".repeat(80)}`);
       console.log(`\n  Total Pending Orders: ${totalOrders}\n`);
     }
-
   } catch (error: any) {
     console.error(`\n❌ Error: ${error.message}`);
     if (error.message.includes("Wrong network")) {
-      console.error(`   Make sure you are connected to Base mainnet (chain ID 8453)`);
+      console.error(
+        `   Make sure you are connected to Base mainnet (chain ID 8453)`,
+      );
     }
     if (error.message.includes("user rejected")) {
       console.error(`   Transaction was rejected in wallet`);

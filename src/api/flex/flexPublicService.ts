@@ -75,42 +75,42 @@ export class FlexPublicService {
 
   constructor(provider?: ethers.Provider) {
     this.provider = provider || getProvider();
-    
+
     // Initialize contract instances
     this.perpStorage = new ethers.Contract(
       FLEX_ADDRESSES.PERP_STORAGE,
       PerpStorageABI,
-      this.provider
+      this.provider,
     );
-    
+
     this.configStorage = new ethers.Contract(
       FLEX_ADDRESSES.CONFIG_STORAGE,
       ConfigStorageABI,
-      this.provider
+      this.provider,
     );
-    
+
     this.vaultStorage = new ethers.Contract(
       FLEX_ADDRESSES.VAULT_STORAGE,
       VaultStorageABI,
-      this.provider
+      this.provider,
     );
-    
+
     this.calculator = new ethers.Contract(
       FLEX_ADDRESSES.CALCULATOR,
       CalculatorABI,
-      this.provider
+      this.provider,
     );
-    
+
     this.orderbookOracle = new ethers.Contract(
       FLEX_ADDRESSES.ORDERBOOK_ORACLE,
       OrderbookOracleABI,
-      this.provider
+      this.provider,
     );
-    
+
     this.limitTradeHandler = new ethers.Contract(
       FLEX_ADDRESSES.LIMIT_TRADE_HANDLER,
       LimitTradeHandlerABI,
-      this.provider
+      this.provider,
     );
   }
 
@@ -133,10 +133,8 @@ export class FlexPublicService {
   async getMarketPrice(marketIndex: number): Promise<MarketData> {
     await this.validateNetwork();
 
-    const market = Object.values(MARKETS).find(
-      (m) => m.index === marketIndex
-    );
-    
+    const market = Object.values(MARKETS).find((m) => m.index === marketIndex);
+
     if (!market) {
       throw new Error(`Market index ${marketIndex} not found`);
     }
@@ -147,7 +145,7 @@ export class FlexPublicService {
     // Get price from orderbook oracle
     const [priceE30, timestamp] = await this.orderbookOracle.getLatestPrice(
       assetId,
-      false // isMax - use false for mid price
+      false, // isMax - use false for mid price
     );
 
     const price = fromE30(priceE30);
@@ -169,20 +167,17 @@ export class FlexPublicService {
   async getMarketInfo(marketIndex: number) {
     await this.validateNetwork();
 
-    const market = Object.values(MARKETS).find(
-      (m) => m.index === marketIndex
-    );
-    
+    const market = Object.values(MARKETS).find((m) => m.index === marketIndex);
+
     if (!market) {
       throw new Error(`Market index ${marketIndex} not found`);
     }
 
     // Get market config from ConfigStorage
     try {
-      const marketConfig = await this.configStorage.getMarketConfigByIndex(
-        marketIndex
-      );
-      
+      const marketConfig =
+        await this.configStorage.getMarketConfigByIndex(marketIndex);
+
       if (!marketConfig) {
         throw new Error(`No market config found for market ${marketIndex}`);
       }
@@ -191,28 +186,31 @@ export class FlexPublicService {
       // - initialMarginFractionBPS: BPS for initial margin (e.g., 200 = 2% = 50x leverage)
       // - fundingRate.maxSkewScaleUSD: Max skew scale
       // - fundingRate.maxFundingRate: Max funding rate (e30)
-      
+
       const initialMarginBPS = Number(marketConfig.initialMarginFractionBPS);
-      const maxLeverage = initialMarginBPS > 0 ? Math.floor(10000 / initialMarginBPS) : 0;
+      const maxLeverage =
+        initialMarginBPS > 0 ? Math.floor(10000 / initialMarginBPS) : 0;
 
       // Note: maxFundingRate is in e18, not e30
       // maxSkewScaleUSD is in e30
-      const maxFundingRate = marketConfig.fundingRate ?
-        Number(marketConfig.fundingRate.maxFundingRate) / 1e18 : 0;
-      
+      const maxFundingRate = marketConfig.fundingRate
+        ? Number(marketConfig.fundingRate.maxFundingRate) / 1e18
+        : 0;
+
       return {
         marketIndex,
         symbol: market.symbol,
         assetId: market.assetId,
         maxLeverage,
-        maxSkewScale: marketConfig.fundingRate ? 
-          fromE30(marketConfig.fundingRate.maxSkewScaleUSD).toString() : "0",
+        maxSkewScale: marketConfig.fundingRate
+          ? fromE30(marketConfig.fundingRate.maxSkewScaleUSD).toString()
+          : "0",
         maxFundingRate,
         fundingRateFactor: 0, // Not directly available, would need calculation
       };
     } catch (error: any) {
       throw new Error(
-        `Failed to get market config for ${market.symbol} (index ${marketIndex}): ${error.message}`
+        `Failed to get market config for ${market.symbol} (index ${marketIndex}): ${error.message}`,
       );
     }
   }
@@ -223,10 +221,8 @@ export class FlexPublicService {
   async getFundingRate(marketIndex: number) {
     await this.validateNetwork();
 
-    const market = Object.values(MARKETS).find(
-      (m) => m.index === marketIndex
-    );
-    
+    const market = Object.values(MARKETS).find((m) => m.index === marketIndex);
+
     if (!market) {
       throw new Error(`Market index ${marketIndex} not found`);
     }
@@ -261,14 +257,12 @@ export class FlexPublicService {
   async getPosition(
     account: string,
     subAccountId: number,
-    marketIndex: number
+    marketIndex: number,
   ): Promise<PositionData | null> {
     await this.validateNetwork();
 
-    const market = Object.values(MARKETS).find(
-      (m) => m.index === marketIndex
-    );
-    
+    const market = Object.values(MARKETS).find((m) => m.index === marketIndex);
+
     if (!market) {
       throw new Error(`Market index ${marketIndex} not found`);
     }
@@ -279,7 +273,7 @@ export class FlexPublicService {
     // Get position from PerpStorage
     const positionData = await this.perpStorage.getPositionBySubAccount(
       subAccount,
-      marketIndex
+      marketIndex,
     );
 
     // Check if position exists (non-zero size)
@@ -289,7 +283,7 @@ export class FlexPublicService {
 
     // Get current market price for PnL calculation
     const marketData = await this.getMarketPrice(marketIndex);
-    
+
     // Get market state for funding
     const marketState = await this.perpStorage.getMarketByIndex(marketIndex);
 
@@ -304,8 +298,8 @@ export class FlexPublicService {
         isLong,
         positionData.positionSizeE30,
         positionData.avgEntryPriceE30,
-        marketData.priceE30
-      )
+        marketData.priceE30,
+      ),
     );
 
     // Calculate funding fee
@@ -313,8 +307,8 @@ export class FlexPublicService {
       calculateFundingFee(
         positionData.positionSizeE30,
         marketState.fundingAccrued,
-        positionData.lastFundingAccrued
-      )
+        positionData.lastFundingAccrued,
+      ),
     );
 
     // Calculate borrowing fee
@@ -322,8 +316,8 @@ export class FlexPublicService {
       calculateBorrowingFee(
         positionData.reserveValueE30,
         marketState.borrowingRate,
-        positionData.entryBorrowingRate
-      )
+        positionData.entryBorrowingRate,
+      ),
     );
 
     return {
@@ -349,7 +343,7 @@ export class FlexPublicService {
    */
   async getAllPositions(
     account: string,
-    subAccountIds: number[]
+    subAccountIds: number[],
   ): Promise<PositionData[]> {
     await this.validateNetwork();
 
@@ -361,9 +355,9 @@ export class FlexPublicService {
         const position = await this.getPosition(
           account,
           subAccountId,
-          market.index
+          market.index,
         );
-        
+
         if (position) {
           positions.push(position);
         }
@@ -382,7 +376,7 @@ export class FlexPublicService {
    */
   async getCollateral(
     account: string,
-    subAccountId: number
+    subAccountId: number,
   ): Promise<CollateralInfo> {
     try {
       await this.validateNetwork();
@@ -391,13 +385,13 @@ export class FlexPublicService {
 
       // Get USDC collateral from VaultStorage
       const usdcToken = TOKENS.USDC;
-      
+
       // Note: traderBalances expects address, address parameters
       // For now, use primary address as first parameter
       // TODO: Determine correct subaccount querying method from Flex docs
       const collateralE30 = await this.vaultStorage.traderBalances(
         account, // Use primary address instead of subaccount hash
-        usdcToken.address
+        usdcToken.address,
       );
 
       const balance = fromE30(collateralE30);
@@ -411,17 +405,16 @@ export class FlexPublicService {
         balanceE30: collateralE30,
       };
     } catch (error: any) {
-      throw new Error(`Failed to get collateral for subaccount ${subAccountId}: ${error.message}`);
+      throw new Error(
+        `Failed to get collateral for subaccount ${subAccountId}: ${error.message}`,
+      );
     }
   }
 
   /**
    * Get equity (collateral + unrealized PnL) for a subaccount
    */
-  async getEquity(
-    account: string,
-    subAccountId: number
-  ): Promise<EquityData> {
+  async getEquity(account: string, subAccountId: number): Promise<EquityData> {
     await this.validateNetwork();
 
     const subAccount = computeSubAccount(account, subAccountId);
@@ -435,7 +428,7 @@ export class FlexPublicService {
     // Calculate total unrealized PnL and fees from all positions
     let totalUnrealizedPnl = 0;
     let totalFees = 0;
-    
+
     for (const position of positions) {
       totalUnrealizedPnl += position.unrealizedPnl;
       totalFees += position.fundingFee + position.borrowingFee;
@@ -460,7 +453,7 @@ export class FlexPublicService {
    */
   async getLeverage(
     account: string,
-    subAccountId: number
+    subAccountId: number,
   ): Promise<LeverageInfo> {
     await this.validateNetwork();
 
@@ -490,16 +483,16 @@ export class FlexPublicService {
   async getAvailableMargin(
     account: string,
     subAccountId: number,
-    targetLeverage: number = 1
+    targetLeverage: number = 1,
   ): Promise<number> {
     await this.validateNetwork();
 
     const leverageInfo = await this.getLeverage(account, subAccountId);
-    
+
     // Available margin considering target leverage
     const availableForNewPositions =
-      (leverageInfo.equity * targetLeverage) - leverageInfo.totalPositionSize;
-    
+      leverageInfo.equity * targetLeverage - leverageInfo.totalPositionSize;
+
     return Math.max(0, availableForNewPositions);
   }
 
@@ -512,7 +505,7 @@ export class FlexPublicService {
    */
   async getPendingOrders(
     account: string,
-    subAccountId: number
+    subAccountId: number,
   ): Promise<any[]> {
     await this.validateNetwork();
 

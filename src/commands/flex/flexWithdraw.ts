@@ -16,7 +16,9 @@ interface FlexWithdrawOptions {
 /**
  * Withdraw USDC collateral from a Flex subaccount
  */
-export async function flexWithdraw(options: FlexWithdrawOptions): Promise<void> {
+export async function flexWithdraw(
+  options: FlexWithdrawOptions,
+): Promise<void> {
   try {
     // Validate required options
     if (!options.amount) {
@@ -56,7 +58,9 @@ export async function flexWithdraw(options: FlexWithdrawOptions): Promise<void> 
       console.log();
     } catch (error) {
       console.error(`❌ Error: Unable to fetch current balance`);
-      console.error(`   Make sure you have deposited collateral to subaccount ${subAccountId}`);
+      console.error(
+        `   Make sure you have deposited collateral to subaccount ${subAccountId}`,
+      );
       console.error();
       process.exit(1);
     }
@@ -73,26 +77,30 @@ export async function flexWithdraw(options: FlexWithdrawOptions): Promise<void> 
     // Check for open positions
     const equity = await publicService.getEquity(address, subAccountId);
     if (equity.positions.length > 0) {
-      console.log(`⚠️  Warning: You have ${equity.positions.length} open position(s)`);
+      console.log(
+        `⚠️  Warning: You have ${equity.positions.length} open position(s)`,
+      );
       console.log(`   Withdrawing may affect your margin and liquidation risk`);
       console.log();
-      
+
       const leverage = await publicService.getLeverage(address, subAccountId);
       console.log(`Current Leverage: ${leverage.leverage.toFixed(2)}x`);
-      
+
       // Calculate projected leverage after withdrawal
       const newEquity = equity.equity - amount;
       if (newEquity > 0) {
         const projectedLeverage = leverage.totalPositionSize / newEquity;
         console.log(`Projected Leverage: ${projectedLeverage.toFixed(2)}x`);
-        
+
         if (projectedLeverage > 15) {
           console.log(`   🔴 HIGH RISK: Projected leverage is very high!`);
         } else if (projectedLeverage > 10) {
           console.log(`   🟡 CAUTION: Projected leverage is elevated`);
         }
       } else {
-        console.log(`   🔴 CRITICAL: Withdrawal would exceed available equity!`);
+        console.log(
+          `   🔴 CRITICAL: Withdrawal would exceed available equity!`,
+        );
         console.log(`   Cannot withdraw more than free collateral`);
         console.error();
         process.exit(1);
@@ -121,7 +129,10 @@ export async function flexWithdraw(options: FlexWithdrawOptions): Promise<void> 
     // Execute withdrawal
     console.log(`⏳ Withdrawing USDC...\n`);
 
-    const result = await privateService.withdrawCollateral(subAccountId, amount);
+    const result = await privateService.withdrawCollateral(
+      subAccountId,
+      amount,
+    );
 
     console.log(`✅ Withdrawal successful!\n`);
     console.log(`Transaction Hash: ${result.transactionHash}`);
@@ -132,18 +143,24 @@ export async function flexWithdraw(options: FlexWithdrawOptions): Promise<void> 
 
     // Show updated balance
     try {
-      const updatedBalance = await publicService.getCollateral(address, subAccountId);
+      const updatedBalance = await publicService.getCollateral(
+        address,
+        subAccountId,
+      );
       console.log(`Updated Balance:`);
       console.log(`  USDC Balance: ${formatUsd(updatedBalance.balance)}`);
       console.log();
     } catch {
-      console.log(`✅ Withdrawal complete. Check balance with: npm run dev -- flex:balance --sub ${subAccountId}\n`);
+      console.log(
+        `✅ Withdrawal complete. Check balance with: npm run dev -- flex:balance --sub ${subAccountId}\n`,
+      );
     }
-
   } catch (error: any) {
     console.error(`\n❌ Error: ${error.message}`);
     if (error.message.includes("Wrong network")) {
-      console.error(`   Make sure you are connected to Base mainnet (chain ID 8453)`);
+      console.error(
+        `   Make sure you are connected to Base mainnet (chain ID 8453)`,
+      );
     }
     if (error.message.includes("user rejected")) {
       console.error(`   Transaction was rejected in wallet`);

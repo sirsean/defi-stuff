@@ -37,20 +37,20 @@ export interface MarketInfo {
   marketIndex: number;
   symbol: string;
   name: string;
-  
+
   // Current price
   price: number;
   priceE30: bigint;
-  
+
   // Leverage & margin
   maxLeverage: number;
   initialMarginFractionBps: number;
   maintenanceMarginFractionBps: number;
-  
+
   // Position sizes
   longPositionSize: number; // USD
   shortPositionSize: number; // USD
-  
+
   // Rates (annualized percentages)
   fundingRate: {
     hourly: number;
@@ -62,7 +62,7 @@ export interface MarketInfo {
     daily: number;
     yearly: number;
   };
-  
+
   // Fee rates (in basis points)
   feeRates: {
     increaseBps: number;
@@ -70,11 +70,11 @@ export interface MarketInfo {
     makerBps?: number;
     takerBps?: number;
   };
-  
+
   // Price impact parameters
   maxSkewScaleUsd: number;
   maxFundingRate: number;
-  
+
   // Status
   active: boolean;
   allowIncreasePosition: boolean;
@@ -104,37 +104,37 @@ export interface Position {
   subAccountId: number;
   marketIndex: number;
   symbol: string;
-  
+
   // Position details
   isLong: boolean;
   sizeUsd: number; // Human-readable USD size
   sizeE30: bigint; // On-chain size in e30
-  
+
   // Entry & current pricing
   avgEntryPrice: number;
   avgEntryPriceE30: bigint;
   currentPrice: number;
   currentPriceE30: bigint;
-  
+
   // PnL breakdown
   unrealizedPnlUsd: number;
   realizedPnlUsd: number;
   totalPnlUsd: number;
-  
+
   // Fees
   fundingFeeUsd: number;
   borrowingFeeUsd: number;
   totalFeesUsd: number;
-  
+
   // Risk metrics
   liquidationPrice: number;
   liquidationPriceE30: bigint;
   leverage: number;
   marginUsed: number; // USD
-  
+
   // Timestamps
   lastIncreaseTimestamp: number;
-  
+
   // Raw on-chain data
   raw: {
     reserveValueE30: bigint;
@@ -218,37 +218,37 @@ export interface Order {
   orderIndex: number;
   account: string;
   subAccountId: number;
-  
+
   // Market
   marketIndex: number;
   symbol: string;
-  
+
   // Order details
   orderType: OrderType;
   isLong: boolean;
   sizeUsd: number;
   sizeDeltaE30: bigint;
-  
+
   // Pricing
   triggerPrice: number;
   triggerPriceE30: bigint;
   acceptablePrice: number;
   acceptablePriceE30: bigint;
   triggerAboveThreshold: boolean;
-  
+
   // Flags
   reduceOnly: boolean;
-  
+
   // Status
   status: OrderStatus;
-  
+
   // Timestamps
   createdTimestamp: number;
   executedTimestamp?: number;
-  
+
   // Fees
   executionFee: bigint;
-  
+
   // Take profit token (optional)
   tpToken: string;
 }
@@ -262,12 +262,12 @@ export interface OrderParams {
   buy: boolean; // true = long, false = short
   sizeUsd: number;
   reduceOnly: boolean;
-  
+
   // Optional for limit/stop orders
   triggerPrice?: number;
   triggerAboveThreshold?: boolean;
   acceptablePrice?: number;
-  
+
   // Optional
   tpToken?: string;
 }
@@ -295,18 +295,18 @@ export interface Collateral {
   token: string; // Address
   symbol: string; // e.g., "USDC"
   decimals: number;
-  
+
   // Balances
   balance: bigint; // Raw on-chain balance
   balanceFloat: number; // Human-readable
-  
+
   // USD valuation
   usdValue: number;
-  
+
   // Collateral factor
   collateralFactorBps: number;
   valueWithFactor: number; // USD value after applying factor
-  
+
   // Status
   accepted: boolean;
 }
@@ -318,17 +318,17 @@ export interface Equity {
   // Total values
   equityUsd: number;
   collateralUsd: number;
-  
+
   // Position impact
   unrealizedPnlUsd: number;
-  
+
   // Fee debts
   tradingFeeDebt: number;
   borrowingFeeDebt: number;
   fundingFeeDebt: number;
   lossDebt: number;
   totalDebt: number;
-  
+
   // Available
   freeCollateralUsd: number;
   marginUsed: number;
@@ -340,11 +340,11 @@ export interface Equity {
 export interface FlexLeverage {
   actual: number; // Current leverage ratio
   maxAllowed: number; // Maximum allowed by protocol
-  
+
   // Margin fractions
   initial: number; // Initial margin requirement (e.g., 0.1 = 10x max)
   maintenance: number; // Maintenance margin requirement
-  
+
   // Buffer to liquidation
   liquidationBuffer: number; // Percentage above maintenance
 }
@@ -355,13 +355,13 @@ export interface FlexLeverage {
 export interface AccountSummary {
   account: string;
   subAccountId: number;
-  
+
   equity: Equity;
   leverage: FlexLeverage;
   collaterals: Collateral[];
   positions: Position[];
   activeOrders: Order[];
-  
+
   // Aggregates
   totalPositionSizeUsd: number;
   totalPnlUsd: number;
@@ -402,15 +402,15 @@ export interface PositionSizingResult {
 export interface LiquidationRisk {
   marketIndex: number;
   symbol: string;
-  
+
   currentPrice: number;
   liquidationPrice: number;
   liquidationDistance: number; // Percentage
-  
+
   maintenanceMarginRequired: number;
   currentMargin: number;
   marginBuffer: number; // Percentage above maintenance
-  
+
   riskLevel: "safe" | "warning" | "danger" | "critical";
 }
 
@@ -421,16 +421,16 @@ export interface OrderValidation {
   valid: boolean;
   errors: string[];
   warnings: string[];
-  
+
   // Pre-trade state
   currentEquity: number;
   currentLeverage: number;
-  
+
   // Post-trade projections
   projectedEquity: number;
   projectedLeverage: number;
   projectedMarginUsage: number;
-  
+
   // Limits
   maxLeverage: number;
   maxPositionSize: number;
@@ -487,14 +487,14 @@ export interface FeeBreakdown {
 export interface MarketStats {
   marketIndex: number;
   symbol: string;
-  
+
   volume24h: number;
   openInterest: number;
   longShortRatio: number;
-  
+
   fundingRate24h: number;
   borrowingRate24h: number;
-  
+
   priceChange24h: number;
   priceChange24hPercent: number;
 }
@@ -506,18 +506,18 @@ export interface SubAccountInfo {
   primaryAccount: string;
   subAccountId: number;
   subAccountAddress: string; // Computed address
-  
+
   // Balances
   collaterals: Collateral[];
   totalCollateralUsd: number;
-  
+
   // Positions
   positions: Position[];
   totalPositionSizeUsd: number;
-  
+
   // Orders
   activeOrders: Order[];
-  
+
   // Metrics
   equity: number;
   leverage: number;

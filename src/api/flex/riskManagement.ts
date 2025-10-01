@@ -55,10 +55,14 @@ export class RiskManager {
    * Risk per trade = equity * riskPercentage
    * Position size = risk / (entryPrice - stopLossPrice) * entryPrice
    */
-  calculatePositionSize(
-    params: PositionSizingParams
-  ): PositionSizingResult {
-    const { equity, riskPercentage, entryPrice, stopLossPrice, leverage = 1 } = params;
+  calculatePositionSize(params: PositionSizingParams): PositionSizingResult {
+    const {
+      equity,
+      riskPercentage,
+      entryPrice,
+      stopLossPrice,
+      leverage = 1,
+    } = params;
 
     if (equity <= 0) {
       throw new Error("Equity must be positive");
@@ -113,7 +117,7 @@ export class RiskManager {
     winRate: number,
     avgWin: number,
     avgLoss: number,
-    kellyFraction: number = 0.25
+    kellyFraction: number = 0.25,
   ): number {
     if (winRate < 0 || winRate > 1) {
       throw new Error("Win rate must be between 0 and 1");
@@ -123,7 +127,10 @@ export class RiskManager {
     const kellyPercent = (winRate * avgWin - lossRate * avgLoss) / avgWin;
 
     // Apply fractional Kelly for safety
-    const fractionalKelly = Math.max(0, Math.min(1, kellyPercent * kellyFraction));
+    const fractionalKelly = Math.max(
+      0,
+      Math.min(1, kellyPercent * kellyFraction),
+    );
 
     return equity * fractionalKelly;
   }
@@ -135,7 +142,7 @@ export class RiskManager {
   calculateVolatilityAdjustedSize(
     basePositionSize: number,
     currentVolatility: number,
-    targetVolatility: number
+    targetVolatility: number,
   ): number {
     if (currentVolatility <= 0 || targetVolatility <= 0) {
       throw new Error("Volatility must be positive");
@@ -156,7 +163,7 @@ export class RiskManager {
   validateLeverage(
     positionSizeUsd: number,
     availableMargin: number,
-    marketIndex: number
+    marketIndex: number,
   ): {
     valid: boolean;
     leverage: number;
@@ -180,13 +187,13 @@ export class RiskManager {
 
     if (leverage > maxLeverage) {
       errors.push(
-        `Leverage ${leverage.toFixed(2)}x exceeds maximum ${maxLeverage}x for this market`
+        `Leverage ${leverage.toFixed(2)}x exceeds maximum ${maxLeverage}x for this market`,
       );
     }
 
     if (leverage > DEFAULT_RISK_PARAMS.maxPortfolioLeverage) {
       errors.push(
-        `Leverage ${leverage.toFixed(2)}x exceeds portfolio maximum ${DEFAULT_RISK_PARAMS.maxPortfolioLeverage}x`
+        `Leverage ${leverage.toFixed(2)}x exceeds portfolio maximum ${DEFAULT_RISK_PARAMS.maxPortfolioLeverage}x`,
       );
     }
 
@@ -205,7 +212,7 @@ export class RiskManager {
     // In production, this would query the market config
     // For now, return conservative defaults based on asset type
     const market = Object.values(MARKETS).find((m) => m.index === marketIndex);
-    
+
     if (!market) {
       return DEFAULT_RISK_PARAMS.maxLeveragePerMarket;
     }
@@ -229,7 +236,7 @@ export class RiskManager {
    */
   async calculatePortfolioLeverage(
     account: string,
-    subAccountIds: number[]
+    subAccountIds: number[],
   ): Promise<{
     totalPositionSize: number;
     totalEquity: number;
@@ -266,7 +273,7 @@ export class RiskManager {
   assessLiquidationRisk(
     position: PositionData,
     currentPrice: number,
-    maintenanceMarginPercent: number = DEFAULT_RISK_PARAMS.maintenanceMarginPercent
+    maintenanceMarginPercent: number = DEFAULT_RISK_PARAMS.maintenanceMarginPercent,
   ): LiquidationRisk {
     const { isLong, avgEntryPrice, size } = position;
 
@@ -276,7 +283,7 @@ export class RiskManager {
       isLong,
       avgEntryPrice,
       leverage,
-      maintenanceMarginPercent / 100
+      maintenanceMarginPercent / 100,
     );
 
     // Calculate distance to liquidation
@@ -286,11 +293,13 @@ export class RiskManager {
 
     // Calculate maintenance margin required
     const maintenanceMarginRequired = size * (maintenanceMarginPercent / 100);
-    
+
     // Estimate current margin (would need actual equity data)
     const currentMargin = size / leverage;
     const marginBuffer =
-      ((currentMargin - maintenanceMarginRequired) / maintenanceMarginRequired) * 100;
+      ((currentMargin - maintenanceMarginRequired) /
+        maintenanceMarginRequired) *
+      100;
 
     // Determine risk level
     let riskLevel: "safe" | "warning" | "danger" | "critical";
@@ -322,7 +331,7 @@ export class RiskManager {
    */
   async monitorLiquidationRisk(
     account: string,
-    subAccountIds: number[]
+    subAccountIds: number[],
   ): Promise<LiquidationRisk[]> {
     const risks: LiquidationRisk[] = [];
 
@@ -332,7 +341,7 @@ export class RiskManager {
       for (const position of equity.positions) {
         const risk = this.assessLiquidationRisk(
           position,
-          position.currentPrice
+          position.currentPrice,
         );
         risks.push(risk);
       }
@@ -357,14 +366,17 @@ export class RiskManager {
     subAccountId: number,
     marketIndex: number,
     sizeDelta: number,
-    currentPrice: number
+    currentPrice: number,
   ): Promise<OrderValidation> {
     const errors: string[] = [];
     const warnings: string[] = [];
 
     // Get current equity and positions
     const equity = await this.publicService.getEquity(account, subAccountId);
-    const leverageInfo = await this.publicService.getLeverage(account, subAccountId);
+    const leverageInfo = await this.publicService.getLeverage(
+      account,
+      subAccountId,
+    );
 
     const currentEquity = equity.equity;
     const currentLeverage = leverageInfo.leverage;
@@ -372,7 +384,13 @@ export class RiskManager {
     // Check if equity is sufficient
     if (currentEquity <= 0) {
       errors.push("Insufficient equity");
-      return this.createValidationResult(false, errors, warnings, currentEquity, currentLeverage);
+      return this.createValidationResult(
+        false,
+        errors,
+        warnings,
+        currentEquity,
+        currentLeverage,
+      );
     }
 
     // Calculate post-trade state
@@ -387,51 +405,51 @@ export class RiskManager {
     // Validate leverage
     if (projectedLeverage > maxLeverage) {
       errors.push(
-        `Projected leverage ${projectedLeverage.toFixed(2)}x exceeds market maximum ${maxLeverage}x`
+        `Projected leverage ${projectedLeverage.toFixed(2)}x exceeds market maximum ${maxLeverage}x`,
       );
     }
 
     if (projectedLeverage > DEFAULT_RISK_PARAMS.maxPortfolioLeverage) {
       errors.push(
-        `Projected leverage ${projectedLeverage.toFixed(2)}x exceeds portfolio maximum ${DEFAULT_RISK_PARAMS.maxPortfolioLeverage}x`
+        `Projected leverage ${projectedLeverage.toFixed(2)}x exceeds portfolio maximum ${DEFAULT_RISK_PARAMS.maxPortfolioLeverage}x`,
       );
     }
 
     // Warning for high leverage
     if (projectedLeverage > maxLeverage * 0.8) {
       warnings.push(
-        `Projected leverage ${projectedLeverage.toFixed(2)}x is high (${((projectedLeverage / maxLeverage) * 100).toFixed(0)}% of maximum)`
+        `Projected leverage ${projectedLeverage.toFixed(2)}x is high (${((projectedLeverage / maxLeverage) * 100).toFixed(0)}% of maximum)`,
       );
     }
 
     // Check position count limits
     if (equity.positions.length >= DEFAULT_RISK_PARAMS.maxTotalPositions) {
       errors.push(
-        `Maximum position count (${DEFAULT_RISK_PARAMS.maxTotalPositions}) reached`
+        `Maximum position count (${DEFAULT_RISK_PARAMS.maxTotalPositions}) reached`,
       );
     }
 
     // Check if adding to existing position
     const existingPosition = equity.positions.find(
-      (p) => p.marketIndex === marketIndex
+      (p) => p.marketIndex === marketIndex,
     );
-    
+
     if (existingPosition && sizeDelta > 0 === existingPosition.isLong) {
       warnings.push(
-        `Adding to existing ${existingPosition.isLong ? "long" : "short"} position of $${existingPosition.size.toFixed(2)}`
+        `Adding to existing ${existingPosition.isLong ? "long" : "short"} position of $${existingPosition.size.toFixed(2)}`,
       );
     }
 
     // Calculate available margin
     const availableMargin = Math.max(
       0,
-      currentEquity * maxLeverage - leverageInfo.totalPositionSize
+      currentEquity * maxLeverage - leverageInfo.totalPositionSize,
     );
 
     // Check if order size exceeds available margin
     if (orderSizeUsd > availableMargin) {
       errors.push(
-        `Order size $${orderSizeUsd.toFixed(2)} exceeds available margin $${availableMargin.toFixed(2)}`
+        `Order size $${orderSizeUsd.toFixed(2)} exceeds available margin $${availableMargin.toFixed(2)}`,
       );
     }
 
@@ -458,7 +476,7 @@ export class RiskManager {
     errors: string[],
     warnings: string[],
     currentEquity: number,
-    currentLeverage: number
+    currentLeverage: number,
   ): OrderValidation {
     return {
       valid,
@@ -484,7 +502,7 @@ export class RiskManager {
    */
   async calculatePortfolioRisk(
     account: string,
-    subAccountIds: number[]
+    subAccountIds: number[],
   ): Promise<{
     totalEquity: number;
     totalPositions: number;
@@ -507,18 +525,22 @@ export class RiskManager {
       for (const position of equity.positions) {
         totalPositionSize += position.size;
         largestPosition = Math.max(largestPosition, position.size);
-        marketExposure[position.symbol] = (marketExposure[position.symbol] || 0) + position.size;
+        marketExposure[position.symbol] =
+          (marketExposure[position.symbol] || 0) + position.size;
         positionCount++;
       }
     }
 
-    const portfolioLeverage = totalEquity > 0 ? totalPositionSize / totalEquity : 0;
-    const largestPositionPercent = totalEquity > 0 ? (largestPosition / totalEquity) * 100 : 0;
+    const portfolioLeverage =
+      totalEquity > 0 ? totalPositionSize / totalEquity : 0;
+    const largestPositionPercent =
+      totalEquity > 0 ? (largestPosition / totalEquity) * 100 : 0;
 
     // Calculate market concentration (percentage of portfolio per market)
     const marketConcentration: Record<string, number> = {};
     for (const [market, exposure] of Object.entries(marketExposure)) {
-      marketConcentration[market] = totalEquity > 0 ? (exposure / totalEquity) * 100 : 0;
+      marketConcentration[market] =
+        totalEquity > 0 ? (exposure / totalEquity) * 100 : 0;
     }
 
     // Calculate risk score (0-100)

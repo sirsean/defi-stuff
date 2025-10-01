@@ -24,16 +24,16 @@ export const FLEX_ADDRESSES = {
   CONFIG_STORAGE: "0x1b92F5C0787bde0d2Aa21110f8f2a77595523598",
   CALCULATOR: "0x651e03A1A9D1657C870Ee22165C331bebAeAEd97",
   TRADE_HELPER: "0x92E4a331F76042f3e449002cF6960111C2f04815",
-  
+
   // Oracle & Pricing
   ONCHAIN_PRICELENS: "0x061B43dbB9B4D189Cd0Ed142e2E808a2459DB947",
   CALC_PRICELENS: "0x48b4cCD3f7ecAffFFb111b75483543E640D9F2C9",
   ORDERBOOK_ORACLE: "0x7c714c52B162Fb678B9930CD2Bc67e4B04CbcB96",
   ADAPTIVE_FEE_CALCULATOR: "0xc1875dcDf4b1fcCD82553315625836c4e8000CAf",
-  
+
   // Utilities
   MULTICALL: "0xcA11bde05977b3631167028862bE2a173976CA11",
-  
+
   // Intent Handler (for future intent-based orders)
   INTENT_HANDLER: "0x48b4cCD3f7ecAffFFb111b75483543E640D9F2C9",
 } as const;
@@ -230,13 +230,13 @@ export const MARKETS: Record<string, MarketConfig> = {
  * Reverse lookup: market index to symbol
  */
 export const MARKET_INDEX_TO_SYMBOL: Record<number, string> = Object.entries(
-  MARKETS
+  MARKETS,
 ).reduce(
   (acc, [symbol, config]) => {
     acc[config.index] = symbol;
     return acc;
   },
-  {} as Record<number, string>
+  {} as Record<number, string>,
 );
 
 // ============================================================================
@@ -249,33 +249,34 @@ export const FLEX_CONSTANTS = {
   E18: 10n ** 18n, // ETH/token precision
   E8: 10n ** 8n, // Some fee calculations
   E6: 10n ** 6n, // USDC precision
-  
+
   // Limits
   MAX_UINT256: 2n ** 256n - 1n,
   MAX_UINT: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffn,
   ZERO: 0n,
   ONE: 1n,
-  
+
   // Fees (in wei, ~0.0001 ETH typical)
   // TODO: Verify actual execution fee from protocol docs
   EXECUTION_FEE: 100000000000000n, // 0.0001 ETH in wei
-  
+
   // Basis Points
   BPS: 10000n, // 100% = 10000 bps
-  
+
   // Time Constants (seconds)
   SECONDS_PER_HOUR: 3600,
   SECONDS_PER_DAY: 86400,
   SECONDS_PER_YEAR: 31536000,
-  
+
   // Subaccount Limits
   MAX_SUBACCOUNTS: 256,
   MIN_SUBACCOUNT_ID: 0,
   MAX_SUBACCOUNT_ID: 255,
-  
+
   // Address Constants
   ADDRESS_ZERO: "0x0000000000000000000000000000000000000000",
-  BYTE_ZERO: "0x0000000000000000000000000000000000000000000000000000000000000000",
+  BYTE_ZERO:
+    "0x0000000000000000000000000000000000000000000000000000000000000000",
 } as const;
 
 // ============================================================================
