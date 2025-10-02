@@ -215,6 +215,7 @@ node dist/index.js user-protocol aave --json
   - Options:
     - `--ignoreProxy`: Skip proxy implementation detection
     - `-c, --chain <chain>`: Blockchain to use (ethereum, base)
+    - `-o, --output <filename>`: Write ABI JSON to file instead of stdout
   - Note: Requires `ETHERSCAN_API_KEY` in `.env` (Etherscan v2 uses a single API key with chainid to access multiple chains)
 
 ```bash
@@ -227,7 +228,10 @@ node dist/index.js abi 0x1234567890abcdef1234567890abcdef12345678 --chain base
 # Fetch ABI for a contract without proxy resolution
 node dist/index.js abi 0x1234567890abcdef1234567890abcdef12345678 --ignoreProxy
 
-# Save ABI to a file
+# Save ABI to a file (using --output option)
+node dist/index.js abi 0x1234567890abcdef1234567890abcdef12345678 --output contract-abi.json
+
+# Save ABI to a file (using shell redirection)
 node dist/index.js abi 0x1234567890abcdef1234567890abcdef12345678 > contract-abi.json
 ```
 

@@ -4,10 +4,13 @@ import {
   BlockchainExplorer,
   EXPLORER_CONFIGS,
 } from "../types/etherscan.js";
+import { writeFile } from "fs/promises";
+import path from "path";
 
 interface AbiCommandOptions {
   ignoreProxy?: boolean;
   chain?: string;
+  output?: string;
 }
 
 /**
@@ -55,17 +58,18 @@ export async function abi(
       chain,
     };
 
-    // Prepare message with blockchain and proxy info
-    const explorerName = abiService.getExplorerName();
-    let detectionMsg = options.ignoreProxy
-      ? "ignoring proxy"
-      : "with proxy detection";
-
     // Get the ABI JSON
     const abiJson = await abiService.getContractAbiJson(abiOptions);
 
-    // Print the raw JSON to stdout (to be redirected to a file if needed)
-    console.log(abiJson);
+    if (options.output) {
+      // Write to file
+      const outputPath = path.resolve(options.output);
+      await writeFile(outputPath, abiJson, "utf-8");
+      console.log(`ABI written to: ${outputPath}`);
+    } else {
+      // Print to stdout (current behavior)
+      console.log(abiJson);
+    }
   } catch (error) {
     console.error("Error fetching contract ABI:", error);
     process.exit(1);

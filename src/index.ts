@@ -63,6 +63,7 @@ program
   .description("Fetch ABI for a contract address")
   .option("--ignoreProxy", "Skip proxy implementation detection")
   .option("-c, --chain <chain>", "Blockchain to use (ethereum, base)")
+  .option("-o, --output <filename>", "Write ABI JSON to file instead of stdout")
   .action(abi);
 
 program
