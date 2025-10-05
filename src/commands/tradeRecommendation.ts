@@ -214,23 +214,6 @@ export async function tradeRecommendation(
       console.log("");
     }
 
-    // Footer disclaimer
-    console.log("");
-    console.log("⚠️  DISCLAIMER");
-    console.log("─".repeat(80));
-    console.log("");
-    console.log(
-      "  This is AI-generated analysis based on current market data and should",
-    );
-    console.log(
-      "  NOT be considered financial advice. Always do your own research and",
-    );
-    console.log(
-      "  never risk more than you can afford to lose. Past performance does",
-    );
-    console.log("  not guarantee future results.");
-    console.log("");
-
     // Fetch market context once if needed for Discord or DB
     let marketContext = null;
     let recommendationsWithPrices: Array<{

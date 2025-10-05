@@ -276,10 +276,6 @@ describe("tradeRecommendation command", () => {
       expect(output).toContain("Risk Factors:");
       expect(output).toContain("Funding rate costs");
       expect(output).toContain("Economic indicators can shift rapidly");
-
-      // Check disclaimer
-      expect(output).toContain("DISCLAIMER");
-      expect(output).toContain("NOT be considered financial advice");
     });
 
     it("should generate and display bearish recommendations", async () => {
