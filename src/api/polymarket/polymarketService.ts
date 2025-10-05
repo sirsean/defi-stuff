@@ -217,10 +217,20 @@ export class PolymarketService {
       targetDate = this.findNearestFutureDate(today, availableActiveDates);
     }
 
-    // Find closest date to target
+    // Find closest date to target, preferring active markets
     let actualDate = targetDate;
-    if (!uniqueDates.has(targetDate)) {
-      // Find closest date
+    
+    // If target date exists but has no active markets, use nearest active date
+    if (uniqueDates.has(targetDate) && !activeDates.has(targetDate)) {
+      console.warn(
+        `⚠️  Markets for ${targetDate} are closed. Finding nearest active market date...`,
+      );
+      actualDate = this.findNearestFutureDate(targetDate, availableActiveDates);
+      console.warn(
+        `⚠️  Using active market date: ${actualDate}`,
+      );
+    } else if (!uniqueDates.has(targetDate)) {
+      // Target date doesn't exist at all, find closest
       actualDate = this.findClosestDate(targetDate, availableDates);
       console.warn(
         `⚠️  No markets found for ${targetDate}, using closest available date: ${actualDate}`,
@@ -229,6 +239,13 @@ export class PolymarketService {
 
     // Filter for markets matching actual date and parse thresholds
     const thresholds: BTCPriceThreshold[] = [];
+    let debugStats = {
+      totalForDate: 0,
+      closedMarkets: 0,
+      noPrice: 0,
+      eventMarkets: 0,
+      invalidProbability: 0,
+    };
 
     for (const market of btcMarkets) {
       // Try to get endDate from market, or extract from question
@@ -247,14 +264,26 @@ export class PolymarketService {
       const marketDate = endDate.split("T")[0]; // Extract YYYY-MM-DD
       if (marketDate !== actualDate) continue;
 
+      debugStats.totalForDate++;
+
       // Skip closed markets (already resolved)
-      if (market.closed) continue;
+      if (market.closed) {
+        debugStats.closedMarkets++;
+        continue;
+      }
 
       const price = extractPriceFromQuestion(market.question);
       const category = categorizeMarket(market.question);
 
       // Skip event markets or markets without parseable prices
-      if (category === "event" || price === null) continue;
+      if (category === "event") {
+        debugStats.eventMarkets++;
+        continue;
+      }
+      if (price === null) {
+        debugStats.noPrice++;
+        continue;
+      }
 
       const direction = category === "ceiling" ? "above" : "below";
       const probability = market.lastTradePrice;
@@ -267,6 +296,7 @@ export class PolymarketService {
         probability === undefined ||
         isNaN(probability)
       ) {
+        debugStats.invalidProbability++;
         continue;
       }
 
@@ -334,11 +364,42 @@ export class PolymarketService {
     }
 
     if (finalThresholds.length === 0) {
-      const datesStr =
-        availableDates.length > 0 ? availableDates.join(", ") : "none";
-      throw new Error(
-        `No BTC price markets found for target date ${targetDate}. Available dates: ${datesStr}`,
+      // No valid markets for this date, try to fall back to next available date
+      console.warn(
+        `⚠️  No valid BTC price markets found for ${actualDate}. ` +
+          `Found ${debugStats.totalForDate} markets but they were filtered out.`,
       );
+      
+      // Try to find next valid date
+      const remainingDates = availableActiveDates.filter(d => d > actualDate);
+      
+      if (remainingDates.length > 0) {
+        console.warn(
+          `⚠️  Attempting to use next available date: ${remainingDates[0]}`,
+        );
+        // Recursively call with the next date
+        return this.analyzeBTCPrice(remainingDates[0]);
+      }
+      
+      // No fallback available, throw detailed error
+      const activeDatesStr =
+        availableActiveDates.length > 0
+          ? availableActiveDates.join(", ")
+          : "none";
+      const allDatesStr =
+        availableDates.length > 0 ? availableDates.join(", ") : "none";
+      
+      let errorMsg = `No valid BTC price markets found for target date ${actualDate}.\n`;
+      errorMsg += `Found ${debugStats.totalForDate} total markets for this date, but:\n`;
+      errorMsg += `  - ${debugStats.closedMarkets} were closed\n`;
+      errorMsg += `  - ${debugStats.eventMarkets} were event markets (not price predictions)\n`;
+      errorMsg += `  - ${debugStats.noPrice} had no parseable price\n`;
+      errorMsg += `  - ${debugStats.invalidProbability} had invalid probability data\n`;
+      errorMsg += `Active market dates: ${activeDatesStr}\n`;
+      errorMsg += `All dates (including closed): ${allDatesStr}\n`;
+      errorMsg += `Tried all available dates but none had valid markets.`;
+      
+      throw new Error(errorMsg);
     }
 
     // Build probability distribution from thresholds
