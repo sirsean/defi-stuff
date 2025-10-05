@@ -136,7 +136,7 @@ describe("btcPrediction command", () => {
     const errLogged = (ConsoleMock.error as any).mock.calls.flat().join("\n");
     // With no BTC markets, should get an error about no markets
     expect(errLogged).toMatch(
-      /No BTC price markets found|Available dates: none/i,
+      /No valid BTC price markets found|Available dates: none/i,
     );
     expect(ConsoleMock.exit).toHaveBeenCalledWith(1);
   });
