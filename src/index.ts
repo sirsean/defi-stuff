@@ -307,6 +307,7 @@ program
   )
   .option("-j, --json", "Output raw JSON data")
   .option("--db", "Persist generated trade recommendations to the database")
+  .option("--discord", "Send recommendations to Discord channel")
   .action(tradeRecommendation);
 
 // If no arguments, show help and exit successfully

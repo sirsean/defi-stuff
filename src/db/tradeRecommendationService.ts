@@ -291,4 +291,33 @@ export class TradeRecommendationService {
       throw error;
     }
   }
+
+  /**
+   * Get the most recent recommendation for a specific market
+   * @param market The market symbol (e.g., "BTC", "ETH")
+   * @returns The most recent recommendation or null if none exists
+   */
+  async getLatestRecommendationForMarket(
+    market: string,
+  ): Promise<TradeRecommendationRecord | null> {
+    try {
+      // Make sure DB is initialized
+      if (!this.db) {
+        await this.initDatabase("development");
+      }
+
+      const result = await this.db(this.tableName)
+        .where({ market: market })
+        .orderBy("timestamp", "desc")
+        .first();
+
+      return result ? this.fromDbRecord(result) : null;
+    } catch (error) {
+      console.error(
+        "Error getting latest recommendation for market:",
+        error,
+      );
+      throw error;
+    }
+  }
 }

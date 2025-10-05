@@ -2,6 +2,8 @@ import { tradeRecommendationAgent } from "../api/trading/tradeRecommendationAgen
 import type { TradeRecommendation } from "../types/tradeRecommendation.js";
 import { TradeRecommendationService } from "../db/tradeRecommendationService.js";
 import { KnexConnector } from "../db/knexConnector.js";
+import { tradeRecommendationDiscordFormatter } from "../api/discord/tradeRecommendationFormatter.js";
+import { discordService } from "../api/discord/discordService.js";
 
 interface TradeRecommendationOptions {
   markets?: string;
@@ -9,6 +11,7 @@ interface TradeRecommendationOptions {
   subs?: string;
   json?: boolean;
   db?: boolean;
+  discord?: boolean;
 }
 
 /**
@@ -228,31 +231,45 @@ export async function tradeRecommendation(
     console.log("  not guarantee future results.");
     console.log("");
 
-    // Persist to database if --db flag is provided
-    if (opts.db) {
+    // Fetch market context once if needed for Discord or DB
+    let marketContext = null;
+    let recommendationsWithPrices: Array<{
+      recommendation: TradeRecommendation;
+      currentPrice: number;
+    }> = [];
+
+    if (opts.discord || opts.db) {
+      try {
+        marketContext = await tradeRecommendationAgent.gatherMarketContext(
+          markets,
+          walletAddress,
+          subAccountIds,
+        );
+
+        recommendationsWithPrices = analysis.recommendations.map((rec) => {
+          const marketData = marketContext!.markets.find(
+            (m: any) => m.symbol === rec.market,
+          );
+          return {
+            recommendation: rec,
+            currentPrice: marketData?.price || 0,
+          };
+        });
+      } catch (contextError: any) {
+        console.error(
+          `\n⚠️ Failed to fetch market context: ${contextError?.message ?? "Unknown error"}`,
+        );
+        console.error(
+          "Discord and database operations will be skipped.\n",
+        );
+      }
+    }
+
+    // Persist to database first if --db flag is provided
+    // This must happen before Discord check so we can compare with previous recommendations
+    if (opts.db && recommendationsWithPrices.length > 0) {
       try {
         const tradeRecommendationService = new TradeRecommendationService();
-
-        // Build array of recommendations with their current prices
-        // Get prices from the market context that was used to generate recommendations
-        const marketContext =
-          await tradeRecommendationAgent.gatherMarketContext(
-            markets,
-            walletAddress,
-            subAccountIds,
-          );
-
-        const recommendationsWithPrices = analysis.recommendations.map(
-          (rec) => {
-            const marketData = marketContext.markets.find(
-              (m) => m.symbol === rec.market,
-            );
-            return {
-              recommendation: rec,
-              currentPrice: marketData?.price || 0,
-            };
-          },
-        );
 
         // Save to database
         const savedRecords =
@@ -261,19 +278,97 @@ export async function tradeRecommendation(
           );
 
         console.log(
-          `\n✅ Saved ${savedRecords.length} trade recommendation(s) to database`,
+          `✅ Saved ${savedRecords.length} trade recommendation(s) to database\n`,
         );
 
         // Close database connection
         await tradeRecommendationService.close();
       } catch (dbError: any) {
         console.error(
-          `\n❌ Failed to save recommendations to database: ${dbError?.message ?? "Unknown error"}`,
+          `❌ Failed to save recommendations to database: ${dbError?.message ?? "Unknown error"}\n`,
         );
         // Don't exit - database error shouldn't prevent showing recommendations
       } finally {
         // Ensure Knex connection is cleaned up
         await KnexConnector.destroy();
+      }
+    }
+
+    // Send to Discord if --discord flag is provided
+    if (opts.discord && recommendationsWithPrices.length > 0) {
+      try {
+        // If both --db and --discord are active, filter for changed recommendations
+        let recommendationsToSend = recommendationsWithPrices;
+        
+        if (opts.db) {
+          const tradeRecommendationService = new TradeRecommendationService();
+          const changedRecommendations = [];
+          
+          console.log("🔍 Checking for recommendation changes...");
+          
+          for (const recWithPrice of recommendationsWithPrices) {
+            const market = recWithPrice.recommendation.market;
+            const newAction = recWithPrice.recommendation.action;
+            
+            // Get the most recent previous recommendation for this market
+            // Skip the most recent one (which we just saved) by getting 2 records
+            const recentRecs = await tradeRecommendationService.getRecommendationsByMarket(market, 2);
+            
+            // If there's a previous recommendation (index 1), compare actions
+            if (recentRecs.length > 1) {
+              const previousAction = recentRecs[1].action;
+              
+              if (previousAction !== newAction) {
+                console.log(
+                  `  • ${market}: ${previousAction.toUpperCase()} → ${newAction.toUpperCase()} (changed)`,
+                );
+                changedRecommendations.push(recWithPrice);
+              } else {
+                console.log(
+                  `  • ${market}: ${newAction.toUpperCase()} (unchanged, skipping Discord)`,
+                );
+              }
+            } else {
+              // First recommendation for this market, always send
+              console.log(
+                `  • ${market}: ${newAction.toUpperCase()} (first recommendation)`,
+              );
+              changedRecommendations.push(recWithPrice);
+            }
+          }
+          
+          await tradeRecommendationService.close();
+          recommendationsToSend = changedRecommendations;
+        }
+        
+        if (recommendationsToSend.length > 0) {
+          console.log("📤 Sending recommendations to Discord...");
+
+          await tradeRecommendationDiscordFormatter.sendRecommendations(
+            recommendationsToSend,
+          );
+
+          console.log(
+            `✅ Sent ${recommendationsToSend.length} recommendation(s) to Discord\n`,
+          );
+        } else {
+          console.log(
+            "ℹ️ No recommendation changes detected, skipping Discord notification\n",
+          );
+        }
+
+        // Cleanup Discord connection
+        await discordService.shutdown();
+      } catch (discordError: any) {
+        console.error(
+          `❌ Failed to send to Discord: ${discordError?.message ?? "Unknown error"}`,
+        );
+        if (discordError?.message?.includes("DISCORD")) {
+          console.error(
+            "💡 Hint: Make sure DISCORD_APP_TOKEN and DISCORD_CHANNEL_ID are set in your .env file\n",
+          );
+        }
+        // Don't exit - Discord error shouldn't prevent other functionality
       }
     }
   } catch (error: any) {
