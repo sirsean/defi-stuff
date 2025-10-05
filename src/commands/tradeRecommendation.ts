@@ -104,9 +104,10 @@ function formatRecommendation(rec: TradeRecommendation): string[] {
 
   // Timeframe
   const timeframeMap: Record<string, string> = {
-    short: "Short-term (1-3 days)",
-    medium: "Medium-term (3-7 days)",
-    long: "Long-term (7-14 days)",
+    intraday: "Intraday (today)",
+    short: "Short-term (1 day)",
+    medium: "Short-term (1 day)", // Backward compatibility
+    long: "Long-term",
   };
   lines.push(`  Timeframe: ${timeframeMap[rec.timeframe] || rec.timeframe}`);
   lines.push("");

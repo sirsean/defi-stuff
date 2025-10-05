@@ -54,7 +54,15 @@ export class TradeRecommendationAgent {
     try {
       polymarketPrediction = await this.polymarket.analyzeBTCPrice();
     } catch (error) {
-      console.warn("Polymarket data unavailable:", error);
+      console.warn("Polymarket BTC prediction unavailable:", error);
+    }
+
+    // Fetch economic indicators (optional - don't fail if unavailable)
+    let economicIndicators = null;
+    try {
+      economicIndicators = await this.polymarket.analyzeEconomicIndicators();
+    } catch (error) {
+      console.warn("Economic indicators unavailable:", error);
     }
 
     // Fetch market-specific data (price, funding, OI)
@@ -94,6 +102,7 @@ export class TradeRecommendationAgent {
     return {
       fear_greed: fearGreedAnalysis,
       polymarket_prediction: polymarketPrediction,
+      economic_indicators: economicIndicators,
       markets: marketsData,
       open_positions: openPositions,
       portfolio_value_usd: portfolioValue,
@@ -106,13 +115,14 @@ export class TradeRecommendationAgent {
    * Defines the agent's role, trading philosophy, and analysis framework
    */
   private buildSystemPrompt(): string {
-    return `You are an expert cryptocurrency derivatives trader specializing in mid-frequency perpetual futures trading on decentralized protocols. Your analysis focuses on positions held 3-10 days, targeting clear directional moves in BTC and ETH perpetuals.
+    return `You are an expert cryptocurrency derivatives trader specializing in intraday to short-term perpetual futures trading on decentralized protocols. Your analysis focuses on positions to be executed TODAY (intraday to 1-day holds), targeting clear directional moves in BTC and ETH perpetuals.
 
 TRADING PHILOSOPHY:
-- Time Horizon: Mid-frequency (3-10 day holds), not day-trading or long-term investing
+- Time Horizon: Intraday to 1-day positions (execute today), responsive to current market conditions
 - Strategy: Trend following with contrarian timing - enter when others are fearful, exit when others are greedy
 - Risk-First: Always consider what could go wrong before what could go right
 - Selective: Quality over quantity - only take high-conviction trades with clear invalidation levels
+- Agile: Be responsive to intraday shifts in funding, sentiment, and economic expectations
 
 MARKET DATA INTERPRETATION:
 
@@ -125,11 +135,31 @@ Fear & Greed Index (Contrarian Indicator):
 - Trend: "improving" = sentiment getting more bullish, "declining" = getting more bearish
 - Key: Don't fade extreme sentiment unless you have strong confirming signals
 
-Polymarket Predictions (Retail Sentiment Proxy):
+Polymarket BTC Predictions (Retail Sentiment Proxy):
 - Polymarket reflects crowd expectations, often lagging actual price action
 - Very bullish predictions (>70% for high targets) can signal overheated market
 - Divergence between Polymarket optimism and price action can be meaningful
 - Expected price vs current price gap shows crowd's forward expectations
+
+Economic Indicators (Polymarket Prediction Markets):
+- Fed Rate Cut Expectations: Higher probability = more dovish policy = potentially bullish for risk assets
+  * Watch for divergence between Fed expectations and actual policy stance
+  * Multiple cuts priced in = market expects economic weakness or accommodation
+- Recession Probability: Higher = bearish for risk assets
+  * Rising recession odds typically drive flight to safety
+  * Can create short-term volatility and de-risking
+- Inflation Expectations: Higher = risk of tighter policy = bearish
+  * High inflation expectations can pressure Fed to stay hawkish
+  * Creates uncertainty about real returns
+- Gold Price Expectations: Higher = risk-off sentiment = bearish for crypto
+  * Gold is traditional safe haven; rising expectations signal risk-off positioning
+  * Inverse correlation with risk assets in times of stress
+- Emergency Rate Cut Probability: Higher = potential crisis signal
+  * Initially bearish (signals distress)
+  * Can become bullish if cut materializes (liquidity injection)
+- Overall Sentiment: Synthesized as bullish/neutral/bearish for risk assets
+  * Confidence score indicates alignment of signals and market liquidity
+  * Use as confirming/diverging signal with other indicators
 
 Funding Rates (Cost & Sentiment):
 - Rates are quoted per 24 hours (daily), paid once per day
@@ -162,11 +192,16 @@ ANALYSIS FRAMEWORK:
    - All indicators bearish = look for longs (contrarian opportunity)
    - Mixed signals = wait for clarity unless you have edge
 
-3. Cost of Carry: High funding rates eat into profits. Factor this into hold time and size.
+3. Cost of Carry: High funding rates eat into profits. For 1-day holds, daily funding rate is your actual cost.
 
 4. Risk/Reward: Define clear invalidation level. If stop is far, size down. If RR < 2:1, pass.
 
 5. Confluence: Best trades have 3+ supporting factors. Single-factor trades are risky.
+
+6. Economic Context: Use Polymarket economic indicators as macro backdrop:
+   - Dovish expectations + risk-off indicators = conflicting signals, be cautious
+   - Risk-on across all indicators = potential for momentum continuation
+   - Divergence between economic expectations and price action = opportunity
 
 OUTPUT REQUIREMENTS:
 
@@ -180,7 +215,7 @@ Respond with valid JSON matching this structure:
       "confidence": <0.0 to 1.0>,
       "reasoning": "<detailed explanation of trade thesis>",
       "risk_factors": ["<factor 1>", "<factor 2>"],
-      "timeframe": "short" | "medium" | "long"
+      "timeframe": "intraday" | "short" | "medium" | "long"
     }
   ],
   "market_summary": "<overall market assessment in 2-3 sentences>",
@@ -238,6 +273,40 @@ Be conservative - it's better to miss a trade than to force a bad one.`;
       );
       lines.push(`  Sentiment: ${pm.analysis.sentiment}`);
       lines.push(`  Confidence: ${(pm.analysis.confidence * 100).toFixed(0)}%`);
+      lines.push("");
+    }
+
+    // Economic Indicators (if available)
+    if (context.economic_indicators) {
+      const econ = context.economic_indicators;
+      lines.push("Economic Indicators (Polymarket):");
+      for (const indicator of econ.indicators) {
+        // Determine interpretation based on category
+        let interpretation = "";
+        if (indicator.category === "FED_POLICY") {
+          interpretation = "Dovish if high";
+        } else if (indicator.category === "RECESSION") {
+          interpretation = "Risk-off if high";
+        } else if (indicator.category === "INFLATION") {
+          interpretation = "Risk-off if high";
+        } else if (indicator.category === "SAFE_HAVEN") {
+          interpretation = "Risk-off if high";
+        } else {
+          interpretation = "Mixed";
+        }
+
+        lines.push(
+          `  - ${indicator.question}: ${(indicator.probability * 100).toFixed(0)}% (vol24h $${Math.round(indicator.volume24hr).toLocaleString()}) — ${interpretation}`,
+        );
+      }
+      lines.push("");
+      lines.push(
+        `  Summary: ${econ.sentiment.toUpperCase()} for risk assets (${(econ.confidence * 100).toFixed(0)}% confidence)`,
+      );
+      lines.push(`  ${econ.analysis.split("\n").join("\n  ")}`);
+      lines.push("");
+    } else {
+      lines.push("Economic Indicators (Polymarket): unavailable");
       lines.push("");
     }
 

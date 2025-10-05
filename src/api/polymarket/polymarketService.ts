@@ -1,9 +1,13 @@
 import { polymarketClient, PolymarketClient } from "./polymarketClient.js";
-import type {
-  PolymarketMarket,
-  BTCPriceThreshold,
-  BTCPricePrediction,
-  BTCPriceRange,
+import {
+  EconomicIndicatorCategory,
+  type PolymarketMarket,
+  type BTCPriceThreshold,
+  type BTCPricePrediction,
+  type BTCPriceRange,
+  type EconomicIndicator,
+  type EconomicIndicatorsSummary,
+  type EconomicSentiment,
 } from "../../types/polymarket.js";
 
 /**
@@ -595,6 +599,218 @@ export class PolymarketService {
     if (expectedPrice < 140000) return "neutral";
     if (expectedPrice < 200000) return "bullish";
     return "very bullish";
+  }
+
+  /**
+   * Economic indicator search patterns
+   * These patterns are used to find active, high-volume markets
+   */
+  private readonly ECON_INDICATOR_PATTERNS = {
+    FED_RATE_CUTS: {
+      regex: /^Will \d+ Fed rate cuts? happen in 20\d{2}\?$/i,
+      category: EconomicIndicatorCategory.FED_POLICY,
+      minVolume24hr: 5000,
+      description: "Fed rate cut expectations",
+    },
+    RECESSION: {
+      regex: /recession.*20\d{2}/i,
+      category: EconomicIndicatorCategory.RECESSION,
+      minVolume24hr: 3000,
+      description: "Recession probability",
+    },
+    INFLATION: {
+      regex: /inflation.*(?:reach|more than|exceed).*[4-9]%.*20\d{2}/i,
+      category: EconomicIndicatorCategory.INFLATION,
+      minVolume24hr: 200,
+      description: "Inflation expectations",
+    },
+    GOLD: {
+      regex: /Gold.*\$[2-4],?\d{3}.*(?:end|close).*20\d{2}/i,
+      category: EconomicIndicatorCategory.SAFE_HAVEN,
+      minVolume24hr: 500,
+      description: "Gold price expectations",
+    },
+    EMERGENCY_CUT: {
+      regex: /emergency.*rate cut.*20\d{2}/i,
+      category: EconomicIndicatorCategory.FED_POLICY,
+      minVolume24hr: 200,
+      description: "Emergency rate cut probability",
+    },
+  };
+
+  /**
+   * Find the best matching market for a given pattern
+   * Prioritizes: active > high volume > far expiration date
+   */
+  private findBestMarket(
+    markets: PolymarketMarket[],
+    pattern: {
+      regex: RegExp;
+      category: EconomicIndicatorCategory;
+      minVolume24hr: number;
+    },
+  ): PolymarketMarket | null {
+    // Filter markets matching the pattern
+    const candidates = markets.filter((m) => {
+      if (m.closed) return false;
+      if (!pattern.regex.test(m.question)) return false;
+      if ((m.volume24hr || 0) < pattern.minVolume24hr) return false;
+      return true;
+    });
+
+    if (candidates.length === 0) return null;
+
+    // Sort by volume (descending) then by end date (later is better)
+    candidates.sort((a, b) => {
+      const volDiff = (b.volume24hr || 0) - (a.volume24hr || 0);
+      if (Math.abs(volDiff) > 1000) return volDiff;
+
+      // If volumes are similar, prefer later expiration
+      const aEnd = a.endDate ? new Date(a.endDate).getTime() : 0;
+      const bEnd = b.endDate ? new Date(b.endDate).getTime() : 0;
+      return bEnd - aEnd;
+    });
+
+    return candidates[0];
+  }
+
+  /**
+   * Fetch specific economic indicator markets by searching for active markets
+   * @returns Array of economic indicators
+   */
+  async getEconomicIndicatorMarkets(): Promise<EconomicIndicator[]> {
+    const indicators: EconomicIndicator[] = [];
+
+    try {
+      // Fetch a broad set of active markets
+      const markets = await this.client.getMarkets({
+        closed: false,
+        limit: 1000,
+      });
+
+      // Find best match for each indicator type
+      for (const [key, pattern] of Object.entries(
+        this.ECON_INDICATOR_PATTERNS,
+      )) {
+        const market = this.findBestMarket(markets, pattern);
+
+        if (!market) {
+          console.warn(
+            `No active market found for ${pattern.description} (${key})`,
+          );
+          continue;
+        }
+
+        // Extract probability from lastTradePrice (0-1)
+        const probability = market.lastTradePrice;
+
+        if (
+          probability === null ||
+          probability === undefined ||
+          isNaN(probability)
+        ) {
+          console.warn(
+            `Invalid probability for market ${market.id} (${market.question}): ${probability}`,
+          );
+          continue;
+        }
+
+        indicators.push({
+          id: String(market.id),
+          question: String(market.question || ""),
+          probability,
+          volume24hr: Number(market.volume24hr || 0),
+          category: pattern.category,
+        });
+
+        console.log(
+          `✓ Found ${pattern.description}: "${market.question}" (vol24h: $${Math.round(market.volume24hr || 0).toLocaleString()}, expires: ${market.endDate?.split("T")[0] || "N/A"})`,
+        );
+      }
+    } catch (error: any) {
+      console.warn(
+        `Failed to fetch economic indicator markets:`,
+        error.message,
+      );
+    }
+
+    return indicators;
+  }
+
+  /**
+   * Analyze economic indicators and compute sentiment for risk assets
+   * @returns Summary of economic indicators with sentiment and confidence
+   */
+  async analyzeEconomicIndicators(): Promise<EconomicIndicatorsSummary> {
+    const indicators = await this.getEconomicIndicatorMarkets();
+
+    if (indicators.length === 0) {
+      throw new Error(
+        "No economic indicator markets available from Polymarket",
+      );
+    }
+
+    // Extract key probabilities by category for scoring
+    const byCategory = new Map<EconomicIndicatorCategory, number>();
+    for (const indicator of indicators) {
+      byCategory.set(indicator.category, indicator.probability);
+    }
+
+    // Get probabilities with defaults
+    const pCuts =
+      byCategory.get(EconomicIndicatorCategory.FED_POLICY) ?? 0.5;
+    const pRecession =
+      byCategory.get(EconomicIndicatorCategory.RECESSION) ?? 0.5;
+    const pInflation =
+      byCategory.get(EconomicIndicatorCategory.INFLATION) ?? 0.5;
+    const pGold =
+      byCategory.get(EconomicIndicatorCategory.SAFE_HAVEN) ?? 0.5;
+    // Note: Emergency cuts would also be FED_POLICY category, handled in aggregation
+    const pEmergency = pCuts; // Use same as general Fed policy for now
+
+    // Weighted risk-on score (positive = bullish for risk assets)
+    // Dovish policy (cuts) supports risk-on; recession/inflation/gold/emergency tend to risk-off.
+    const score =
+      (pCuts - 0.5) * 1.0 +
+      (0.5 - pRecession) * 1.2 +
+      (0.5 - pInflation) * 0.8 +
+      (0.5 - pGold) * 0.5 +
+      (0.5 - pEmergency) * 0.7;
+
+    let sentiment: EconomicSentiment = "neutral";
+    if (score >= 0.15) sentiment = "bullish";
+    if (score <= -0.15) sentiment = "bearish";
+
+    // Confidence from liquidity/alignment: normalize volumes, cap at 100k each
+    const volScores = indicators.map(
+      (i) => Math.min(100000, i.volume24hr) / 100000,
+    );
+    const avgVol =
+      volScores.length > 0
+        ? volScores.reduce((a, b) => a + b, 0) / volScores.length
+        : 0.5;
+    const alignment = 1 - Math.abs(pRecession - (1 - pCuts)) * 0.2; // rough alignment heuristic
+    const confidence = Math.max(
+      0.1,
+      Math.min(0.9, 0.3 + 0.5 * avgVol + 0.2 * alignment),
+    );
+
+    const lines = [
+      `Fed Rate Cuts (3 cuts in 2025): ${(pCuts * 100).toFixed(0)}%`,
+      `Recession (2025): ${(pRecession * 100).toFixed(0)}%`,
+      `Inflation > 5% (2025): ${(pInflation * 100).toFixed(0)}%`,
+      `Gold ≥ $3,200 (EOY 2025): ${(pGold * 100).toFixed(0)}%`,
+      `Emergency Rate Cut (2025): ${(pEmergency * 100).toFixed(0)}%`,
+      ``,
+      `Interpretation: ${sentiment.toUpperCase()} for risk assets on a 1-day horizon.`,
+    ];
+
+    return {
+      indicators,
+      analysis: lines.join("\n"),
+      sentiment,
+      confidence,
+    };
   }
 }
 

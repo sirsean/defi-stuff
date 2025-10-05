@@ -3,7 +3,10 @@
  */
 
 import type { FearGreedAnalysis } from "./feargreed.js";
-import type { BTCPricePrediction } from "./polymarket.js";
+import type {
+  BTCPricePrediction,
+  EconomicIndicatorsSummary,
+} from "./polymarket.js";
 
 /**
  * Possible trading actions
@@ -13,7 +16,7 @@ export type TradeAction = "long" | "short" | "close" | "hold";
 /**
  * Time horizon for position
  */
-export type Timeframe = "short" | "medium" | "long";
+export type Timeframe = "intraday" | "short" | "medium" | "long";
 
 /**
  * Individual trade recommendation for a specific market
@@ -81,6 +84,8 @@ export interface MarketContext {
   fear_greed: FearGreedAnalysis;
   /** Polymarket BTC price prediction (optional if unavailable) */
   polymarket_prediction: BTCPricePrediction | null;
+  /** Economic indicators from Polymarket (optional for backward compatibility) */
+  economic_indicators: EconomicIndicatorsSummary | null;
   /** Market-specific data for requested markets */
   markets: MarketData[];
   /** Currently open positions */

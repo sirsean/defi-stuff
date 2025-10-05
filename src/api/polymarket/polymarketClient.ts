@@ -23,6 +23,7 @@ export interface GetMarketsParams {
   order?: string;
   ascending?: boolean;
   tag_id?: string;
+  id?: string; // Single market ID
 }
 
 /**
@@ -49,6 +50,7 @@ export class PolymarketClient {
           closed: params.closed ?? false,
           order: params.order,
           ascending: params.ascending,
+          id: params.id,
         },
       });
       return data;
@@ -65,6 +67,16 @@ export class PolymarketClient {
       }
       throw new Error(`Polymarket API request failed: ${String(error)}`);
     }
+  }
+
+  /**
+   * Get a single market by ID
+   * @param id Market ID
+   * @returns Market or null if not found
+   */
+  async getMarketById(id: string): Promise<PolymarketMarket | null> {
+    const markets = await this.getMarkets({ id, limit: 1 });
+    return markets.length > 0 ? markets[0] : null;
   }
 
   /**

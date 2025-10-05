@@ -88,3 +88,40 @@ export interface BTCPricePrediction {
     methodology: string;
   };
 }
+
+/**
+ * Economic indicator category
+ */
+export enum EconomicIndicatorCategory {
+  FED_POLICY = "FED_POLICY",
+  RECESSION = "RECESSION",
+  INFLATION = "INFLATION",
+  SAFE_HAVEN = "SAFE_HAVEN",
+  OTHER = "OTHER",
+}
+
+/**
+ * Individual economic indicator from Polymarket
+ */
+export interface EconomicIndicator {
+  id: string; // Polymarket market ID
+  question: string; // Market question/title
+  probability: number; // 0-1 prob. of "Yes" outcome
+  volume24hr: number; // Recent trading activity (USD)
+  category: EconomicIndicatorCategory;
+}
+
+/**
+ * Economic sentiment for risk assets
+ */
+export type EconomicSentiment = "bearish" | "neutral" | "bullish";
+
+/**
+ * Summary of economic indicators and their impact on risk assets
+ */
+export interface EconomicIndicatorsSummary {
+  indicators: EconomicIndicator[];
+  analysis: string; // Human-readable synthesis of sentiment and drivers
+  sentiment: EconomicSentiment;
+  confidence: number; // 0-1 confidence based on signal alignment and liquidity
+}
