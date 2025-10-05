@@ -306,6 +306,7 @@ program
     "Subaccount IDs to query (comma-separated, default: 0)",
   )
   .option("-j, --json", "Output raw JSON data")
+  .option("--db", "Persist generated trade recommendations to the database")
   .action(tradeRecommendation);
 
 // If no arguments, show help and exit successfully

@@ -1,11 +1,14 @@
 import { tradeRecommendationAgent } from "../api/trading/tradeRecommendationAgent.js";
 import type { TradeRecommendation } from "../types/tradeRecommendation.js";
+import { TradeRecommendationService } from "../db/tradeRecommendationService.js";
+import { KnexConnector } from "../db/knexConnector.js";
 
 interface TradeRecommendationOptions {
   markets?: string;
   address?: string;
   subs?: string;
   json?: boolean;
+  db?: boolean;
 }
 
 /**
@@ -224,6 +227,55 @@ export async function tradeRecommendation(
     );
     console.log("  not guarantee future results.");
     console.log("");
+
+    // Persist to database if --db flag is provided
+    if (opts.db) {
+      try {
+        const tradeRecommendationService = new TradeRecommendationService();
+
+        // Build array of recommendations with their current prices
+        // Get prices from the market context that was used to generate recommendations
+        const marketContext =
+          await tradeRecommendationAgent.gatherMarketContext(
+            markets,
+            walletAddress,
+            subAccountIds,
+          );
+
+        const recommendationsWithPrices = analysis.recommendations.map(
+          (rec) => {
+            const marketData = marketContext.markets.find(
+              (m) => m.symbol === rec.market,
+            );
+            return {
+              recommendation: rec,
+              currentPrice: marketData?.price || 0,
+            };
+          },
+        );
+
+        // Save to database
+        const savedRecords =
+          await tradeRecommendationService.saveRecommendations(
+            recommendationsWithPrices,
+          );
+
+        console.log(
+          `\n✅ Saved ${savedRecords.length} trade recommendation(s) to database`,
+        );
+
+        // Close database connection
+        await tradeRecommendationService.close();
+      } catch (dbError: any) {
+        console.error(
+          `\n❌ Failed to save recommendations to database: ${dbError?.message ?? "Unknown error"}`,
+        );
+        // Don't exit - database error shouldn't prevent showing recommendations
+      } finally {
+        // Ensure Knex connection is cleaned up
+        await KnexConnector.destroy();
+      }
+    }
   } catch (error: any) {
     console.error(
       `\n❌ Failed to generate trade recommendations: ${error?.message ?? "Unknown error"}`,
