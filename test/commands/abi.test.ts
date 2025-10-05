@@ -167,11 +167,7 @@ describe("abi command", () => {
       await abi(testAddress, { output: relPath });
 
       // Assert: Verify writeFile was called correctly
-      expect(writeFile).toHaveBeenCalledWith(
-        expectedPath,
-        testAbi,
-        "utf-8",
-      );
+      expect(writeFile).toHaveBeenCalledWith(expectedPath, testAbi, "utf-8");
 
       // Verify success message was logged
       expect(ConsoleMock.log).toHaveBeenCalledWith(
@@ -278,11 +274,7 @@ describe("abi command", () => {
       });
 
       // File should be written
-      expect(writeFile).toHaveBeenCalledWith(
-        expectedPath,
-        testAbi,
-        "utf-8",
-      );
+      expect(writeFile).toHaveBeenCalledWith(expectedPath, testAbi, "utf-8");
 
       // Success message should be logged
       expect(ConsoleMock.log).toHaveBeenCalledWith(

@@ -757,14 +757,12 @@ export class PolymarketService {
     }
 
     // Get probabilities with defaults
-    const pCuts =
-      byCategory.get(EconomicIndicatorCategory.FED_POLICY) ?? 0.5;
+    const pCuts = byCategory.get(EconomicIndicatorCategory.FED_POLICY) ?? 0.5;
     const pRecession =
       byCategory.get(EconomicIndicatorCategory.RECESSION) ?? 0.5;
     const pInflation =
       byCategory.get(EconomicIndicatorCategory.INFLATION) ?? 0.5;
-    const pGold =
-      byCategory.get(EconomicIndicatorCategory.SAFE_HAVEN) ?? 0.5;
+    const pGold = byCategory.get(EconomicIndicatorCategory.SAFE_HAVEN) ?? 0.5;
     // Note: Emergency cuts would also be FED_POLICY category, handled in aggregation
     const pEmergency = pCuts; // Use same as general Fed policy for now
 

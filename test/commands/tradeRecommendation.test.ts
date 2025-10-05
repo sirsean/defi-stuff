@@ -57,7 +57,8 @@ const mockEconomicIndicators = {
   ],
   sentiment: "bullish",
   confidence: 0.72,
-  analysis: "Fed rate cuts expected with low recession risk. Inflation under control.",
+  analysis:
+    "Fed rate cuts expected with low recession risk. Inflation under control.",
 };
 
 const mockBTCMarketData = {
@@ -363,7 +364,7 @@ describe("tradeRecommendation command", () => {
 
       // Verify it's valid JSON - need to filter out the "Generating..." line
       const jsonOutput = consoleOutput
-        .filter(line => !line.includes('Generating'))
+        .filter((line) => !line.includes("Generating"))
         .join("\n");
       const parsed = JSON.parse(jsonOutput);
       expect(parsed.recommendations).toHaveLength(2);
