@@ -503,6 +503,57 @@ The scheduled task will run:
 
 **Important Note:** The scheduled task runs from the compiled JavaScript in `dist/index.js`, not the TypeScript source. After making any code changes, you must rebuild the project with `npm run build` for the scheduled task to pick up those changes.
 
+#### Hourly Trade Recommendations Schedule
+
+In addition to the daily report, you can schedule automated trade recommendations to run every hour. This schedule:
+- Generates AI-powered trade recommendations for BTC
+- Saves recommendations to the database with `--db` flag
+- Sends Discord notifications only when recommendations change (using `--discord` flag)
+- Logs to separate files: `logs/trade-recommendations-output.log` and `logs/trade-recommendations-error.log`
+
+1. Set up the hourly trade recommendations schedule:
+
+```bash
+npm run scheduler:setup:trade-recs
+```
+
+This script:
+- Creates a launchd plist file in ~/Library/LaunchAgents
+- Configures it to run every hour (3600 seconds)
+- Loads it into launchd
+- Creates separate logs for trade recommendation output
+
+2. Verify the configuration:
+
+```bash
+npm run scheduler:verify:trade-recs
+```
+
+This will show:
+- If the job is loaded correctly
+- The run interval (every hour)
+- Where logs will be written
+
+3. Test the scheduled task immediately:
+
+```bash
+npm run scheduler:test:trade-recs
+```
+
+This command:
+- Verifies the job is loaded in launchd
+- Triggers the job to run immediately
+- Shows you where to find the logs
+
+The scheduled task will:
+- Run every hour
+- Generate recommendations for BTC market
+- Save to database for historical tracking
+- Send Discord notifications only when the recommendation action changes (e.g., from HOLD to LONG)
+- Log all activity to dedicated log files
+
+**Tip:** The Discord integration is smart - it only sends notifications when recommendations actually change, preventing notification spam while keeping you informed of important shifts in market sentiment.
+
 #### Manual launchd Setup
 
 If you prefer to configure manually:

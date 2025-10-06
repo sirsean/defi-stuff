@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.defi-stuff.trade-recommendations</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>sh</string>
+        <string>-c</string>
+        <string>cd $WORKING_DIR && echo "[$(date '+%Y-%m-%d %H:%M:%S')]" >> $WORKING_DIR/logs/trade-recommendations-output.log && echo "[$(date '+%Y-%m-%d %H:%M:%S')]" >> $WORKING_DIR/logs/trade-recommendations-error.log && $NODE_PATH $WORKING_DIR/dist/index.js trade:recommend -m BTC --discord --db >> $WORKING_DIR/logs/trade-recommendations-output.log 2>> $WORKING_DIR/logs/trade-recommendations-error.log</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Users/sirsean/.nvm/versions/node/v19.3.0/bin</string>
+        <key>WORKING_DIR</key>
+        <string>__WORKING_DIR__</string>
+        <key>NODE_PATH</key>
+        <string>__NODE_PATH__</string>
+        <key>DOTENV_CONFIG_PATH</key>
+        <string>__WORKING_DIR__/.env</string>
+    </dict>
+    <key>StartInterval</key>
+    <integer>3600</integer>
+    <key>StandardErrorPath</key>
+    <string>/dev/null</string>
+    <key>StandardOutPath</key>
+    <string>/dev/null</string>
+</dict>
+</plist>
