@@ -398,6 +398,197 @@ npm run dev -- flex:withdraw 5000
 - **Risk**: Start with small position sizes when testing
 - **Liquidation**: Monitor positions regularly to avoid liquidation
 
+### Trade Recommendation Backtesting
+
+Analyze the performance of historical trade recommendations against actual price movements.
+
+**Purpose**: Evaluate recommendation quality and get data-driven suggestions for improvements.
+
+#### Basic Usage
+
+```bash
+# Analyze all BTC recommendations
+npm run dev -- trade:backtest -m BTC
+
+# Analyze last 7 days only
+npm run dev -- trade:backtest -m BTC -d 7
+
+# Compare both hold modes
+npm run dev -- trade:backtest -m BTC --hold-mode both
+
+# JSON output for programmatic analysis
+npm run dev -- trade:backtest -m BTC --json
+
+# Verbose mode with per-trade details
+npm run dev -- trade:backtest -m BTC --verbose
+```
+
+#### Hold Mode Interpretation
+
+The backtest analyzes two interpretations of "hold" signals:
+
+**Maintain Mode** (default):
+- `hold` means maintain current position
+- If flat, stay flat
+- If in a position, keep it open
+- More conservative approach
+
+**Close Mode**:
+- `hold` means close any open position
+- If flat, stay flat  
+- If in a position, close and lock in P/L
+- More aggressive risk management
+
+**Example comparing both:**
+```bash
+npm run dev -- trade:backtest -m BTC --hold-mode both
+```
+
+This outputs performance for both modes and recommends which to use.
+
+#### Output Metrics
+
+**Performance Metrics:**
+- **Total PnL**: Sum of all closed trade profits/losses in USD
+- **Total Return**: Overall return as percentage of capital deployed
+- **Win Rate**: Percentage of profitable trades
+- **Avg Trade Return**: Average profit/loss per trade (USD and %)
+- **Number of Trades**: Total trades executed
+
+**Perfect Strategy Comparison:**
+- Shows what "perfect" hindsight trading would have achieved
+- Uses one-step lookahead (always correct direction)
+- Provides upper bound benchmark
+- Performance gap indicates room for improvement
+
+**Action Breakdown:**
+- Occurrence count for each action type (long, short, hold, close)
+- Win rate and average PnL for long and short trades
+- Helps identify directional bias
+
+**Confidence Analysis:**
+- Win rates for high (≥0.7) vs low (<0.7) confidence trades
+- Pearson correlation between confidence and returns
+- Indicates if confidence scores are predictive
+
+**Improvement Suggestions:**
+- Data-driven recommendations for tuning the recommendation system
+- Confidence calibration advice
+- Directional bias detection
+- Position sizing recommendations
+- Hold policy optimization
+
+#### Key Assumptions
+
+**Important Limitations:**
+- **No Fees**: Trading fees, slippage, and funding rates are ignored
+- **Instant Execution**: All trades execute at recommendation price
+- **Default Size**: Uses 1000 USD per trade if `size_usd` not specified
+- **End-of-Series**: Any open position is closed at the last price
+- **Single Position**: Only one position per market at a time
+
+**Data Requirements:**
+- Requires trade recommendations saved to database
+- Use `npm run dev -- trade:recommend --db` to generate and save recommendations
+- Backtest uses prices from the recommendations table
+
+#### Example Output
+
+```
+═══════════════════════════════════════════════════════════════════════════
+  📊 TRADE RECOMMENDATION BACKTEST ANALYSIS
+═══════════════════════════════════════════════════════════════════════════
+
+Market: BTC
+Period: 10/05/2025, 12:00 - 10/11/2025, 18:00
+Total Recommendations: 135
+
+───────────────────────────────────────────────────────────────────────────
+📈 RECOMMENDED STRATEGY (hold=maintain)
+───────────────────────────────────────────────────────────────────────────
+
+  Total PnL:              +$2,345.67
+  Total Return:           +12.34%
+  Win Rate:               58.33%
+  Avg Trade Return:       +$123.45 (+1.23%)
+  Number of Trades:       19
+
+───────────────────────────────────────────────────────────────────────────
+🎯 PERFECT STRATEGY (with hindsight)
+───────────────────────────────────────────────────────────────────────────
+
+  Total PnL:              +$8,901.23
+  Total Return:           +45.67%
+  Win Rate:               89.55%
+  Avg Trade Return:       +$456.78 (+4.56%)
+  Number of Trades:       134
+
+  Performance Gap:        73.64% below perfect
+
+───────────────────────────────────────────────────────────────────────────
+📊 BREAKDOWN BY ACTION
+───────────────────────────────────────────────────────────────────────────
+
+  Long :     62 recommendations | Win Rate: 64.3% | Avg: +$145.23
+  Short:     38 recommendations | Win Rate: 52.4% | Avg: +$98.76
+  Hold :     25 recommendations | (no PnL attribution)
+  Close:     10 recommendations | (no PnL attribution)
+
+───────────────────────────────────────────────────────────────────────────
+🎓 CONFIDENCE ANALYSIS
+───────────────────────────────────────────────────────────────────────────
+
+  High Confidence (≥0.7):    Win Rate: 68.2%
+  Low Confidence (<0.7):     Win Rate: 51.2%
+  Correlation (r):           +0.42
+
+  Interpretation: Strong positive correlation. Higher confidence
+                  trades perform better. Consider scaling position
+                  sizes with confidence levels.
+
+───────────────────────────────────────────────────────────────────────────
+💡 IMPROVEMENT SUGGESTIONS
+───────────────────────────────────────────────────────────────────────────
+
+  1. Scale position size with confidence (r=0.42 shows predictive value).
+  2. Long bias detected: long win rate 12% higher than short. Filter weak short signals.
+  3. Large gap to perfect (73.6%); react faster to direction changes.
+  4. Run with --hold-mode both to compare maintain vs close-on-hold policies.
+
+═══════════════════════════════════════════════════════════════════════════
+```
+
+#### Using Suggestions to Improve Recommendations
+
+**1. Confidence-Based Sizing:**
+If correlation is positive (r > 0.3), scale position sizes with confidence:
+```
+size_usd = base_size * confidence
+```
+
+**2. Filter Weak Signals:**
+If directional bias exists, filter low-confidence trades on the weaker side:
+```
+if action == 'short' and confidence < 0.65:
+    skip or use smaller size
+```
+
+**3. Hold Policy Selection:**
+Use `--hold-mode both` to determine empirically:
+- If maintain wins: let winners run
+- If close wins: take profits more aggressively
+
+**4. Confidence Recalibration:**
+If high-confidence trades underperform:
+- Retrain model or adjust scoring
+- Consider inverting confidence weights
+
+**5. React Faster:**
+If gap to perfect is large (>70%):
+- Reduce signal lag
+- Allow position flips on strong opposing signals
+- Increase recommendation frequency
+
 ### Scheduling (macOS launchd)
 ```bash
 # Set up scheduled daily reports

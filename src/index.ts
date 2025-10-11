@@ -21,6 +21,7 @@ import { flexOrders } from "./commands/flex/flexOrders.js";
 import { flexDeposit } from "./commands/flex/flexDeposit.js";
 import { flexWithdraw } from "./commands/flex/flexWithdraw.js";
 import { tradeRecommendation } from "./commands/tradeRecommendation.js";
+import { tradeBacktest } from "./commands/tradeBacktest.js";
 
 // Load environment variables
 dotenv.config();
@@ -309,6 +310,26 @@ program
   .option("--db", "Persist generated trade recommendations to the database")
   .option("--discord", "Send recommendations to Discord channel")
   .action(tradeRecommendation);
+
+program
+  .command("trade:backtest")
+  .description("Backtest historical trade recommendations against actual prices")
+  .option(
+    "-m, --market <market>",
+    "Filter by market symbol (e.g., BTC, ETH)",
+  )
+  .option(
+    "-d, --days <number>",
+    "Number of days to look back",
+    parseInt,
+  )
+  .option(
+    "--hold-mode <mode>",
+    "Hold interpretation: maintain, close, or both (default: maintain)",
+  )
+  .option("-j, --json", "Output raw JSON data")
+  .option("-v, --verbose", "Show detailed trade-by-trade log")
+  .action(tradeBacktest);
 
 // If no arguments, show help and exit successfully
 if (process.argv.length <= 2) {
