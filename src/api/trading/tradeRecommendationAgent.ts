@@ -309,8 +309,7 @@ Respond with valid JSON matching this structure:
       "timeframe": "intraday" | "short" | "medium" | "long"
     }
   ],
-  "market_summary": "<overall market assessment in 2-3 sentences>",
-  "timestamp": "<current ISO timestamp>"
+  "market_summary": "<overall market assessment in 2-3 sentences>"
 }
 
 Confidence Scoring:
@@ -531,10 +530,8 @@ Be conservative - it's better to miss a trade than to force a bad one.`;
           reasoning: { effort: "medium" }, // Balanced analysis
         });
 
-      // Add timestamp if not present
-      if (!analysis.timestamp) {
-        analysis.timestamp = new Date().toISOString();
-      }
+      // Always use server timestamp (AI-generated timestamps can be incorrect)
+      analysis.timestamp = new Date().toISOString();
 
       // Validate recommendations against position state (warn if invalid)
       for (const rec of analysis.recommendations) {
