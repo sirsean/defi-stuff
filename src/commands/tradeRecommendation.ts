@@ -248,6 +248,16 @@ export async function tradeRecommendation(
       }
     }
 
+    // Get position states BEFORE saving to database (for accurate Discord display)
+    let positionStatesForDiscord: Map<string, any> | null = null;
+    if (opts.discord && recommendationsWithPrices.length > 0) {
+      try {
+        positionStatesForDiscord = await tradeRecommendationAgent.getPreviousPositionState(markets);
+      } catch (error: any) {
+        console.warn(`⚠️ Failed to get position states for Discord: ${error?.message ?? "Unknown error"}`);
+      }
+    }
+
     // Persist to database first if --db flag is provided
     // This must happen before Discord check so we can compare with previous recommendations
     if (opts.db && recommendationsWithPrices.length > 0) {
@@ -280,8 +290,6 @@ export async function tradeRecommendation(
     // Send to Discord if --discord flag is provided
     if (opts.discord && recommendationsWithPrices.length > 0) {
       try {
-        // Get position states for all markets for Discord display
-        const positionStates = await tradeRecommendationAgent.getPreviousPositionState(markets);
         
         // If both --db and --discord are active, filter for changed recommendations
         let recommendationsToSend = recommendationsWithPrices;
@@ -332,7 +340,7 @@ export async function tradeRecommendation(
 
           await tradeRecommendationDiscordFormatter.sendRecommendations(
             recommendationsToSend,
-            positionStates,
+            positionStatesForDiscord || undefined,
           );
 
           console.log(
