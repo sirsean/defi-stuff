@@ -12,11 +12,15 @@ import {
   CloudflareClient,
 } from "../cloudflare/cloudflareClient.js";
 import { MARKETS } from "../flex/constants.js";
+import {
+  TradeRecommendationService,
+} from "../../db/tradeRecommendationService.js";
 import type {
   MarketContext,
   MarketData,
   PositionSummary,
   AgentAnalysis,
+  PositionState,
 } from "../../types/tradeRecommendation.js";
 
 /**
@@ -26,12 +30,87 @@ import type {
  * trading recommendations for perpetual futures on Flex (Base mainnet).
  */
 export class TradeRecommendationAgent {
+  private tradeRecServiceInstance: TradeRecommendationService | null = null;
+
   constructor(
     private fearGreed: FearGreedService = fearGreedService,
     private polymarket: PolymarketService = polymarketService,
     private flex: FlexPublicService = new FlexPublicService(),
     private cloudflare: CloudflareClient = cloudflareClient,
-  ) {}
+    private tradeRecService?: TradeRecommendationService,
+  ) {
+    // If a service was provided, use it; otherwise we'll create one lazily
+    this.tradeRecServiceInstance = tradeRecService || null;
+  }
+
+  /**
+   * Get or create TradeRecommendationService instance
+   * Lazy initialization ensures database is only created when needed
+   */
+  private async getTradeRecService(): Promise<TradeRecommendationService> {
+    if (!this.tradeRecServiceInstance) {
+      this.tradeRecServiceInstance = new TradeRecommendationService();
+      // Ensure database is initialized
+      await this.tradeRecServiceInstance.initDatabase("development");
+    }
+    return this.tradeRecServiceInstance;
+  }
+
+  /**
+   * Get the previous position state for given markets by walking back through recommendations
+   *
+   * @param markets Market symbols to check (e.g., ['BTC', 'ETH'])
+   * @returns Map of market symbol to position state ('long', 'short', or 'flat')
+   */
+  async getPreviousPositionState(
+    markets: string[],
+  ): Promise<Map<string, PositionState>> {
+    const positionState = new Map<string, PositionState>();
+    const service = await this.getTradeRecService();
+
+    for (const market of markets) {
+      try {
+        // Get recent recommendations for this market (up to 50 to handle long hold sequences)
+        const recentRecs = await service.getRecommendationsByMarket(
+          market,
+          50,
+        );
+
+        if (recentRecs.length === 0) {
+          // No prior recommendations - market is flat
+          positionState.set(market, "flat");
+          continue;
+        }
+
+        // Walk back through recommendations to find the first non-hold entry
+        let state: PositionState = "flat";
+        for (const rec of recentRecs) {
+          if (rec.action === "long") {
+            state = "long";
+            break;
+          } else if (rec.action === "short") {
+            state = "short";
+            break;
+          } else if (rec.action === "close") {
+            // Last action was close, so we're flat
+            state = "flat";
+            break;
+          }
+          // If action is "hold", continue to next rec
+        }
+
+        positionState.set(market, state);
+      } catch (error) {
+        console.warn(
+          `Failed to get position state for ${market}, defaulting to flat:`,
+          error,
+        );
+        positionState.set(market, "flat");
+      }
+    }
+
+    return positionState;
+  }
 
   /**
    * Gather comprehensive market context data
@@ -117,12 +196,24 @@ export class TradeRecommendationAgent {
   private buildSystemPrompt(): string {
     return `You are an expert cryptocurrency derivatives trader specializing in intraday to short-term perpetual futures trading on decentralized protocols. Your analysis focuses on positions to be executed TODAY (intraday to 1-day holds), targeting clear directional moves in BTC and ETH perpetuals.
 
+IMPORTANT: You will receive the current position state for each market (LONG, SHORT, or FLAT) based on previous recommendations. Your recommendations must be position-aware and follow these action semantics:
+
+ACTION SEMANTICS:
+- LONG: Enter or maintain a long position. If currently short, flip from short to long. If flat, enter long. If already long, maintain.
+- SHORT: Enter or maintain a short position. If currently long, flip from long to short. If flat, enter short. If already short, maintain.
+- HOLD: Maintain the current state. If flat, stay flat (no trade). If long, stay long. If short, stay short. Use this when you don't see a compelling reason to change.
+- CLOSE: Exit the current position and go flat. ONLY valid when already in a long or short position. NEVER use CLOSE when flat.
+
+For FLAT markets: Use LONG to enter long, SHORT to enter short, or HOLD to stay flat (no trade).
+For markets with existing positions: All four actions are valid depending on your analysis.
+
 TRADING PHILOSOPHY:
 - Time Horizon: Intraday to 1-day positions (execute today), responsive to current market conditions
 - Strategy: Trend following with contrarian timing - enter when others are fearful, exit when others are greedy
 - Risk-First: Always consider what could go wrong before what could go right
 - Selective: Quality over quantity - only take high-conviction trades with clear invalidation levels
 - Agile: Be responsive to intraday shifts in funding, sentiment, and economic expectations
+- Position-Aware: Consider the current position state and whether to enter, maintain, flip, or exit
 
 MARKET DATA INTERPRETATION:
 
@@ -229,11 +320,21 @@ Confidence Scoring:
 - 0.3-0.5: Low conviction, unclear or weak signals
 - 0.0-0.3: Very low conviction, mostly noise or conflicting signals
 
-For "hold" actions on markets without existing positions, explain why not trading is the best move.
-For "close" actions, explain why exiting is better than holding.
+Action Selection Guidelines:
+- For FLAT markets: Use LONG to enter long, SHORT to enter short, or HOLD to stay flat (no compelling trade).
+- For existing LONG positions: Use HOLD to maintain, CLOSE to exit to flat, or SHORT to flip direction.
+- For existing SHORT positions: Use HOLD to maintain, CLOSE to exit to flat, or LONG to flip direction.
+- HOLD is your default action when the current state is optimal given market conditions.
+- CLOSE should be used when it's time to exit and go flat (take profits, cut losses, or reduce risk).
+- Direction flips (LONG→SHORT or SHORT→LONG) should only occur on strong opposing signals.
+- NEVER use CLOSE when the market is already FLAT - use HOLD instead.
+
+For "hold" actions, explain why maintaining the position is optimal given current conditions.
+For "close" actions, explain why exiting is better than holding (profit-taking, invalidation, etc).
 For "long"/"short" actions, provide specific reasoning and clear risk factors.
 
 Suggest position sizes as a reasonable percentage of available capital (typically 10-30% per trade, never >50%).
+For HOLD and CLOSE actions, size_usd should be null.
 Be conservative - it's better to miss a trade than to force a bad one.`;
   }
 
@@ -241,12 +342,25 @@ Be conservative - it's better to miss a trade than to force a bad one.`;
    * Build user prompt from gathered market context
    *
    * Formats all market data into a clear, structured prompt for AI analysis
+   * @param context Market context data
+   * @param positionState Map of market symbol to current position state
    */
-  private buildUserPrompt(context: MarketContext): string {
+  private buildUserPrompt(
+    context: MarketContext,
+    positionState: Map<string, PositionState>,
+  ): string {
     const lines: string[] = [];
 
     // Header
     lines.push("CURRENT MARKET CONTEXT:");
+    lines.push("");
+
+    // Position State (from previous recommendations)
+    lines.push("Current Positions from Previous Recommendations:");
+    for (const market of context.markets) {
+      const state = positionState.get(market.symbol) || "flat";
+      lines.push(`  ${market.symbol}: ${state.toUpperCase()}`);
+    }
     lines.push("");
 
     // Fear & Greed Index
@@ -391,6 +505,9 @@ Be conservative - it's better to miss a trade than to force a bad one.`;
       }
     }
 
+    // Get previous position state for these markets
+    const positionState = await this.getPreviousPositionState(markets);
+
     // Gather market context
     const context = await this.gatherMarketContext(
       markets,
@@ -400,7 +517,7 @@ Be conservative - it's better to miss a trade than to force a bad one.`;
 
     // Build prompts
     const systemPrompt = this.buildSystemPrompt();
-    const userPrompt = this.buildUserPrompt(context);
+    const userPrompt = this.buildUserPrompt(context, positionState);
 
     // Call Cloudflare AI
     try {
@@ -417,6 +534,16 @@ Be conservative - it's better to miss a trade than to force a bad one.`;
       // Add timestamp if not present
       if (!analysis.timestamp) {
         analysis.timestamp = new Date().toISOString();
+      }
+
+      // Validate recommendations against position state (warn if invalid)
+      for (const rec of analysis.recommendations) {
+        const state = positionState.get(rec.market) || "flat";
+        if (state === "flat" && rec.action === "close") {
+          console.warn(
+            `⚠️ Warning: ${rec.market} is FLAT but LLM recommended CLOSE. This is invalid - should be HOLD instead.`,
+          );
+        }
       }
 
       return analysis;

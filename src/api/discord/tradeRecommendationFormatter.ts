@@ -1,5 +1,5 @@
 import { discordService, DiscordColors } from "./discordService.js";
-import type { TradeRecommendation } from "../../types/tradeRecommendation.js";
+import type { TradeRecommendation, PositionState } from "../../types/tradeRecommendation.js";
 
 /**
  * Discord formatter for trade recommendations
@@ -80,11 +80,36 @@ export class TradeRecommendationDiscordFormatter {
   }
 
   /**
+   * Get position state emoji
+   */
+  private getPositionEmoji(state: PositionState): string {
+    const map: Record<PositionState, string> = {
+      long: "📈",
+      short: "📉",
+      flat: "⚪",
+    };
+    return map[state];
+  }
+
+  /**
+   * Format position state with arrow to recommendation
+   */
+  private formatPositionFlow(
+    currentState: PositionState,
+    recommendedAction: string,
+  ): string {
+    const currentEmoji = this.getPositionEmoji(currentState);
+    const actionEmoji = this.getActionEmoji(recommendedAction);
+    return `${currentEmoji} ${currentState.toUpperCase()} → ${actionEmoji} ${recommendedAction.toUpperCase()}`;
+  }
+
+  /**
    * Format trade recommendation as Discord embed message
    */
   formatRecommendation(
     recommendation: TradeRecommendation,
     currentPrice: number,
+    currentState?: PositionState,
   ) {
     const actionEmoji = this.getActionEmoji(recommendation.action);
     const color = this.getActionColor(recommendation.action);
@@ -94,12 +119,21 @@ export class TradeRecommendationDiscordFormatter {
       .addTitle(`🤖 Trade Recommendation: ${recommendation.market}`)
       .setColor(color);
 
-    // Action field
-    message.addField(
-      `${actionEmoji} Action`,
-      recommendation.action.toUpperCase(),
-      true,
-    );
+    // Position flow field (if position state is provided)
+    if (currentState) {
+      message.addField(
+        "📊 Position Flow",
+        this.formatPositionFlow(currentState, recommendation.action),
+        false,
+      );
+    } else {
+      // Fallback to simple action field if no state provided
+      message.addField(
+        `${actionEmoji} Action`,
+        recommendation.action.toUpperCase(),
+        true,
+      );
+    }
 
     // Current price
     message.addField("💰 Current Price", this.formatPrice(currentPrice), true);
@@ -142,9 +176,15 @@ export class TradeRecommendationDiscordFormatter {
       recommendation: TradeRecommendation;
       currentPrice: number;
     }>,
+    positionStates?: Map<string, PositionState>,
   ): Promise<void> {
     for (const { recommendation, currentPrice } of recommendations) {
-      const message = this.formatRecommendation(recommendation, currentPrice);
+      const currentState = positionStates?.get(recommendation.market);
+      const message = this.formatRecommendation(
+        recommendation,
+        currentPrice,
+        currentState,
+      );
       await discordService.sendMessage(message);
 
       // Small delay between messages to avoid rate limiting

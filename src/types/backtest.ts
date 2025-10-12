@@ -4,6 +4,13 @@
 
 /**
  * Hold mode interpretation
+ * 
+ * @deprecated HoldMode is deprecated as recommendations now explicitly encode
+ * position intent with separate HOLD and CLOSE actions. The backtest system
+ * now follows position-aware semantics where:
+ * - HOLD maintains the current position
+ * - CLOSE exits the current position
+ * This parameter is kept for backward compatibility but has no effect.
  */
 export type HoldMode = "maintain" | "close";
 

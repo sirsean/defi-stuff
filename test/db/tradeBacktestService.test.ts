@@ -213,8 +213,8 @@ describe("TradeBacktestService", () => {
     });
   });
 
-  describe("Hold Mode Behavior", () => {
-    it("should maintain position on hold when mode=maintain", () => {
+  describe("Hold Behavior (Position-Aware)", () => {
+    it("should maintain long position on hold (mode parameter deprecated)", () => {
       const service = new TradeBacktestService(undefined, 1000);
       
       const recs = [
@@ -235,6 +235,7 @@ describe("TradeBacktestService", () => {
         }),
       ];
 
+      // Mode parameter is deprecated but still accepted for backward compat
       const trades = (service as any).simulateRecommendedStrategy(recs, "maintain");
       
       expect(trades).toHaveLength(1);
@@ -243,36 +244,37 @@ describe("TradeBacktestService", () => {
       expect(trades[0].pnl_usd).toBeCloseTo(20, 2);
     });
 
-    it("should close position on hold when mode=close", () => {
+    it("should maintain short position on hold", () => {
       const service = new TradeBacktestService(undefined, 1000);
       
       const recs = [
         createMockRecommendation({ 
-          action: "long", 
+          action: "short", 
           price: 100000,
           timestamp: new Date("2025-10-10T12:00:00Z"),
         }),
         createMockRecommendation({ 
           action: "hold", 
-          price: 101000,
+          price: 99000,
           timestamp: new Date("2025-10-10T13:00:00Z"),
         }),
         createMockRecommendation({ 
           action: "close", 
-          price: 102000,
+          price: 98000,
           timestamp: new Date("2025-10-10T14:00:00Z"),
         }),
       ];
 
-      const trades = (service as any).simulateRecommendedStrategy(recs, "close");
+      const trades = (service as any).simulateRecommendedStrategy(recs, "maintain");
       
       expect(trades).toHaveLength(1);
+      expect(trades[0].action).toBe("short");
       expect(trades[0].entry_price).toBe(100000);
-      expect(trades[0].exit_price).toBe(101000); // Closed at hold
-      expect(trades[0].pnl_usd).toBeCloseTo(10, 2);
+      expect(trades[0].exit_price).toBe(98000);
+      expect(trades[0].pnl_usd).toBeCloseTo(20, 2);
     });
 
-    it("should do nothing on hold when flat (maintain mode)", () => {
+    it("should stay flat on hold when flat (no-op)", () => {
       const service = new TradeBacktestService(undefined, 1000);
       
       const recs = [
@@ -291,6 +293,38 @@ describe("TradeBacktestService", () => {
       const trades = (service as any).simulateRecommendedStrategy(recs, "maintain");
       
       expect(trades).toHaveLength(0);
+    });
+
+    it("should ignore mode parameter and use position-aware semantics", () => {
+      const service = new TradeBacktestService(undefined, 1000);
+      
+      const recs = [
+        createMockRecommendation({ 
+          action: "long", 
+          price: 100000,
+          timestamp: new Date("2025-10-10T12:00:00Z"),
+        }),
+        createMockRecommendation({ 
+          action: "hold", 
+          price: 101000,
+          timestamp: new Date("2025-10-10T13:00:00Z"),
+        }),
+        createMockRecommendation({ 
+          action: "close", 
+          price: 102000,
+          timestamp: new Date("2025-10-10T14:00:00Z"),
+        }),
+      ];
+
+      // Mode=close should behave same as mode=maintain now (deprecated)
+      const tradesClose = (service as any).simulateRecommendedStrategy(recs, "close");
+      const tradesMaintain = (service as any).simulateRecommendedStrategy(recs, "maintain");
+      
+      // Both should maintain on hold and close on close action
+      expect(tradesClose).toHaveLength(1);
+      expect(tradesMaintain).toHaveLength(1);
+      expect(tradesClose[0].exit_price).toBe(102000);
+      expect(tradesMaintain[0].exit_price).toBe(102000);
     });
   });
 

@@ -165,6 +165,14 @@ export class TradeBacktestService {
 
   /**
    * Simulate recommended strategy with position tracking
+   * 
+   * Position-aware semantics (holdMode parameter is deprecated and ignored):
+   * - LONG: Enter or maintain long position; flip to long if currently short
+   * - SHORT: Enter or maintain short position; flip to short if currently long
+   * - HOLD: Maintain current state (flat stays flat, long stays long, short stays short)
+   * - CLOSE: Exit to flat; no-op if already flat (invalid action when flat)
+   * 
+   * @deprecated holdMode parameter is deprecated and has no effect
    */
   private simulateRecommendedStrategy(
     recs: TradeRecommendationRecord[],
@@ -187,7 +195,7 @@ export class TradeBacktestService {
       const confidence = Number(rec.confidence);
 
       if (action === "long" || action === "short") {
-        // If we have an opposite position, close it first
+        // If we have an opposite position, close it first (flip)
         if (
           currentPosition &&
           currentPosition.action !== action
@@ -212,9 +220,9 @@ export class TradeBacktestService {
             confidence,
           };
         }
-        // If same direction, ignore (no re-entry at same price)
+        // If same direction, maintain (no re-entry)
       } else if (action === "close") {
-        // Close position if open
+        // Close position if open (no-op if flat)
         if (currentPosition) {
           const trade = this.closeTrade(
             currentPosition,
@@ -225,19 +233,10 @@ export class TradeBacktestService {
           trades.push(trade);
           currentPosition = null;
         }
+        // If flat, this is a no-op
       } else if (action === "hold") {
-        // Handle hold based on mode
-        if (holdMode === "close" && currentPosition) {
-          const trade = this.closeTrade(
-            currentPosition,
-            price,
-            timestamp,
-            recs[0].market,
-          );
-          trades.push(trade);
-          currentPosition = null;
-        }
-        // If holdMode === "maintain", do nothing
+        // Hold maintains current state (flat stays flat, long stays long, short stays short)
+        // No action needed - state stays as is
       }
     }
 

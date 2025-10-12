@@ -10,8 +10,22 @@ import type {
 
 /**
  * Possible trading actions
+ * 
+ * - **long**: Enter or maintain a long position. If currently short, flip from short to long. If flat, enter long.
+ * - **short**: Enter or maintain a short position. If currently long, flip from long to short. If flat, enter short.
+ * - **hold**: Maintain the current state. If flat, stay flat. If long, stay long. If short, stay short.
+ * - **close**: Exit the current position and go flat. Only valid when already in a long or short position (invalid when flat).
  */
 export type TradeAction = "long" | "short" | "close" | "hold";
+
+/**
+ * Current position state for a market
+ * 
+ * - **long**: Currently holding a long position
+ * - **short**: Currently holding a short position
+ * - **flat**: No open position
+ */
+export type PositionState = "long" | "short" | "flat";
 
 /**
  * Time horizon for position
