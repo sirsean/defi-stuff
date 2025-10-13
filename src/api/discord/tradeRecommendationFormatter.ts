@@ -116,7 +116,7 @@ export class TradeRecommendationDiscordFormatter {
 
     const message = discordService
       .createEmbedMessage()
-      .addTitle(`🤖 Trade Recommendation: ${recommendation.market}`)
+      .addTitle(`${recommendation.market} ${actionEmoji} ${recommendation.action.toUpperCase()}`)
       .setColor(color);
 
     // Position flow field (if position state is provided)
