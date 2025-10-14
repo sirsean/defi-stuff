@@ -291,16 +291,20 @@ export async function tradeRecommendation(
     if (opts.discord && recommendationsWithPrices.length > 0) {
       try {
         
-        // If both --db and --discord are active, filter for changed recommendations
-        let recommendationsToSend = recommendationsWithPrices;
+        // Filter out HOLD actions - they're not actionable and don't need notifications
+        // HOLD means "maintain current state" (flat/long/short) so there's nothing to act on
+        let recommendationsToSend = recommendationsWithPrices.filter(
+          (recWithPrice) => recWithPrice.recommendation.action !== "hold"
+        );
         
-        if (opts.db) {
+        // If both --db and --discord are active, additionally filter for changed recommendations
+        if (opts.db && recommendationsToSend.length > 0) {
           const tradeRecommendationService = new TradeRecommendationService();
           const changedRecommendations = [];
           
           console.log("🔍 Checking for recommendation changes...");
           
-          for (const recWithPrice of recommendationsWithPrices) {
+          for (const recWithPrice of recommendationsToSend) {
             const market = recWithPrice.recommendation.market;
             const newAction = recWithPrice.recommendation.action;
             
@@ -333,6 +337,16 @@ export async function tradeRecommendation(
           
           await tradeRecommendationService.close();
           recommendationsToSend = changedRecommendations;
+        } else if (recommendationsToSend.length < recommendationsWithPrices.length) {
+          // If we filtered out HOLDs but --db is not active, log which were skipped
+          console.log("🔍 Filtering recommendations for Discord...");
+          for (const recWithPrice of recommendationsWithPrices) {
+            if (recWithPrice.recommendation.action === "hold") {
+              console.log(
+                `  • ${recWithPrice.recommendation.market}: HOLD (not actionable, skipping Discord)`,
+              );
+            }
+          }
         }
         
         if (recommendationsToSend.length > 0) {

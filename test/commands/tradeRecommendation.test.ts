@@ -185,6 +185,8 @@ const mockAnalysisNeutral: AgentAnalysis = {
 
 // Create mock for tradeRecommendationAgent
 const mockGenerateRecommendation = vi.fn();
+const mockGatherMarketContext = vi.fn();
+const mockGetPreviousPositionState = vi.fn();
 
 vi.mock(
   "../../src/api/trading/tradeRecommendationAgent.js",
@@ -192,10 +194,47 @@ vi.mock(
     return {
       tradeRecommendationAgent: {
         generateRecommendation: mockGenerateRecommendation,
+        gatherMarketContext: mockGatherMarketContext,
+        getPreviousPositionState: mockGetPreviousPositionState,
       },
     };
   },
 );
+
+// Mock Discord service
+const mockSendRecommendations = vi.fn();
+const mockShutdown = vi.fn();
+
+vi.mock("../../src/api/discord/tradeRecommendationFormatter.js", () => ({
+  tradeRecommendationDiscordFormatter: {
+    sendRecommendations: mockSendRecommendations,
+  },
+}));
+
+vi.mock("../../src/api/discord/discordService.js", () => ({
+  discordService: {
+    shutdown: mockShutdown,
+  },
+}));
+
+// Mock DB services
+const mockSaveRecommendations = vi.fn();
+const mockGetRecommendationsByMarket = vi.fn();
+const mockCloseDb = vi.fn();
+
+vi.mock("../../src/db/tradeRecommendationService.js", () => ({
+  TradeRecommendationService: vi.fn().mockImplementation(() => ({
+    saveRecommendations: mockSaveRecommendations,
+    getRecommendationsByMarket: mockGetRecommendationsByMarket,
+    close: mockCloseDb,
+  })),
+}));
+
+vi.mock("../../src/db/knexConnector.js", () => ({
+  KnexConnector: {
+    destroy: vi.fn(),
+  },
+}));
 
 describe("tradeRecommendation command", () => {
   // Test console output capture
@@ -220,6 +259,21 @@ describe("tradeRecommendation command", () => {
     process.exit = vi.fn((code?: number) => {
       throw new Error(`Process exited with code ${code}`);
     }) as any;
+
+    // Reset mock implementations
+    mockGatherMarketContext.mockResolvedValue({
+      markets: [
+        { symbol: "BTC", price: 67850 },
+        { symbol: "ETH", price: 3420 },
+        { symbol: "SOL", price: 155 },
+      ],
+    });
+    mockGetPreviousPositionState.mockResolvedValue(new Map());
+    mockSaveRecommendations.mockResolvedValue([]);
+    mockGetRecommendationsByMarket.mockResolvedValue([]);
+    mockCloseDb.mockResolvedValue(undefined);
+    mockSendRecommendations.mockResolvedValue(undefined);
+    mockShutdown.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -557,6 +611,108 @@ describe("tradeRecommendation command", () => {
       const errors = consoleErrors.join("\n");
       expect(errors).toContain("Failed to fetch");
       expect(errors).toContain("Check your network connection");
+    });
+  });
+
+  describe("Discord notifications", () => {
+    it("should skip HOLD actions when sending to Discord", async () => {
+      // Mock analysis with mix of HOLD and actionable recommendations
+      const mixedAnalysis: AgentAnalysis = {
+        recommendations: [
+          {
+            market: "BTC",
+            action: "long",
+            size_usd: 5000,
+            confidence: 0.75,
+            reasoning: "Strong bullish setup",
+            risk_factors: ["Risk 1"],
+            timeframe: "short",
+          },
+          {
+            market: "ETH",
+            action: "hold",
+            size_usd: null,
+            confidence: 0.45,
+            reasoning: "No clear edge, wait for better setup",
+            risk_factors: ["Risk 1"],
+            timeframe: "short",
+          },
+          {
+            market: "SOL",
+            action: "short",
+            size_usd: 3000,
+            confidence: 0.68,
+            reasoning: "Bearish divergence",
+            risk_factors: ["Risk 1"],
+            timeframe: "short",
+          },
+        ],
+        market_summary: "Mixed market conditions",
+        timestamp: "2025-10-05T14:00:00.000Z",
+      };
+
+      mockGenerateRecommendation.mockResolvedValue(mixedAnalysis);
+
+      const { tradeRecommendation } = await import(
+        "../../src/commands/tradeRecommendation.js"
+      );
+
+      // Run with --discord flag (but not --db to keep test simple)
+      await tradeRecommendation({ markets: "BTC,ETH,SOL", discord: true });
+
+      const output = consoleOutput.join("\n");
+
+      // Should log that ETH HOLD is being skipped
+      expect(output).toContain("ETH: HOLD (not actionable, skipping Discord)");
+
+      // Should indicate filtering is happening
+      expect(output).toContain("Filtering recommendations for Discord");
+    });
+
+    it("should still display all recommendations in console including HOLDs", async () => {
+      const mixedAnalysis: AgentAnalysis = {
+        recommendations: [
+          {
+            market: "BTC",
+            action: "long",
+            size_usd: 5000,
+            confidence: 0.75,
+            reasoning: "Strong bullish setup",
+            risk_factors: [],
+            timeframe: "short",
+          },
+          {
+            market: "ETH",
+            action: "hold",
+            size_usd: null,
+            confidence: 0.45,
+            reasoning: "No clear edge, wait for better setup",
+            risk_factors: [],
+            timeframe: "short",
+          },
+        ],
+        market_summary: "Mixed market conditions",
+        timestamp: "2025-10-05T14:00:00.000Z",
+      };
+
+      mockGenerateRecommendation.mockResolvedValue(mixedAnalysis);
+
+      const { tradeRecommendation } = await import(
+        "../../src/commands/tradeRecommendation.js"
+      );
+
+      // Run without Discord flag - should show all recommendations
+      await tradeRecommendation({ markets: "BTC,ETH" });
+
+      const output = consoleOutput.join("\n");
+
+      // Both recommendations should be in console output
+      expect(output).toContain("₿ BTC 📈 LONG");
+      expect(output).toContain("Ξ ETH ⏸️ HOLD");
+
+      // Should show reasoning for both
+      expect(output).toContain("Strong bullish setup");
+      expect(output).toContain("No clear edge, wait for better setup");
     });
   });
 
