@@ -300,11 +300,14 @@ export class ChartGenerator {
     const dineroEthDataset = chartData.datasets.find(
       (d) => d.label === "Dinero ETH",
     );
-    if (autoEthDataset && dineroEthDataset) {
+    if (autoEthDataset || dineroEthDataset) {
       // Create combined ETH dataset
-      const combinedEthData = autoEthDataset.data.map(
-        (autoValue, index) => autoValue + dineroEthDataset.data[index],
-      );
+      // Handle case where one dataset might be missing (filtered out due to all zeros)
+      const combinedEthData = chartData.labels.map((_, index) => {
+        const autoValue = autoEthDataset ? autoEthDataset.data[index] : 0;
+        const dineroValue = dineroEthDataset ? dineroEthDataset.data[index] : 0;
+        return autoValue + dineroValue;
+      });
 
       const combinedEthDataset = {
         label: "Total ETH",
