@@ -288,86 +288,91 @@ export async function tradeRecommendation(
     }
 
     // Send to Discord if --discord flag is provided
-    if (opts.discord && recommendationsWithPrices.length > 0) {
+    // Track if Discord was initialized so we can ensure cleanup happens
+    let discordInitialized = false;
+    if (opts.discord) {
       try {
-        
-        // Filter out HOLD actions - they're not actionable and don't need notifications
-        // HOLD means "maintain current state" (flat/long/short) so there's nothing to act on
-        let recommendationsToSend = recommendationsWithPrices.filter(
-          (recWithPrice) => recWithPrice.recommendation.action !== "hold"
-        );
-        
-        // If both --db and --discord are active, additionally filter for changed recommendations
-        if (opts.db && recommendationsToSend.length > 0) {
-          const tradeRecommendationService = new TradeRecommendationService();
-          const changedRecommendations = [];
+        // Only proceed if we have recommendations with prices
+        if (recommendationsWithPrices.length > 0) {
+          // Initialize Discord service
+          await discordService.initialize();
+          discordInitialized = true;
           
-          console.log("🔍 Checking for recommendation changes...");
+          // Filter out HOLD actions - they're not actionable and don't need notifications
+          // HOLD means "maintain current state" (flat/long/short) so there's nothing to act on
+          let recommendationsToSend = recommendationsWithPrices.filter(
+            (recWithPrice) => recWithPrice.recommendation.action !== "hold"
+          );
           
-          for (const recWithPrice of recommendationsToSend) {
-            const market = recWithPrice.recommendation.market;
-            const newAction = recWithPrice.recommendation.action;
+          // If both --db and --discord are active, additionally filter for changed recommendations
+          if (opts.db && recommendationsToSend.length > 0) {
+            const tradeRecommendationService = new TradeRecommendationService();
+            const changedRecommendations = [];
             
-            // Get the most recent previous recommendation for this market
-            // Skip the most recent one (which we just saved) by getting 2 records
-            const recentRecs = await tradeRecommendationService.getRecommendationsByMarket(market, 2);
+            console.log("🔍 Checking for recommendation changes...");
             
-            // If there's a previous recommendation (index 1), compare actions
-            if (recentRecs.length > 1) {
-              const previousAction = recentRecs[1].action;
+            for (const recWithPrice of recommendationsToSend) {
+              const market = recWithPrice.recommendation.market;
+              const newAction = recWithPrice.recommendation.action;
               
-              if (previousAction !== newAction) {
+              // Get the most recent previous recommendation for this market
+              // Skip the most recent one (which we just saved) by getting 2 records
+              const recentRecs = await tradeRecommendationService.getRecommendationsByMarket(market, 2);
+              
+              // If there's a previous recommendation (index 1), compare actions
+              if (recentRecs.length > 1) {
+                const previousAction = recentRecs[1].action;
+                
+                if (previousAction !== newAction) {
+                  console.log(
+                    `  • ${market}: ${previousAction.toUpperCase()} → ${newAction.toUpperCase()} (changed)`,
+                  );
+                  changedRecommendations.push(recWithPrice);
+                } else {
+                  console.log(
+                    `  • ${market}: ${newAction.toUpperCase()} (unchanged, skipping Discord)`,
+                  );
+                }
+              } else {
+                // First recommendation for this market, always send
                 console.log(
-                  `  • ${market}: ${previousAction.toUpperCase()} → ${newAction.toUpperCase()} (changed)`,
+                  `  • ${market}: ${newAction.toUpperCase()} (first recommendation)`,
                 );
                 changedRecommendations.push(recWithPrice);
-              } else {
+              }
+            }
+            
+            await tradeRecommendationService.close();
+            recommendationsToSend = changedRecommendations;
+          } else if (recommendationsToSend.length < recommendationsWithPrices.length) {
+            // If we filtered out HOLDs but --db is not active, log which were skipped
+            console.log("🔍 Filtering recommendations for Discord...");
+            for (const recWithPrice of recommendationsWithPrices) {
+              if (recWithPrice.recommendation.action === "hold") {
                 console.log(
-                  `  • ${market}: ${newAction.toUpperCase()} (unchanged, skipping Discord)`,
+                  `  • ${recWithPrice.recommendation.market}: HOLD (not actionable, skipping Discord)`,
                 );
               }
-            } else {
-              // First recommendation for this market, always send
-              console.log(
-                `  • ${market}: ${newAction.toUpperCase()} (first recommendation)`,
-              );
-              changedRecommendations.push(recWithPrice);
             }
           }
           
-          await tradeRecommendationService.close();
-          recommendationsToSend = changedRecommendations;
-        } else if (recommendationsToSend.length < recommendationsWithPrices.length) {
-          // If we filtered out HOLDs but --db is not active, log which were skipped
-          console.log("🔍 Filtering recommendations for Discord...");
-          for (const recWithPrice of recommendationsWithPrices) {
-            if (recWithPrice.recommendation.action === "hold") {
-              console.log(
-                `  • ${recWithPrice.recommendation.market}: HOLD (not actionable, skipping Discord)`,
-              );
-            }
+          if (recommendationsToSend.length > 0) {
+            console.log("📤 Sending recommendations to Discord...");
+
+            await tradeRecommendationDiscordFormatter.sendRecommendations(
+              recommendationsToSend,
+              positionStatesForDiscord || undefined,
+            );
+
+            console.log(
+              `✅ Sent ${recommendationsToSend.length} recommendation(s) to Discord\n`,
+            );
+          } else {
+            console.log(
+              "ℹ️ No recommendation changes detected, skipping Discord notification\n",
+            );
           }
         }
-        
-        if (recommendationsToSend.length > 0) {
-          console.log("📤 Sending recommendations to Discord...");
-
-          await tradeRecommendationDiscordFormatter.sendRecommendations(
-            recommendationsToSend,
-            positionStatesForDiscord || undefined,
-          );
-
-          console.log(
-            `✅ Sent ${recommendationsToSend.length} recommendation(s) to Discord\n`,
-          );
-        } else {
-          console.log(
-            "ℹ️ No recommendation changes detected, skipping Discord notification\n",
-          );
-        }
-
-        // Cleanup Discord connection
-        await discordService.shutdown();
       } catch (discordError: any) {
         console.error(
           `❌ Failed to send to Discord: ${discordError?.message ?? "Unknown error"}`,
@@ -378,6 +383,11 @@ export async function tradeRecommendation(
           );
         }
         // Don't exit - Discord error shouldn't prevent other functionality
+      } finally {
+        // Always cleanup Discord connection if it was initialized
+        if (discordInitialized) {
+          await discordService.shutdown();
+        }
       }
     }
   } catch (error: any) {

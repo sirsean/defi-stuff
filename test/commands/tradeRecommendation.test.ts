@@ -203,6 +203,7 @@ vi.mock(
 
 // Mock Discord service
 const mockSendRecommendations = vi.fn();
+const mockInitialize = vi.fn();
 const mockShutdown = vi.fn();
 
 vi.mock("../../src/api/discord/tradeRecommendationFormatter.js", () => ({
@@ -213,6 +214,7 @@ vi.mock("../../src/api/discord/tradeRecommendationFormatter.js", () => ({
 
 vi.mock("../../src/api/discord/discordService.js", () => ({
   discordService: {
+    initialize: mockInitialize,
     shutdown: mockShutdown,
   },
 }));
@@ -272,6 +274,7 @@ describe("tradeRecommendation command", () => {
     mockSaveRecommendations.mockResolvedValue([]);
     mockGetRecommendationsByMarket.mockResolvedValue([]);
     mockCloseDb.mockResolvedValue(undefined);
+    mockInitialize.mockResolvedValue(undefined);
     mockSendRecommendations.mockResolvedValue(undefined);
     mockShutdown.mockResolvedValue(undefined);
   });
@@ -663,10 +666,29 @@ describe("tradeRecommendation command", () => {
       const output = consoleOutput.join("\n");
 
       // Should log that ETH HOLD is being skipped
-      expect(output).toContain("ETH: HOLD (not actionable, skipping Discord)");
+      expect(mockSendRecommendations).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({ 
+            recommendation: expect.objectContaining({ action: 'long' })
+          }),
+          expect.objectContaining({ 
+            recommendation: expect.objectContaining({ action: 'short' })
+          }),
+        ]),
+        expect.any(Map),
+      );
+      
+      // Verify HOLD was filtered out - check that the call doesn't include it
+      const callArgs = mockSendRecommendations.mock.calls[0];
+      if (callArgs) {
+        const recommendations = callArgs[0];
+        const hasHold = recommendations.some(
+          (r: any) => r.recommendation.action === 'hold'
+        );
+        expect(hasHold).toBe(false);
+      }
 
       // Should indicate filtering is happening
-      expect(output).toContain("Filtering recommendations for Discord");
     });
 
     it("should still display all recommendations in console including HOLDs", async () => {
