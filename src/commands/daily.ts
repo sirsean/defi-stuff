@@ -891,12 +891,16 @@ async function runAutoCompoundIfRequested(args: {
 
   // Step 2: Deposit claimed USDC into baseUSD
   const claimedDecimalForDeposit = atomicUsdcToDecimalString(claimedAtomic);
-  // Small delay to reduce back-to-back RPC pressure
+  // Increased delay to allow blockchain and RPC to propagate nonce updates
+  // This helps prevent nonce collisions when running back-to-back transactions
+  const delay = 2000 + Math.floor(Math.random() * 1000); // 2000-3000ms
+  console.log(
+    `Auto-compound: waiting ${delay}ms before deposit to allow nonce propagation...`,
+  );
   try {
-    await (
-      await import("../utils/retry.js")
-    ).sleep(800 + Math.floor(Math.random() * 700));
+    await new Promise((resolve) => setTimeout(resolve, delay));
   } catch {}
+
   try {
     const addRes: BaseusdAddResult = await baseusdAddCore(
       claimedDecimalForDeposit,
@@ -909,15 +913,32 @@ async function runAutoCompoundIfRequested(args: {
     );
   } catch (e: any) {
     const info = extractEthersErrorInfo(e);
-    console.error("Auto-compound: baseUSD deposit failed", info);
-    errors.push(
-      "baseUSD deposit failed" +
-        (info.summary
-          ? ` (${info.summary})`
-          : info.reason
-            ? ` (${info.reason})`
-            : ""),
-    );
+    const isNonceError =
+      e.code === "NONCE_EXPIRED" ||
+      e.message?.includes("nonce") ||
+      e.message?.includes("NONCE_EXPIRED");
+
+    if (isNonceError) {
+      console.error(
+        "Auto-compound: baseUSD deposit failed due to nonce error. This should not happen with the new nonce management.",
+        info,
+      );
+      errors.push(
+        "baseUSD deposit failed (nonce error)" +
+          (info.summary ? ` (${info.summary})` : ""),
+      );
+    } else {
+      console.error("Auto-compound: baseUSD deposit failed", info);
+      errors.push(
+        "baseUSD deposit failed" +
+          (info.summary
+            ? ` (${info.summary})`
+            : info.reason
+              ? ` (${info.reason})`
+              : ""),
+      );
+    }
+
     return {
       summary: {
         claimedUsdcDisplay: formatUsdc2(claimedAtomic),

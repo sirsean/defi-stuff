@@ -489,6 +489,44 @@ export async function baseusdAdd(
   }
 }
 
+/**
+ * Utility function to execute a transaction with automatic nonce management and retry logic.
+ * This prevents nonce-related errors by always fetching the latest nonce from the blockchain
+ * and retrying if a nonce error occurs.
+ */
+async function executeWithNonceRetry(
+  provider: JsonRpcProvider,
+  owner: string,
+  txFn: (nonce: number) => Promise<any>,
+  maxRetries: number = 2,
+): Promise<any> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      // Always fetch the latest nonce from the blockchain (not from cache)
+      const nonce = await provider.getTransactionCount(owner, "latest");
+      console.log(
+        `[Attempt ${attempt + 1}/${maxRetries + 1}] Using nonce ${nonce}`,
+      );
+      return await txFn(nonce);
+    } catch (error: any) {
+      const isNonceError =
+        error.code === "NONCE_EXPIRED" ||
+        error.message?.includes("nonce") ||
+        error.message?.includes("NONCE_EXPIRED");
+
+      if (isNonceError && attempt < maxRetries) {
+        console.log(
+          `Nonce error detected on attempt ${attempt + 1}, retrying with fresh nonce...`,
+        );
+        // Wait 1 second before retrying to allow blockchain state to propagate
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
 export async function baseusdAddCore(
   amount: string,
 ): Promise<BaseusdAddResult> {
@@ -559,8 +597,23 @@ export async function baseusdAddCore(
 
   let approvalTotal: bigint | undefined;
   if (currentAllowance < assets) {
+    console.log(
+      `Approving ${formatUnits(assets, 6)} USDC for router ${built.to}...`,
+    );
     const usdcWithSigner: any = usdc.connect(signer);
-    const approveTx = await usdcWithSigner.approve(built.to, assets);
+
+    // Execute approval with explicit nonce management and retry logic
+    const approveTx = await executeWithNonceRetry(
+      provider,
+      owner,
+      async (nonce) => {
+        console.log(
+          `Submitting approval transaction with nonce ${nonce}...`,
+        );
+        return await usdcWithSigner.approve(built.to, assets, { nonce });
+      },
+    );
+
     console.log(`Submitted approve tx: ${approveTx.hash}`);
     const approveRcpt = await approveTx.wait();
     if (!approveRcpt)
@@ -571,13 +624,31 @@ export async function baseusdAddCore(
       approveRcpt as any,
     );
     approvalTotal = approvalFees.totalFeeWei;
+    console.log(
+      `Approval completed. Gas paid: ${formatUnits(approvalTotal, 18)} ETH`,
+    );
+  } else {
+    console.log(
+      `USDC allowance already sufficient (${formatUnits(currentAllowance, 6)} >= ${formatUnits(assets, 6)})`,
+    );
   }
 
-  const tx = await signer.sendTransaction({
-    to: built.to,
-    data: built.data,
-    value: built.value,
-  });
+  // Execute deposit with explicit nonce management and retry logic
+  console.log("Submitting deposit transaction...");
+  const tx = await executeWithNonceRetry(
+    provider,
+    owner,
+    async (nonce) => {
+      console.log(`Submitting deposit transaction with nonce ${nonce}...`);
+      return await signer.sendTransaction({
+        to: built.to,
+        data: built.data,
+        value: built.value,
+        nonce,
+      });
+    },
+  );
+
   console.log(`Submitted tx: ${tx.hash}`);
   const receipt = await tx.wait();
   if (!receipt)
@@ -586,6 +657,9 @@ export async function baseusdAddCore(
     provider,
     tx as any,
     receipt as any,
+  );
+  console.log(
+    `Deposit completed. Gas paid: ${formatUnits(depositFees.totalFeeWei, 18)} ETH`,
   );
 
   return {
