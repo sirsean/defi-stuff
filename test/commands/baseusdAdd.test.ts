@@ -38,6 +38,9 @@ vi.mock("ethers", () => {
         maxFeePerGas: mockState.fee.maxFeePerGas,
       } as any;
     }
+    async getTransactionCount(_address: string, _blockTag: string) {
+      return 0;
+    }
   }
   class Wallet {
     pk: string;
@@ -158,11 +161,17 @@ describe("baseusd:add command", () => {
 
     await baseusdAdd("100", {} as any);
 
-    expect(ConsoleMock.log).toHaveBeenCalledWith(
-      expect.stringContaining("Submitted tx:"),
+    // Check that the transaction was submitted by looking at all log calls
+    const logCalls = ConsoleMock.log.mock.calls.map((call) => call[0]);
+    const hasSubmittedTx = logCalls.some(
+      (msg) => typeof msg === "string" && msg.startsWith("Submitted tx:"),
     );
-    expect(ConsoleMock.log).toHaveBeenCalledWith(
-      expect.stringContaining("baseUSD Add (result)"),
+    expect(hasSubmittedTx).toBe(true);
+
+    // Check that the final result summary was printed
+    const hasResult = logCalls.some((msg) =>
+      msg.includes("baseUSD Add (result)"),
     );
+    expect(hasResult).toBe(true);
   });
 });
