@@ -388,41 +388,35 @@ export class FlexPublicService {
   // ============================================================================
 
   /**
-   * Get collateral balance for a subaccount
+   * Get collateral balance for a wallet address
+   * Queries USDC collateral directly from VaultStorage
    */
-  async getCollateral(
-    account: string,
-    subAccountId: number,
-  ): Promise<CollateralInfo> {
+  async getCollateral(account: string): Promise<CollateralInfo> {
     try {
       await this.validateNetwork();
-
-      const subAccount = computeSubAccount(account, subAccountId);
 
       // Get USDC collateral from VaultStorage
       const usdcToken = TOKENS.USDC;
 
-      // Note: traderBalances expects address, address parameters
-      // For now, use primary address as first parameter
-      // TODO: Determine correct subaccount querying method from Flex docs
-      const collateralE30 = await this.vaultStorage.traderBalances(
-        account, // Use primary address instead of subaccount hash
+      // Query traderBalances with wallet address and USDC token address
+      // Returns balance in USDC's native decimals (6 decimals)
+      const balanceRaw = await this.vaultStorage.traderBalances(
+        account,
         usdcToken.address,
       );
 
-      const balance = fromE30(collateralE30);
+      // Convert from USDC's 6 decimals to human-readable number
+      const balance = fromToken(balanceRaw, usdcToken.decimals);
 
       return {
-        subAccountId,
-        subAccount,
         token: "USDC",
         tokenAddress: usdcToken.address,
         balance,
-        balanceE30: collateralE30,
+        balanceRaw,
       };
     } catch (error: any) {
       throw new Error(
-        `Failed to get collateral for subaccount ${subAccountId}: ${error.message}`,
+        `Failed to get collateral for account ${account}: ${error.message}`,
       );
     }
   }
@@ -435,8 +429,8 @@ export class FlexPublicService {
 
     const subAccount = computeSubAccount(account, subAccountId);
 
-    // Get collateral
-    const collateral = await this.getCollateral(account, subAccountId);
+    // Get collateral (stored at wallet level, not subaccount level)
+    const collateral = await this.getCollateral(account);
 
     // Get all positions for this subaccount
     const positions = await this.getAllPositions(account, [subAccountId]);

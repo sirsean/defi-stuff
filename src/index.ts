@@ -185,15 +185,10 @@ program
 // Flex Perpetuals Commands
 program
   .command("flex:balance")
-  .description("Check Flex account balance, collateral, equity, and leverage")
+  .description("Check Flex USDC collateral balance")
   .option(
     "-a, --address <address>",
     "Override the wallet address from environment variables",
-  )
-  .option("--sub <id>", "Subaccount ID to query (0-255, default: 0)")
-  .option(
-    "--subs <ids>",
-    "Multiple subaccount IDs separated by commas (e.g., 0,1,2)",
   )
   .action(flexBalance);
 

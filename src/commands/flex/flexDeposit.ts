@@ -46,12 +46,9 @@ export async function flexDeposit(options: FlexDepositOptions): Promise<void> {
 
     console.log(`\n💰 Deposit USDC to Flex\n`);
 
-    // Get current balance
+    // Get current balance (stored at wallet level)
     try {
-      const currentBalance = await publicService.getCollateral(
-        address,
-        subAccountId,
-      );
+      const currentBalance = await publicService.getCollateral(address);
       console.log(`Current Balance:`);
       console.log(`  Subaccount: ${subAccountId}`);
       console.log(`  USDC Balance: ${formatUsd(currentBalance.balance)}`);
@@ -71,10 +68,7 @@ export async function flexDeposit(options: FlexDepositOptions): Promise<void> {
 
     // Calculate projected balance
     try {
-      const currentBalance = await publicService.getCollateral(
-        address,
-        subAccountId,
-      );
+      const currentBalance = await publicService.getCollateral(address);
       const projectedBalance = currentBalance.balance + amount;
       console.log(`Projected Balance:`);
       console.log(`  New USDC Balance: ${formatUsd(projectedBalance)}`);
@@ -112,16 +106,13 @@ export async function flexDeposit(options: FlexDepositOptions): Promise<void> {
 
     // Show updated balance
     try {
-      const updatedBalance = await publicService.getCollateral(
-        address,
-        subAccountId,
-      );
+      const updatedBalance = await publicService.getCollateral(address);
       console.log(`Updated Balance:`);
       console.log(`  USDC Balance: ${formatUsd(updatedBalance.balance)}`);
       console.log();
     } catch {
       console.log(
-        `✅ Deposit complete. Check balance with: npm run dev -- flex:balance --sub ${subAccountId}\n`,
+        `✅ Deposit complete. Check balance with: npm run dev -- flex:balance\n`,
       );
     }
   } catch (error: any) {

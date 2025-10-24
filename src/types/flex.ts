@@ -159,12 +159,10 @@ export interface PositionSummary {
  * Collateral information
  */
 export interface CollateralInfo {
-  subAccountId: number;
-  subAccount: string;
   token: string;
   tokenAddress: string;
   balance: number;
-  balanceE30: bigint;
+  balanceRaw: bigint;
 }
 
 /**

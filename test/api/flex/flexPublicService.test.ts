@@ -392,40 +392,40 @@ describe("FlexPublicService", () => {
 
     describe("getCollateral", () => {
       it("should fetch USDC collateral balance", async () => {
-        const mockBalance = 10000n * 10n ** 30n; // $10,000
+        // USDC has 6 decimals, not E30
+        const mockBalance = 10000n * 10n ** 6n; // $10,000 in USDC's 6 decimals
 
         const mockVaultStorage = (service as any).vaultStorage;
         mockVaultStorage.traderBalances = vi
           .fn()
           .mockResolvedValue(mockBalance);
 
-        const result = await service.getCollateral(
-          testAccount,
-          testSubAccountId,
-        );
+        const result = await service.getCollateral(testAccount);
 
-        expect(result.subAccountId).toBe(testSubAccountId);
         expect(result.token).toBe("USDC");
         expect(result.balance).toBe(10000);
-        expect(result.balanceE30).toBe(mockBalance);
+        expect(result.balanceRaw).toBe(mockBalance);
+        expect(mockVaultStorage.traderBalances).toHaveBeenCalledWith(
+          testAccount,
+          expect.any(String), // USDC token address
+        );
       });
 
       it("should handle zero balance", async () => {
         const mockVaultStorage = (service as any).vaultStorage;
         mockVaultStorage.traderBalances = vi.fn().mockResolvedValue(0n);
 
-        const result = await service.getCollateral(
-          testAccount,
-          testSubAccountId,
-        );
+        const result = await service.getCollateral(testAccount);
 
         expect(result.balance).toBe(0);
+        expect(result.balanceRaw).toBe(0n);
       });
     });
 
     describe("getEquity", () => {
       it("should calculate equity with no positions", async () => {
-        const mockBalance = 10000n * 10n ** 30n;
+        // USDC has 6 decimals
+        const mockBalance = 10000n * 10n ** 6n; // $10,000 in USDC's 6 decimals
 
         const mockVaultStorage = (service as any).vaultStorage;
         mockVaultStorage.traderBalances = vi
@@ -447,7 +447,8 @@ describe("FlexPublicService", () => {
       });
 
       it("should calculate equity with profitable position", async () => {
-        const mockBalance = 10000n * 10n ** 30n;
+        // USDC has 6 decimals
+        const mockBalance = 10000n * 10n ** 6n; // $10,000 in USDC's 6 decimals
 
         const mockVaultStorage = (service as any).vaultStorage;
         mockVaultStorage.traderBalances = vi
@@ -492,7 +493,8 @@ describe("FlexPublicService", () => {
 
     describe("getLeverage", () => {
       it("should calculate 1x leverage with equal position and equity", async () => {
-        const mockBalance = 10000n * 10n ** 30n;
+        // USDC has 6 decimals
+        const mockBalance = 10000n * 10n ** 6n; // $10,000 in USDC's 6 decimals
 
         const mockVaultStorage = (service as any).vaultStorage;
         mockVaultStorage.traderBalances = vi
@@ -534,7 +536,8 @@ describe("FlexPublicService", () => {
       });
 
       it("should calculate 3x leverage", async () => {
-        const mockBalance = 10000n * 10n ** 30n;
+        // USDC has 6 decimals
+        const mockBalance = 10000n * 10n ** 6n; // $10,000 in USDC's 6 decimals
 
         const mockVaultStorage = (service as any).vaultStorage;
         mockVaultStorage.traderBalances = vi
@@ -576,7 +579,8 @@ describe("FlexPublicService", () => {
 
     describe("getAvailableMargin", () => {
       it("should calculate available margin for 1x leverage", async () => {
-        const mockBalance = 10000n * 10n ** 30n;
+        // USDC has 6 decimals
+        const mockBalance = 10000n * 10n ** 6n; // $10,000 in USDC's 6 decimals
 
         const mockVaultStorage = (service as any).vaultStorage;
         mockVaultStorage.traderBalances = vi
@@ -599,7 +603,8 @@ describe("FlexPublicService", () => {
       });
 
       it("should calculate available margin for 5x leverage", async () => {
-        const mockBalance = 10000n * 10n ** 30n;
+        // USDC has 6 decimals
+        const mockBalance = 10000n * 10n ** 6n; // $10,000 in USDC's 6 decimals
 
         const mockVaultStorage = (service as any).vaultStorage;
         mockVaultStorage.traderBalances = vi
@@ -645,7 +650,8 @@ describe("FlexPublicService", () => {
       });
 
       it("should return 0 when over-leveraged", async () => {
-        const mockBalance = 10000n * 10n ** 30n;
+        // USDC has 6 decimals
+        const mockBalance = 10000n * 10n ** 6n; // $10,000 in USDC's 6 decimals
 
         const mockVaultStorage = (service as any).vaultStorage;
         mockVaultStorage.traderBalances = vi

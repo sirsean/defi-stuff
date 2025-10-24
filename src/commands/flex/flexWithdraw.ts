@@ -48,10 +48,10 @@ export async function flexWithdraw(
 
     console.log(`\n💸 Withdraw USDC from Flex\n`);
 
-    // Get current balance
+    // Get current balance (stored at wallet level)
     let currentBalance;
     try {
-      currentBalance = await publicService.getCollateral(address, subAccountId);
+      currentBalance = await publicService.getCollateral(address);
       console.log(`Current Balance:`);
       console.log(`  Subaccount: ${subAccountId}`);
       console.log(`  USDC Balance: ${formatUsd(currentBalance.balance)}`);
@@ -143,16 +143,13 @@ export async function flexWithdraw(
 
     // Show updated balance
     try {
-      const updatedBalance = await publicService.getCollateral(
-        address,
-        subAccountId,
-      );
+      const updatedBalance = await publicService.getCollateral(address);
       console.log(`Updated Balance:`);
       console.log(`  USDC Balance: ${formatUsd(updatedBalance.balance)}`);
       console.log();
     } catch {
       console.log(
-        `✅ Withdrawal complete. Check balance with: npm run dev -- flex:balance --sub ${subAccountId}\n`,
+        `✅ Withdrawal complete. Check balance with: npm run dev -- flex:balance\n`,
       );
     }
   } catch (error: any) {
