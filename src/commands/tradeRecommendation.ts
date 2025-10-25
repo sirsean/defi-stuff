@@ -281,9 +281,6 @@ export async function tradeRecommendation(
           `❌ Failed to save recommendations to database: ${dbError?.message ?? "Unknown error"}\n`,
         );
         // Don't exit - database error shouldn't prevent showing recommendations
-      } finally {
-        // Ensure Knex connection is cleaned up
-        await KnexConnector.destroy();
       }
     }
 
@@ -414,5 +411,18 @@ export async function tradeRecommendation(
 
     console.error("");
     process.exit(1);
+  } finally {
+    // Cleanup resources to ensure the process can exit cleanly
+    try {
+      // Cleanup agent's internal database service (if it was lazily created)
+      await tradeRecommendationAgent.cleanup();
+      
+      // Always destroy the database connection pool
+      await KnexConnector.destroy();
+    } catch (cleanupError: any) {
+      console.error(
+        `⚠️ Error during cleanup: ${cleanupError?.message ?? "Unknown error"}`,
+      );
+    }
   }
 }

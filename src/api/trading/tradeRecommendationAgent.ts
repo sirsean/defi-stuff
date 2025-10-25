@@ -57,6 +57,18 @@ export class TradeRecommendationAgent {
   }
 
   /**
+   * Cleanup resources used by the agent
+   * 
+   * Closes the database connection if it was lazily created
+   */
+  async cleanup(): Promise<void> {
+    if (this.tradeRecServiceInstance) {
+      await this.tradeRecServiceInstance.close();
+      this.tradeRecServiceInstance = null;
+    }
+  }
+
+  /**
    * Get the previous position state for given markets by walking back through recommendations
    *
    * @param markets Market symbols to check (e.g., ['BTC', 'ETH'])
