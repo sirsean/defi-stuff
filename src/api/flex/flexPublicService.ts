@@ -40,8 +40,6 @@ import type {
 export interface PositionData {
   marketIndex: number;
   symbol: string;
-  subAccountId: number;
-  subAccount: string;
   isLong: boolean;
   size: number; // USD
   sizeE30: bigint;
@@ -50,6 +48,7 @@ export interface PositionData {
   unrealizedPnl: number;
   fundingFee: number;
   borrowingFee: number;
+  tradingFee: number;
   liquidationPrice: number;
   leverage: number;
 }
@@ -268,11 +267,10 @@ export class FlexPublicService {
   // ============================================================================
 
   /**
-   * Get position for a specific market and subaccount
+   * Get position for a specific market and wallet address
    */
   async getPosition(
     account: string,
-    subAccountId: number,
     marketIndex: number,
   ): Promise<PositionData | null> {
     await this.validateNetwork();
@@ -283,17 +281,16 @@ export class FlexPublicService {
       throw new Error(`Market index ${marketIndex} not found`);
     }
 
-    // Compute subaccount address
-    const subAccount = computeSubAccount(account, subAccountId);
+    // Get all positions for this account
+    const allPositions = await this.perpStorage.getPositionBySubAccount(account);
 
-    // Get position from PerpStorage
-    const positionData = await this.perpStorage.getPositionBySubAccount(
-      subAccount,
-      marketIndex,
+    // Find the position for the requested market
+    const positionData = allPositions.find(
+      (p: any) => Number(p.marketIndex) === marketIndex,
     );
 
     // Check if position exists (non-zero size)
-    if (positionData.positionSizeE30 === 0n) {
+    if (!positionData || positionData.positionSizeE30 === 0n) {
       return null;
     }
 
@@ -339,8 +336,6 @@ export class FlexPublicService {
     return {
       marketIndex,
       symbol: market.symbol,
-      subAccountId,
-      subAccount,
       isLong,
       size: absSize,
       sizeE30: positionData.positionSizeE30,
@@ -349,6 +344,7 @@ export class FlexPublicService {
       unrealizedPnl,
       fundingFee,
       borrowingFee,
+      tradingFee: 0, // Trading fee not stored in position data
       liquidationPrice: 0, // Will calculate below if we have equity
       leverage: 0, // Will calculate below if we have equity
     };
@@ -357,27 +353,83 @@ export class FlexPublicService {
   /**
    * Get all open positions for an account across all markets
    */
-  async getAllPositions(
-    account: string,
-    subAccountIds: number[],
-  ): Promise<PositionData[]> {
+  async getAllPositions(account: string): Promise<PositionData[]> {
     await this.validateNetwork();
+
+    // Get all positions from PerpStorage
+    const allPositions = await this.perpStorage.getPositionBySubAccount(account);
 
     const positions: PositionData[] = [];
 
-    // Query positions for each subaccount and market combination
-    for (const subAccountId of subAccountIds) {
-      for (const market of Object.values(MARKETS)) {
-        const position = await this.getPosition(
-          account,
-          subAccountId,
-          market.index,
-        );
-
-        if (position) {
-          positions.push(position);
-        }
+    // Process each position
+    for (const positionData of allPositions) {
+      // Skip positions with zero size
+      if (positionData.positionSizeE30 === 0n) {
+        continue;
       }
+
+      const marketIndex = Number(positionData.marketIndex);
+      const market = Object.values(MARKETS).find((m) => m.index === marketIndex);
+
+      if (!market) {
+        console.warn(`Unknown market index ${marketIndex}, skipping`);
+        continue;
+      }
+
+      // Get current market price for PnL calculation
+      const marketData = await this.getMarketPrice(marketIndex);
+
+      // Get market state for funding
+      const marketState = await this.perpStorage.getMarketByIndex(marketIndex);
+
+      const size = fromE30(positionData.positionSizeE30);
+      const avgEntryPrice = fromE30(positionData.avgEntryPriceE30);
+      const isLong = size > 0;
+      const absSize = Math.abs(size);
+
+      // Calculate unrealized PnL
+      const unrealizedPnl = fromE30(
+        calculatePnL(
+          isLong,
+          positionData.positionSizeE30,
+          positionData.avgEntryPriceE30,
+          marketData.priceE30,
+        ),
+      );
+
+      // Calculate funding fee
+      const fundingFee = fromE30(
+        calculateFundingFee(
+          positionData.positionSizeE30,
+          marketState.fundingAccrued,
+          positionData.lastFundingAccrued,
+        ),
+      );
+
+      // Calculate borrowing fee
+      const borrowingFee = fromE30(
+        calculateBorrowingFee(
+          positionData.reserveValueE30,
+          marketState.borrowingRate,
+          positionData.entryBorrowingRate,
+        ),
+      );
+
+      positions.push({
+        marketIndex,
+        symbol: market.symbol,
+        isLong,
+        size: absSize,
+        sizeE30: positionData.positionSizeE30,
+        avgEntryPrice,
+        currentPrice: marketData.price,
+        unrealizedPnl,
+        fundingFee,
+        borrowingFee,
+        tradingFee: 0, // Trading fee not stored in position data
+        liquidationPrice: 0, // Will calculate if needed
+        leverage: 0, // Will calculate if needed
+      });
     }
 
     return positions;
@@ -422,18 +474,16 @@ export class FlexPublicService {
   }
 
   /**
-   * Get equity (collateral + unrealized PnL) for a subaccount
+   * Get equity (collateral + unrealized PnL) for a wallet address
    */
-  async getEquity(account: string, subAccountId: number): Promise<EquityData> {
+  async getEquity(account: string): Promise<EquityData> {
     await this.validateNetwork();
 
-    const subAccount = computeSubAccount(account, subAccountId);
-
-    // Get collateral (stored at wallet level, not subaccount level)
+    // Get collateral (stored at wallet level)
     const collateral = await this.getCollateral(account);
 
-    // Get all positions for this subaccount
-    const positions = await this.getAllPositions(account, [subAccountId]);
+    // Get all positions for this account
+    const positions = await this.getAllPositions(account);
 
     // Calculate total unrealized PnL and fees from all positions
     let totalUnrealizedPnl = 0;
@@ -448,8 +498,8 @@ export class FlexPublicService {
     const equity = collateral.balance + totalUnrealizedPnl - totalFees;
 
     return {
-      subAccountId,
-      subAccount,
+      subAccountId: 0, // Deprecated field
+      subAccount: account,
       collateral: collateral.balance,
       unrealizedPnl: totalUnrealizedPnl,
       fees: totalFees,
@@ -459,15 +509,12 @@ export class FlexPublicService {
   }
 
   /**
-   * Get leverage information for a subaccount
+   * Get leverage information for a wallet address
    */
-  async getLeverage(
-    account: string,
-    subAccountId: number,
-  ): Promise<LeverageInfo> {
+  async getLeverage(account: string): Promise<LeverageInfo> {
     await this.validateNetwork();
 
-    const equity = await this.getEquity(account, subAccountId);
+    const equity = await this.getEquity(account);
 
     // Calculate total position size
     // Note: position.size is already in USD terms
@@ -479,7 +526,7 @@ export class FlexPublicService {
     const leverage = calculateLeverage(totalPositionSize, equity.equity);
 
     return {
-      subAccountId,
+      subAccountId: 0, // Deprecated field
       equity: equity.equity,
       totalPositionSize,
       leverage,
@@ -492,12 +539,11 @@ export class FlexPublicService {
    */
   async getAvailableMargin(
     account: string,
-    subAccountId: number,
     targetLeverage: number = 1,
   ): Promise<number> {
     await this.validateNetwork();
 
-    const leverageInfo = await this.getLeverage(account, subAccountId);
+    const leverageInfo = await this.getLeverage(account);
 
     // Available margin considering target leverage
     const availableForNewPositions =
@@ -511,21 +557,16 @@ export class FlexPublicService {
   // ============================================================================
 
   /**
-   * Get pending limit/trigger orders for a subaccount
+   * Get pending limit/trigger orders for a wallet address
    */
-  async getPendingOrders(
-    account: string,
-    subAccountId: number,
-  ): Promise<any[]> {
+  async getPendingOrders(account: string): Promise<any[]> {
     await this.validateNetwork();
-
-    const subAccount = computeSubAccount(account, subAccountId);
 
     // Query limit orders from LimitTradeHandler
     // Note: This depends on the contract's interface for querying orders
     // Will need to check the actual ABI for the correct method
     try {
-      const orders = await this.limitTradeHandler.getLimitOrders(subAccount);
+      const orders = await this.limitTradeHandler.getLimitOrders(account);
       return orders;
     } catch (error) {
       // If method doesn't exist or fails, return empty array

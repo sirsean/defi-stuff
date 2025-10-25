@@ -196,36 +196,40 @@ describe("FlexPublicService", () => {
 
     describe("getPosition", () => {
       it("should return null for non-existent position", async () => {
-        const mockPositionData = {
-          positionSizeE30: 0n,
-          avgEntryPriceE30: 0n,
-          reserveValueE30: 0n,
-          lastFundingAccrued: 0n,
-          entryBorrowingRate: 0n,
-        };
+        // Mock returns array with zero-size position
+        const mockPositionData = [
+          {
+            marketIndex: 1,
+            positionSizeE30: 0n,
+            avgEntryPriceE30: 0n,
+            reserveValueE30: 0n,
+            lastFundingAccrued: 0n,
+            entryBorrowingRate: 0n,
+          },
+        ];
 
         const mockPerpStorage = (service as any).perpStorage;
         mockPerpStorage.getPositionBySubAccount = vi
           .fn()
           .mockResolvedValue(mockPositionData);
 
-        const result = await service.getPosition(
-          testAccount,
-          testSubAccountId,
-          1,
-        );
+        const result = await service.getPosition(testAccount, 1);
 
         expect(result).toBeNull();
       });
 
       it("should fetch long BTC position with PnL", async () => {
-        const mockPositionData = {
-          positionSizeE30: 1000n * 10n ** 30n, // $1,000 long
-          avgEntryPriceE30: 60000n * 10n ** 30n, // Entry at $60,000
-          reserveValueE30: 100n * 10n ** 30n,
-          lastFundingAccrued: 1000n * 10n ** 30n,
-          entryBorrowingRate: 5n * 10n ** 27n,
-        };
+        // Mock returns array of positions
+        const mockPositionData = [
+          {
+            marketIndex: 1,
+            positionSizeE30: 1000n * 10n ** 30n, // $1,000 long
+            avgEntryPriceE30: 60000n * 10n ** 30n, // Entry at $60,000
+            reserveValueE30: 100n * 10n ** 30n,
+            lastFundingAccrued: 1000n * 10n ** 30n,
+            entryBorrowingRate: 5n * 10n ** 27n,
+          },
+        ];
 
         const mockMarketState = {
           fundingAccrued: 1100n * 10n ** 30n,
@@ -243,11 +247,7 @@ describe("FlexPublicService", () => {
         // Mock chainlink oracle for price fetch
         vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(64000);
 
-        const result = await service.getPosition(
-          testAccount,
-          testSubAccountId,
-          1,
-        );
+        const result = await service.getPosition(testAccount, 1);
 
         expect(result).not.toBeNull();
         expect(result!.isLong).toBe(true);
@@ -261,13 +261,16 @@ describe("FlexPublicService", () => {
       });
 
       it("should fetch short BTC position with negative PnL", async () => {
-        const mockPositionData = {
-          positionSizeE30: -1000n * 10n ** 30n, // $1,000 short
-          avgEntryPriceE30: 60000n * 10n ** 30n,
-          reserveValueE30: 100n * 10n ** 30n,
-          lastFundingAccrued: 1000n * 10n ** 30n,
-          entryBorrowingRate: 5n * 10n ** 27n,
-        };
+        const mockPositionData = [
+          {
+            marketIndex: 1,
+            positionSizeE30: -1000n * 10n ** 30n, // $1,000 short
+            avgEntryPriceE30: 60000n * 10n ** 30n,
+            reserveValueE30: 100n * 10n ** 30n,
+            lastFundingAccrued: 1000n * 10n ** 30n,
+            entryBorrowingRate: 5n * 10n ** 27n,
+          },
+        ];
 
         const mockMarketState = {
           fundingAccrued: 1100n * 10n ** 30n,
@@ -285,11 +288,7 @@ describe("FlexPublicService", () => {
         // Mock chainlink oracle for price fetch
         vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(64000);
 
-        const result = await service.getPosition(
-          testAccount,
-          testSubAccountId,
-          1,
-        );
+        const result = await service.getPosition(testAccount, 1);
 
         expect(result).not.toBeNull();
         expect(result!.isLong).toBe(false);
@@ -299,13 +298,16 @@ describe("FlexPublicService", () => {
       });
 
       it("should calculate funding and borrowing fees", async () => {
-        const mockPositionData = {
-          positionSizeE30: 1000n * 10n ** 30n,
-          avgEntryPriceE30: 60000n * 10n ** 30n,
-          reserveValueE30: 100n * 10n ** 30n,
-          lastFundingAccrued: 1000n * 10n ** 30n,
-          entryBorrowingRate: 5n * 10n ** 27n,
-        };
+        const mockPositionData = [
+          {
+            marketIndex: 1,
+            positionSizeE30: 1000n * 10n ** 30n,
+            avgEntryPriceE30: 60000n * 10n ** 30n,
+            reserveValueE30: 100n * 10n ** 30n,
+            lastFundingAccrued: 1000n * 10n ** 30n,
+            entryBorrowingRate: 5n * 10n ** 27n,
+          },
+        ];
 
         const mockMarketState = {
           fundingAccrued: 1100n * 10n ** 30n, // Increased by 100
@@ -323,11 +325,7 @@ describe("FlexPublicService", () => {
         // Mock chainlink oracle for price fetch
         vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(64000);
 
-        const result = await service.getPosition(
-          testAccount,
-          testSubAccountId,
-          1,
-        );
+        const result = await service.getPosition(testAccount, 1);
 
         expect(result).not.toBeNull();
         expect(result!.fundingFee).toBeGreaterThan(0);
@@ -336,26 +334,23 @@ describe("FlexPublicService", () => {
     });
 
     describe("getAllPositions", () => {
-      it("should fetch all positions for multiple subaccounts", async () => {
-        // Mock position data for BTC on subaccount 0
-        const mockBtcPosition = {
-          positionSizeE30: 1000n * 10n ** 30n,
-          avgEntryPriceE30: 60000n * 10n ** 30n,
-          reserveValueE30: 100n * 10n ** 30n,
-          lastFundingAccrued: 1000n * 10n ** 30n,
-          entryBorrowingRate: 5n * 10n ** 27n,
-        };
+      it("should fetch all positions for an account", async () => {
+        // Mock returns array with one BTC position
+        const mockPositions = [
+          {
+            marketIndex: 1,
+            positionSizeE30: 1000n * 10n ** 30n,
+            avgEntryPriceE30: 60000n * 10n ** 30n,
+            reserveValueE30: 100n * 10n ** 30n,
+            lastFundingAccrued: 1000n * 10n ** 30n,
+            entryBorrowingRate: 5n * 10n ** 27n,
+          },
+        ];
 
         const mockPerpStorage = (service as any).perpStorage;
         mockPerpStorage.getPositionBySubAccount = vi
           .fn()
-          .mockImplementation((subAccount, marketIndex) => {
-            // Only BTC (index 1) has position
-            if (marketIndex === 1) {
-              return Promise.resolve(mockBtcPosition);
-            }
-            return Promise.resolve({ positionSizeE30: 0n });
-          });
+          .mockResolvedValue(mockPositions);
 
         mockPerpStorage.getMarketByIndex = vi.fn().mockResolvedValue({
           fundingAccrued: 1100n * 10n ** 30n,
@@ -365,7 +360,7 @@ describe("FlexPublicService", () => {
         // Mock chainlink oracle for price fetch
         vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(64000);
 
-        const result = await service.getAllPositions(testAccount, [0]);
+        const result = await service.getAllPositions(testAccount);
 
         // Should only return the one BTC position
         expect(result).toHaveLength(1);
@@ -377,9 +372,9 @@ describe("FlexPublicService", () => {
         const mockPerpStorage = (service as any).perpStorage;
         mockPerpStorage.getPositionBySubAccount = vi
           .fn()
-          .mockResolvedValue({ positionSizeE30: 0n });
+          .mockResolvedValue([]);
 
-        const result = await service.getAllPositions(testAccount, [0]);
+        const result = await service.getAllPositions(testAccount);
 
         expect(result).toHaveLength(0);
       });
@@ -433,11 +428,9 @@ describe("FlexPublicService", () => {
           .mockResolvedValue(mockBalance);
 
         const mockPerpStorage = (service as any).perpStorage;
-        mockPerpStorage.getPositionBySubAccount = vi
-          .fn()
-          .mockResolvedValue({ positionSizeE30: 0n });
+        mockPerpStorage.getPositionBySubAccount = vi.fn().mockResolvedValue([]);
 
-        const result = await service.getEquity(testAccount, testSubAccountId);
+        const result = await service.getEquity(testAccount);
 
         expect(result.collateral).toBe(10000);
         expect(result.unrealizedPnl).toBe(0);
@@ -456,23 +449,21 @@ describe("FlexPublicService", () => {
           .mockResolvedValue(mockBalance);
 
         // Mock one profitable BTC position
-        const mockPositionData = {
-          positionSizeE30: 1000n * 10n ** 30n,
-          avgEntryPriceE30: 60000n * 10n ** 30n,
-          reserveValueE30: 100n * 10n ** 30n,
-          lastFundingAccrued: 1000n * 10n ** 30n,
-          entryBorrowingRate: 5n * 10n ** 27n,
-        };
+        const mockPositions = [
+          {
+            marketIndex: 1,
+            positionSizeE30: 1000n * 10n ** 30n,
+            avgEntryPriceE30: 60000n * 10n ** 30n,
+            reserveValueE30: 100n * 10n ** 30n,
+            lastFundingAccrued: 1000n * 10n ** 30n,
+            entryBorrowingRate: 5n * 10n ** 27n,
+          },
+        ];
 
         const mockPerpStorage = (service as any).perpStorage;
         mockPerpStorage.getPositionBySubAccount = vi
           .fn()
-          .mockImplementation((subAccount, marketIndex) => {
-            if (marketIndex === 1) {
-              return Promise.resolve(mockPositionData);
-            }
-            return Promise.resolve({ positionSizeE30: 0n });
-          });
+          .mockResolvedValue(mockPositions);
 
         mockPerpStorage.getMarketByIndex = vi.fn().mockResolvedValue({
           fundingAccrued: 1050n * 10n ** 30n,
@@ -482,7 +473,7 @@ describe("FlexPublicService", () => {
         // Mock chainlink oracle for price fetch
         vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(65000);
 
-        const result = await service.getEquity(testAccount, testSubAccountId);
+        const result = await service.getEquity(testAccount);
 
         expect(result.collateral).toBe(10000);
         expect(result.unrealizedPnl).toBeGreaterThan(0); // Profitable
@@ -502,23 +493,21 @@ describe("FlexPublicService", () => {
           .mockResolvedValue(mockBalance);
 
         // $10,000 position at $60,000 BTC
-        const mockPositionData = {
-          positionSizeE30: 10000n * 10n ** 30n,
-          avgEntryPriceE30: 60000n * 10n ** 30n,
-          reserveValueE30: 100n * 10n ** 30n,
-          lastFundingAccrued: 1000n * 10n ** 30n,
-          entryBorrowingRate: 5n * 10n ** 27n,
-        };
+        const mockPositions = [
+          {
+            marketIndex: 1,
+            positionSizeE30: 10000n * 10n ** 30n,
+            avgEntryPriceE30: 60000n * 10n ** 30n,
+            reserveValueE30: 100n * 10n ** 30n,
+            lastFundingAccrued: 1000n * 10n ** 30n,
+            entryBorrowingRate: 5n * 10n ** 27n,
+          },
+        ];
 
         const mockPerpStorage = (service as any).perpStorage;
         mockPerpStorage.getPositionBySubAccount = vi
           .fn()
-          .mockImplementation((subAccount, marketIndex) => {
-            if (marketIndex === 1) {
-              return Promise.resolve(mockPositionData);
-            }
-            return Promise.resolve({ positionSizeE30: 0n });
-          });
+          .mockResolvedValue(mockPositions);
 
         mockPerpStorage.getMarketByIndex = vi.fn().mockResolvedValue({
           fundingAccrued: 1000n * 10n ** 30n,
@@ -528,7 +517,7 @@ describe("FlexPublicService", () => {
         // Mock chainlink oracle for price fetch
         vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(60000);
 
-        const result = await service.getLeverage(testAccount, testSubAccountId);
+        const result = await service.getLeverage(testAccount);
 
         expect(result.equity).toBeCloseTo(10000, 0);
         expect(result.totalPositionSize).toBeCloseTo(10000, 0);
@@ -545,23 +534,21 @@ describe("FlexPublicService", () => {
           .mockResolvedValue(mockBalance);
 
         // $30,000 position with $10,000 collateral = 3x leverage
-        const mockPositionData = {
-          positionSizeE30: 30000n * 10n ** 30n,
-          avgEntryPriceE30: 60000n * 10n ** 30n,
-          reserveValueE30: 100n * 10n ** 30n,
-          lastFundingAccrued: 1000n * 10n ** 30n,
-          entryBorrowingRate: 5n * 10n ** 27n,
-        };
+        const mockPositions = [
+          {
+            marketIndex: 1,
+            positionSizeE30: 30000n * 10n ** 30n,
+            avgEntryPriceE30: 60000n * 10n ** 30n,
+            reserveValueE30: 100n * 10n ** 30n,
+            lastFundingAccrued: 1000n * 10n ** 30n,
+            entryBorrowingRate: 5n * 10n ** 27n,
+          },
+        ];
 
         const mockPerpStorage = (service as any).perpStorage;
         mockPerpStorage.getPositionBySubAccount = vi
           .fn()
-          .mockImplementation((subAccount, marketIndex) => {
-            if (marketIndex === 1) {
-              return Promise.resolve(mockPositionData);
-            }
-            return Promise.resolve({ positionSizeE30: 0n });
-          });
+          .mockResolvedValue(mockPositions);
 
         mockPerpStorage.getMarketByIndex = vi.fn().mockResolvedValue({
           fundingAccrued: 1000n * 10n ** 30n,
@@ -571,7 +558,7 @@ describe("FlexPublicService", () => {
         // Mock chainlink oracle for price fetch
         vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(60000);
 
-        const result = await service.getLeverage(testAccount, testSubAccountId);
+        const result = await service.getLeverage(testAccount);
 
         expect(result.leverage).toBeCloseTo(3, 1);
       });
@@ -588,15 +575,9 @@ describe("FlexPublicService", () => {
           .mockResolvedValue(mockBalance);
 
         const mockPerpStorage = (service as any).perpStorage;
-        mockPerpStorage.getPositionBySubAccount = vi
-          .fn()
-          .mockResolvedValue({ positionSizeE30: 0n });
+        mockPerpStorage.getPositionBySubAccount = vi.fn().mockResolvedValue([]);
 
-        const result = await service.getAvailableMargin(
-          testAccount,
-          testSubAccountId,
-          1,
-        );
+        const result = await service.getAvailableMargin(testAccount, 1);
 
         // With $10,000 equity and no positions, available = $10,000 at 1x
         expect(result).toBe(10000);
@@ -612,23 +593,21 @@ describe("FlexPublicService", () => {
           .mockResolvedValue(mockBalance);
 
         // Already using $10,000 at current price
-        const mockPositionData = {
-          positionSizeE30: 10000n * 10n ** 30n,
-          avgEntryPriceE30: 60000n * 10n ** 30n,
-          reserveValueE30: 100n * 10n ** 30n,
-          lastFundingAccrued: 1000n * 10n ** 30n,
-          entryBorrowingRate: 5n * 10n ** 27n,
-        };
+        const mockPositions = [
+          {
+            marketIndex: 1,
+            positionSizeE30: 10000n * 10n ** 30n,
+            avgEntryPriceE30: 60000n * 10n ** 30n,
+            reserveValueE30: 100n * 10n ** 30n,
+            lastFundingAccrued: 1000n * 10n ** 30n,
+            entryBorrowingRate: 5n * 10n ** 27n,
+          },
+        ];
 
         const mockPerpStorage = (service as any).perpStorage;
         mockPerpStorage.getPositionBySubAccount = vi
           .fn()
-          .mockImplementation((subAccount, marketIndex) => {
-            if (marketIndex === 1) {
-              return Promise.resolve(mockPositionData);
-            }
-            return Promise.resolve({ positionSizeE30: 0n });
-          });
+          .mockResolvedValue(mockPositions);
 
         mockPerpStorage.getMarketByIndex = vi.fn().mockResolvedValue({
           fundingAccrued: 1000n * 10n ** 30n,
@@ -638,11 +617,7 @@ describe("FlexPublicService", () => {
         // Mock chainlink oracle for price fetch
         vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(60000);
 
-        const result = await service.getAvailableMargin(
-          testAccount,
-          testSubAccountId,
-          5,
-        );
+        const result = await service.getAvailableMargin(testAccount, 5);
 
         // $10,000 equity * 5x = $50,000 capacity
         // Already using $10,000, so $40,000 available
@@ -659,23 +634,21 @@ describe("FlexPublicService", () => {
           .mockResolvedValue(mockBalance);
 
         // Using $40,000 position with $10,000 equity = 4x leverage
-        const mockPositionData = {
-          positionSizeE30: 40000n * 10n ** 30n,
-          avgEntryPriceE30: 60000n * 10n ** 30n,
-          reserveValueE30: 100n * 10n ** 30n,
-          lastFundingAccrued: 1000n * 10n ** 30n,
-          entryBorrowingRate: 5n * 10n ** 27n,
-        };
+        const mockPositions = [
+          {
+            marketIndex: 1,
+            positionSizeE30: 40000n * 10n ** 30n,
+            avgEntryPriceE30: 60000n * 10n ** 30n,
+            reserveValueE30: 100n * 10n ** 30n,
+            lastFundingAccrued: 1000n * 10n ** 30n,
+            entryBorrowingRate: 5n * 10n ** 27n,
+          },
+        ];
 
         const mockPerpStorage = (service as any).perpStorage;
         mockPerpStorage.getPositionBySubAccount = vi
           .fn()
-          .mockImplementation((subAccount, marketIndex) => {
-            if (marketIndex === 1) {
-              return Promise.resolve(mockPositionData);
-            }
-            return Promise.resolve({ positionSizeE30: 0n });
-          });
+          .mockResolvedValue(mockPositions);
 
         mockPerpStorage.getMarketByIndex = vi.fn().mockResolvedValue({
           fundingAccrued: 1000n * 10n ** 30n,
@@ -687,7 +660,6 @@ describe("FlexPublicService", () => {
 
         const result = await service.getAvailableMargin(
           testAccount,
-          testSubAccountId,
           3, // Target 3x but already at 4x
         );
 
@@ -712,10 +684,7 @@ describe("FlexPublicService", () => {
         .fn()
         .mockResolvedValue(mockOrders);
 
-      const result = await service.getPendingOrders(
-        testAccount,
-        testSubAccountId,
-      );
+      const result = await service.getPendingOrders(testAccount);
 
       expect(result).toHaveLength(2);
       expect(result[0].orderId).toBe(1n);
@@ -727,10 +696,7 @@ describe("FlexPublicService", () => {
         .fn()
         .mockRejectedValue(new Error("Method not found"));
 
-      const result = await service.getPendingOrders(
-        testAccount,
-        testSubAccountId,
-      );
+      const result = await service.getPendingOrders(testAccount);
 
       expect(result).toHaveLength(0);
     });

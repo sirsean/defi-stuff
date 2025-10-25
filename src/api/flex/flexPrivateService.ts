@@ -457,7 +457,6 @@ export class FlexPrivateService {
     // Get current position
     const position = await this.publicService.getPosition(
       signerAddress,
-      subAccountId,
       marketIndex,
     );
 

@@ -82,10 +82,7 @@ export async function flexOrders(options: FlexOrdersOptions): Promise<void> {
     // Query each subaccount
     for (const subAccountId of subAccountIds) {
       try {
-        const orders = await publicService.getPendingOrders(
-          address,
-          subAccountId,
-        );
+        const orders = await publicService.getPendingOrders(address);
 
         if (orders.length === 0) {
           if (subAccountIds.length === 1) {

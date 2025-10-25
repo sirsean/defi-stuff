@@ -234,31 +234,24 @@ export class RiskManager {
   /**
    * Calculate current portfolio leverage
    */
-  async calculatePortfolioLeverage(
-    account: string,
-    subAccountIds: number[],
-  ): Promise<{
+  async calculatePortfolioLeverage(account: string): Promise<{
     totalPositionSize: number;
     totalEquity: number;
     leverage: number;
   }> {
+    const equity = await this.publicService.getEquity(account);
     let totalPositionSize = 0;
-    let totalEquity = 0;
 
-    for (const subAccountId of subAccountIds) {
-      const equity = await this.publicService.getEquity(account, subAccountId);
-      totalEquity += equity.equity;
-
-      for (const position of equity.positions) {
-        totalPositionSize += position.size;
-      }
+    for (const position of equity.positions) {
+      totalPositionSize += position.size;
     }
 
-    const leverage = totalEquity > 0 ? totalPositionSize / totalEquity : 0;
+    const leverage =
+      equity.equity > 0 ? totalPositionSize / equity.equity : 0;
 
     return {
       totalPositionSize,
-      totalEquity,
+      totalEquity: equity.equity,
       leverage,
     };
   }
@@ -329,22 +322,16 @@ export class RiskManager {
   /**
    * Monitor all positions for liquidation risk
    */
-  async monitorLiquidationRisk(
-    account: string,
-    subAccountIds: number[],
-  ): Promise<LiquidationRisk[]> {
+  async monitorLiquidationRisk(account: string): Promise<LiquidationRisk[]> {
     const risks: LiquidationRisk[] = [];
+    const equity = await this.publicService.getEquity(account);
 
-    for (const subAccountId of subAccountIds) {
-      const equity = await this.publicService.getEquity(account, subAccountId);
-
-      for (const position of equity.positions) {
-        const risk = this.assessLiquidationRisk(
-          position,
-          position.currentPrice,
-        );
-        risks.push(risk);
-      }
+    for (const position of equity.positions) {
+      const risk = this.assessLiquidationRisk(
+        position,
+        position.currentPrice,
+      );
+      risks.push(risk);
     }
 
     // Sort by risk level (most critical first)
@@ -363,7 +350,6 @@ export class RiskManager {
    */
   async validateOrder(
     account: string,
-    subAccountId: number,
     marketIndex: number,
     sizeDelta: number,
     currentPrice: number,
@@ -372,11 +358,8 @@ export class RiskManager {
     const warnings: string[] = [];
 
     // Get current equity and positions
-    const equity = await this.publicService.getEquity(account, subAccountId);
-    const leverageInfo = await this.publicService.getLeverage(
-      account,
-      subAccountId,
-    );
+    const equity = await this.publicService.getEquity(account);
+    const leverageInfo = await this.publicService.getLeverage(account);
 
     const currentEquity = equity.equity;
     const currentLeverage = leverageInfo.leverage;
@@ -500,10 +483,7 @@ export class RiskManager {
   /**
    * Calculate portfolio-wide risk metrics
    */
-  async calculatePortfolioRisk(
-    account: string,
-    subAccountIds: number[],
-  ): Promise<{
+  async calculatePortfolioRisk(account: string): Promise<{
     totalEquity: number;
     totalPositions: number;
     portfolioLeverage: number;
@@ -512,25 +492,20 @@ export class RiskManager {
     marketConcentration: Record<string, number>;
     riskScore: number; // 0-100, higher = riskier
   }> {
-    let totalEquity = 0;
+    const equity = await this.publicService.getEquity(account);
     let totalPositionSize = 0;
     let largestPosition = 0;
     const marketExposure: Record<string, number> = {};
-    let positionCount = 0;
 
-    for (const subAccountId of subAccountIds) {
-      const equity = await this.publicService.getEquity(account, subAccountId);
-      totalEquity += equity.equity;
-
-      for (const position of equity.positions) {
-        totalPositionSize += position.size;
-        largestPosition = Math.max(largestPosition, position.size);
-        marketExposure[position.symbol] =
-          (marketExposure[position.symbol] || 0) + position.size;
-        positionCount++;
-      }
+    for (const position of equity.positions) {
+      totalPositionSize += position.size;
+      largestPosition = Math.max(largestPosition, position.size);
+      marketExposure[position.symbol] =
+        (marketExposure[position.symbol] || 0) + position.size;
     }
 
+    const positionCount = equity.positions.length;
+    const totalEquity = equity.equity;
     const portfolioLeverage =
       totalEquity > 0 ? totalPositionSize / totalEquity : 0;
     const largestPositionPercent =

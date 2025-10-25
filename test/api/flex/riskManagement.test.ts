@@ -410,8 +410,8 @@ describe("RiskManager", () => {
   });
 
   describe("calculatePortfolioLeverage", () => {
-    it("should calculate total portfolio leverage across subaccounts", async () => {
-      vi.mocked(mockPublicService.getEquity).mockResolvedValueOnce({
+    it("should calculate total portfolio leverage for account", async () => {
+      vi.mocked(mockPublicService.getEquity).mockResolvedValue({
         equity: 10000,
         positions: [
           { size: 5000 } as PositionData,
@@ -419,22 +419,14 @@ describe("RiskManager", () => {
         ],
       } as any);
 
-      vi.mocked(mockPublicService.getEquity).mockResolvedValueOnce({
-        equity: 5000,
-        positions: [{ size: 2000 } as PositionData],
-      } as any);
+      const result = await riskManager.calculatePortfolioLeverage("0x123");
 
-      const result = await riskManager.calculatePortfolioLeverage(
-        "0x123",
-        [0, 1],
-      );
-
-      // Total position size = 5000 + 3000 + 2000 = 10000
-      // Total equity = 10000 + 5000 = 15000
-      // Leverage = 10000 / 15000 = 0.667
-      expect(result.totalPositionSize).toBe(10000);
-      expect(result.totalEquity).toBe(15000);
-      expect(result.leverage).toBeCloseTo(0.667, 2);
+      // Total position size = 5000 + 3000 = 8000
+      // Total equity = 10000
+      // Leverage = 8000 / 10000 = 0.8
+      expect(result.totalPositionSize).toBe(8000);
+      expect(result.totalEquity).toBe(10000);
+      expect(result.leverage).toBeCloseTo(0.8, 2);
     });
 
     it("should return zero leverage for zero equity", async () => {
@@ -443,7 +435,7 @@ describe("RiskManager", () => {
         positions: [],
       } as any);
 
-      const result = await riskManager.calculatePortfolioLeverage("0x123", [0]);
+      const result = await riskManager.calculatePortfolioLeverage("0x123");
 
       expect(result.leverage).toBe(0);
     });
@@ -454,7 +446,7 @@ describe("RiskManager", () => {
         positions: [],
       } as any);
 
-      const result = await riskManager.calculatePortfolioLeverage("0x123", [0]);
+      const result = await riskManager.calculatePortfolioLeverage("0x123");
 
       expect(result.totalPositionSize).toBe(0);
       expect(result.leverage).toBe(0);
@@ -562,7 +554,7 @@ describe("RiskManager", () => {
         ],
       } as any);
 
-      const risks = await riskManager.monitorLiquidationRisk("0x123", [0]);
+      const risks = await riskManager.monitorLiquidationRisk("0x123");
 
       expect(risks).toHaveLength(2);
       expect(risks[0].symbol).toBeDefined();
@@ -575,30 +567,24 @@ describe("RiskManager", () => {
       );
     });
 
-    it("should handle multiple subaccounts", async () => {
-      vi.mocked(mockPublicService.getEquity)
-        .mockResolvedValueOnce({
-          equity: 10000,
-          positions: [
-            {
-              marketIndex: MARKETS.BTC.index,
-              symbol: "BTC",
-              currentPrice: 50000,
-            } as PositionData,
-          ],
-        } as any)
-        .mockResolvedValueOnce({
-          equity: 5000,
-          positions: [
-            {
-              marketIndex: MARKETS.ETH.index,
-              symbol: "ETH",
-              currentPrice: 3000,
-            } as PositionData,
-          ],
-        } as any);
+    it("should handle multiple positions in single account", async () => {
+      vi.mocked(mockPublicService.getEquity).mockResolvedValue({
+        equity: 10000,
+        positions: [
+          {
+            marketIndex: MARKETS.BTC.index,
+            symbol: "BTC",
+            currentPrice: 50000,
+          } as PositionData,
+          {
+            marketIndex: MARKETS.ETH.index,
+            symbol: "ETH",
+            currentPrice: 3000,
+          } as PositionData,
+        ],
+      } as any);
 
-      const risks = await riskManager.monitorLiquidationRisk("0x123", [0, 1]);
+      const risks = await riskManager.monitorLiquidationRisk("0x123");
 
       expect(risks).toHaveLength(2);
     });
@@ -609,7 +595,7 @@ describe("RiskManager", () => {
         positions: [],
       } as any);
 
-      const risks = await riskManager.monitorLiquidationRisk("0x123", [0]);
+      const risks = await riskManager.monitorLiquidationRisk("0x123");
 
       expect(risks).toHaveLength(0);
     });
@@ -633,7 +619,6 @@ describe("RiskManager", () => {
 
       const validation = await riskManager.validateOrder(
         "0x123",
-        0,
         MARKETS.BTC.index,
         5000, // $5000 position
         50000,
@@ -658,7 +643,6 @@ describe("RiskManager", () => {
 
       const validation = await riskManager.validateOrder(
         "0x123",
-        0,
         MARKETS.BTC.index,
         5000,
         50000,
@@ -681,7 +665,6 @@ describe("RiskManager", () => {
 
       const validation = await riskManager.validateOrder(
         "0x123",
-        0,
         MARKETS.DOGE.index, // DOGE max 10x
         15000, // $15k position on $1k equity = 15x
         0.1,
@@ -706,7 +689,6 @@ describe("RiskManager", () => {
 
       const validation = await riskManager.validateOrder(
         "0x123",
-        0,
         MARKETS.BTC.index,
         20000, // 20x leverage
         50000,
@@ -731,7 +713,6 @@ describe("RiskManager", () => {
 
       const validation = await riskManager.validateOrder(
         "0x123",
-        0,
         MARKETS.BTC.index, // BTC max 30x
         25000, // 25x leverage (83% of max)
         50000,
@@ -760,7 +741,6 @@ describe("RiskManager", () => {
 
       const validation = await riskManager.validateOrder(
         "0x123",
-        0,
         MARKETS.BTC.index,
         1000,
         50000,
@@ -791,7 +771,6 @@ describe("RiskManager", () => {
 
       const validation = await riskManager.validateOrder(
         "0x123",
-        0,
         MARKETS.BTC.index,
         2000, // Adding to existing long
         50000,
@@ -815,7 +794,6 @@ describe("RiskManager", () => {
 
       const validation = await riskManager.validateOrder(
         "0x123",
-        0,
         MARKETS.DOGE.index, // 10x max
         5000, // Would exceed available margin
         0.1,
@@ -840,7 +818,6 @@ describe("RiskManager", () => {
 
       const validation = await riskManager.validateOrder(
         "0x123",
-        0,
         MARKETS.BTC.index,
         10000,
         50000,
@@ -876,7 +853,7 @@ describe("RiskManager", () => {
         ],
       } as any);
 
-      const risk = await riskManager.calculatePortfolioRisk("0x123", [0]);
+      const risk = await riskManager.calculatePortfolioRisk("0x123");
 
       expect(risk.totalEquity).toBe(10000);
       expect(risk.totalPositions).toBe(3);
@@ -902,35 +879,29 @@ describe("RiskManager", () => {
         ],
       } as any);
 
-      const risk = await riskManager.calculatePortfolioRisk("0x123", [0]);
+      const risk = await riskManager.calculatePortfolioRisk("0x123");
 
       expect(risk.portfolioLeverage).toBe(10);
       expect(risk.largestPositionPercent).toBe(1000); // 100% of position is largest
       expect(risk.riskScore).toBeGreaterThan(0);
     });
 
-    it("should handle multiple subaccounts", async () => {
-      vi.mocked(mockPublicService.getEquity)
-        .mockResolvedValueOnce({
-          equity: 5000,
-          positions: [
-            {
-              symbol: "BTC",
-              size: 3000,
-            } as PositionData,
-          ],
-        } as any)
-        .mockResolvedValueOnce({
-          equity: 5000,
-          positions: [
-            {
-              symbol: "ETH",
-              size: 2000,
-            } as PositionData,
-          ],
-        } as any);
+    it("should handle multiple positions in single account", async () => {
+      vi.mocked(mockPublicService.getEquity).mockResolvedValue({
+        equity: 10000,
+        positions: [
+          {
+            symbol: "BTC",
+            size: 3000,
+          } as PositionData,
+          {
+            symbol: "ETH",
+            size: 2000,
+          } as PositionData,
+        ],
+      } as any);
 
-      const risk = await riskManager.calculatePortfolioRisk("0x123", [0, 1]);
+      const risk = await riskManager.calculatePortfolioRisk("0x123");
 
       expect(risk.totalEquity).toBe(10000);
       expect(risk.totalPositions).toBe(2);
@@ -943,7 +914,7 @@ describe("RiskManager", () => {
         positions: [],
       } as any);
 
-      const risk = await riskManager.calculatePortfolioRisk("0x123", [0]);
+      const risk = await riskManager.calculatePortfolioRisk("0x123");
 
       expect(risk.totalEquity).toBe(10000);
       expect(risk.totalPositions).toBe(0);
@@ -965,7 +936,7 @@ describe("RiskManager", () => {
           })) as PositionData[],
       } as any);
 
-      const risk = await riskManager.calculatePortfolioRisk("0x123", [0]);
+      const risk = await riskManager.calculatePortfolioRisk("0x123");
 
       // Even with extreme values, should cap at 100
       expect(risk.riskScore).toBeLessThanOrEqual(100);

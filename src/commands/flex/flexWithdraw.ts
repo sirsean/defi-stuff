@@ -75,7 +75,7 @@ export async function flexWithdraw(
     }
 
     // Check for open positions
-    const equity = await publicService.getEquity(address, subAccountId);
+    const equity = await publicService.getEquity(address);
     if (equity.positions.length > 0) {
       console.log(
         `⚠️  Warning: You have ${equity.positions.length} open position(s)`,
@@ -83,7 +83,7 @@ export async function flexWithdraw(
       console.log(`   Withdrawing may affect your margin and liquidation risk`);
       console.log();
 
-      const leverage = await publicService.getLeverage(address, subAccountId);
+      const leverage = await publicService.getLeverage(address);
       console.log(`Current Leverage: ${leverage.leverage.toFixed(2)}x`);
 
       // Calculate projected leverage after withdrawal

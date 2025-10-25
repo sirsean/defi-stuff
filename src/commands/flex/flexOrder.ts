@@ -132,8 +132,8 @@ export async function flexOrder(
 
     try {
       // Get current equity and leverage
-      const equity = await publicService.getEquity(address, subAccountId);
-      const leverage = await publicService.getLeverage(address, subAccountId);
+      const equity = await publicService.getEquity(address);
+      const leverage = await publicService.getLeverage(address);
 
       console.log(`Current Equity: ${formatUsd(equity.equity)}`);
       console.log(`Current Leverage: ${leverage.leverage.toFixed(2)}x`);
@@ -142,7 +142,6 @@ export async function flexOrder(
       // Validate order
       const validation = await riskManager.validateOrder(
         address,
-        subAccountId,
         market.index,
         sizeUsd,
         currentPrice,

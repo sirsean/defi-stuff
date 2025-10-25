@@ -9,8 +9,6 @@ import { formatUsd, formatPercent } from "../../api/flex/utils.js";
 
 interface FlexPositionsOptions {
   address?: string;
-  sub?: string;
-  subs?: string;
   market?: string;
 }
 
@@ -30,72 +28,41 @@ export async function flexPositions(
       process.exit(1);
     }
 
-    // Parse subaccount IDs
-    let subAccountIds: number[] = [0]; // Default to subaccount 0
-
-    if (options.subs) {
-      // Multiple subaccounts: --subs 0,1,2
-      subAccountIds = options.subs.split(",").map((s) => {
-        const id = parseInt(s.trim(), 10);
-        if (isNaN(id) || id < 0 || id > 255) {
-          throw new Error(`Invalid subaccount ID: ${s}. Must be 0-255`);
-        }
-        return id;
-      });
-    } else if (options.sub !== undefined) {
-      // Single subaccount: --sub 0
-      const id = parseInt(options.sub, 10);
-      if (isNaN(id) || id < 0 || id > 255) {
-        throw new Error(`Invalid subaccount ID: ${options.sub}. Must be 0-255`);
-      }
-      subAccountIds = [id];
-    }
-
     const publicService = new FlexPublicService();
     const riskManager = new RiskManager(publicService);
 
     console.log(`\n📊 Flex Open Positions - ${address}\n`);
 
-    let totalPositions = 0;
+    // Fetch equity data with positions
+    const equity = await publicService.getEquity(address);
+
+    if (equity.positions.length === 0) {
+      console.log("No open positions\n");
+      return;
+    }
+
+    // Filter by market if specified
+    let positions = equity.positions;
+    if (options.market) {
+      const marketFilter = options.market.toUpperCase();
+      positions = positions.filter(
+        (p) => p.symbol.toUpperCase() === marketFilter,
+      );
+
+      if (positions.length === 0) {
+        console.log(`No ${marketFilter} positions\n`);
+        return;
+      }
+    }
+
+    console.log(`${"=".repeat(80)}`);
+    console.log(`${positions.length} Open Position(s)`);
+    console.log(`${"=".repeat(80)}\n`);
+
     let totalUnrealizedPnl = 0;
 
-    // Query each subaccount
-    for (const subAccountId of subAccountIds) {
-      try {
-        // Fetch equity data with positions
-        const equity = await publicService.getEquity(address, subAccountId);
-
-        if (equity.positions.length === 0) {
-          if (subAccountIds.length === 1) {
-            console.log(`📁 Subaccount ${subAccountId}: No open positions\n`);
-          }
-          continue;
-        }
-
-        // Filter by market if specified
-        let positions = equity.positions;
-        if (options.market) {
-          const marketFilter = options.market.toUpperCase();
-          positions = positions.filter(
-            (p) => p.symbol.toUpperCase() === marketFilter,
-          );
-
-          if (positions.length === 0) {
-            console.log(
-              `📁 Subaccount ${subAccountId}: No ${marketFilter} positions\n`,
-            );
-            continue;
-          }
-        }
-
-        console.log(`${"=".repeat(80)}`);
-        console.log(
-          `📁 Subaccount ${subAccountId} - ${positions.length} Position(s)`,
-        );
-        console.log(`${"=".repeat(80)}\n`);
-
-        // Display each position
-        for (const position of positions) {
+    // Display each position
+    for (const position of positions) {
           const direction = position.isLong ? "LONG 📈" : "SHORT 📉";
           const directionColor = position.isLong ? "🟢" : "🔴";
 
@@ -185,23 +152,13 @@ export async function flexPositions(
             );
           }
 
-          console.log("\n");
+      console.log("\n");
 
-          totalPositions++;
-          totalUnrealizedPnl += position.unrealizedPnl;
-        }
-      } catch (error: any) {
-        console.error(
-          `\n❌ Error fetching positions for subaccount ${subAccountId}:`,
-        );
-        console.error(`   ${error.message}\n`);
-      }
+      totalUnrealizedPnl += position.unrealizedPnl;
     }
 
     // Summary for multiple positions
-    if (totalPositions === 0) {
-      console.log("No open positions found.\n");
-    } else if (totalPositions > 1) {
+    if (positions.length > 1) {
       console.log(`${"=".repeat(80)}`);
       console.log("📊 Portfolio Summary");
       console.log(`${"=".repeat(80)}`);
@@ -209,43 +166,10 @@ export async function flexPositions(
       const pnlSign = totalUnrealizedPnl >= 0 ? "+" : "";
       const pnlColor = totalUnrealizedPnl >= 0 ? "🟢" : "🔴";
 
-      console.log(`\n  Total Positions:     ${totalPositions}`);
+      console.log(`\n  Total Positions:     ${positions.length}`);
       console.log(
         `  Total Unrealized PnL: ${pnlColor} ${pnlSign}${formatUsd(totalUnrealizedPnl)}`,
       );
-
-      // Risk summary
-      try {
-        const risks = await riskManager.monitorLiquidationRisk(
-          address,
-          subAccountIds,
-        );
-
-        const criticalCount = risks.filter(
-          (r) => r.riskLevel === "critical",
-        ).length;
-        const dangerCount = risks.filter(
-          (r) => r.riskLevel === "danger",
-        ).length;
-        const warningCount = risks.filter(
-          (r) => r.riskLevel === "warning",
-        ).length;
-
-        if (criticalCount > 0) {
-          console.log(`\n  🚨 ${criticalCount} position(s) at CRITICAL risk`);
-        }
-        if (dangerCount > 0) {
-          console.log(`  🟠 ${dangerCount} position(s) at DANGER level`);
-        }
-        if (warningCount > 0) {
-          console.log(`  🟡 ${warningCount} position(s) with WARNING`);
-        }
-        if (criticalCount === 0 && dangerCount === 0 && warningCount === 0) {
-          console.log(`\n  🟢 All positions are safe`);
-        }
-      } catch {
-        // Skip risk summary if error
-      }
 
       console.log("\n");
     }

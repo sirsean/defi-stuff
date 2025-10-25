@@ -72,11 +72,7 @@ export async function flexClose(options: FlexCloseOptions): Promise<void> {
     console.log(`\n🔄 Close Position - ${market.symbol}\n`);
 
     // Get current position
-    const position = await publicService.getPosition(
-      address,
-      subAccountId,
-      market.index,
-    );
+    const position = await publicService.getPosition(address, market.index);
 
     if (!position) {
       console.error(

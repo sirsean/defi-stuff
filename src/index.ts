@@ -201,11 +201,6 @@ program
     "-a, --address <address>",
     "Override the wallet address from environment variables",
   )
-  .option("--sub <id>", "Subaccount ID to query (0-255, default: 0)")
-  .option(
-    "--subs <ids>",
-    "Multiple subaccount IDs separated by commas (e.g., 0,1,2)",
-  )
   .option(
     "-m, --market <symbol>",
     "Filter by market symbol (e.g., BTC, ETH, SOL)",
