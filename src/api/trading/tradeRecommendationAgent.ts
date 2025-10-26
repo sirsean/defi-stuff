@@ -188,7 +188,17 @@ export class TradeRecommendationAgent {
     // Note: Position fetching is disabled due to ABI compatibility issues
     // Recommendations will be generated without existing position context
     const openPositions: PositionSummary[] = [];
-    const portfolioValue = 0;
+
+    // Fetch collateral balance if wallet address is provided
+    let portfolioValue = 0;
+    if (walletAddress) {
+      try {
+        const collateral = await this.flex.getCollateral(walletAddress);
+        portfolioValue = collateral.balance;
+      } catch (error) {
+        console.warn('Failed to fetch collateral balance, using 0:', error);
+      }
+    }
 
     return {
       fear_greed: fearGreedAnalysis,
@@ -279,12 +289,16 @@ Open Interest Skew:
 - Short OI > Long OI: Net bearish positioning, potential for short squeeze
 - Extreme imbalance (>2:1) increases squeeze risk
 
-Open Positions (Risk Management):
+Portfolio Value & Position Sizing:
+- portfolio_value_usd represents actual USDC collateral balance
+- Size positions relative to this capital base
+- Higher conviction trades can use more capital and leverage
+- Consider existing position exposure when sizing new trades
+- Never risk more than you can afford to lose on any single trade
 - Don't overconcentrate in single market
 - Consider correlation (BTC/ETH move together)
 - Existing profitable positions = can take more risk
 - Existing losing positions = be more conservative
-- Never exceed comfortable portfolio leverage
 
 ANALYSIS FRAMEWORK:
 
@@ -344,7 +358,12 @@ For "hold" actions, explain why maintaining the position is optimal given curren
 For "close" actions, explain why exiting is better than holding (profit-taking, invalidation, etc).
 For "long"/"short" actions, provide specific reasoning and clear risk factors.
 
-Suggest position sizes as a reasonable percentage of available capital (typically 10-30% per trade, never >50%).
+Suggest position sizes based on available capital and conviction level:
+- High conviction (0.8-1.0): 30-100% of capital (can use leverage for larger exposure)
+- Moderate conviction (0.5-0.7): 10-30% of capital
+- Low conviction (<0.5): 5-15% of capital
+The portfolio_value_usd field represents actual USDC collateral balance in the Flex account.
+Leverage amplifies returns but increases liquidation risk - size positions accordingly.
 For HOLD and CLOSE actions, size_usd should be null.
 Be conservative - it's better to miss a trade than to force a bad one.`;
   }
@@ -472,13 +491,17 @@ Be conservative - it's better to miss a trade than to force a bad one.`;
         lines.push("");
       }
       lines.push(
-        `Total Portfolio Value: $${context.portfolio_value_usd.toLocaleString()}`,
+        `Total Portfolio Value (USDC Collateral): $${context.portfolio_value_usd.toLocaleString()}`,
       );
       lines.push("");
     } else {
       lines.push("Open Positions: None");
       lines.push("");
     }
+
+    // Always show portfolio value (whether or not there are positions)
+    lines.push(`Portfolio Value (USDC Collateral): $${context.portfolio_value_usd.toLocaleString()}`);
+    lines.push("");
 
     // Request
     lines.push(
