@@ -2,6 +2,9 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { TradeRecommendationAgent } from "../../../src/api/trading/tradeRecommendationAgent.js";
 import { TradeRecommendationService } from "../../../src/db/tradeRecommendationService.js";
 import type { TradeRecommendationRecord } from "../../../src/db/tradeRecommendationService.js";
+import type { FearGreedService } from "../../../src/api/feargreed/fearGreedService.js";
+import type { PolymarketService } from "../../../src/api/polymarket/polymarketService.js";
+import type { FlexPublicService } from "../../../src/api/flex/flexPublicService.js";
 
 describe("TradeRecommendationAgent", () => {
   describe("getPreviousPositionState", () => {
@@ -382,6 +385,170 @@ describe("TradeRecommendationAgent", () => {
       );
 
       consoleSpy.mockRestore();
+    });
+  });
+
+  describe("gatherMarketContext - portfolio value", () => {
+    let mockFearGreed: FearGreedService;
+    let mockPolymarket: PolymarketService;
+    let mockFlex: FlexPublicService;
+    let agent: TradeRecommendationAgent;
+
+    beforeEach(() => {
+      // Create mock services
+      mockFearGreed = {
+        analyzeFearGreedIndex: vi.fn().mockResolvedValue({
+          current: { value: 50, classification: "Neutral" },
+          min: { value: 40 },
+          max: { value: 60 },
+          trend: "stable",
+        }),
+      } as any;
+
+      mockPolymarket = {
+        analyzeBTCPrice: vi.fn().mockResolvedValue(null),
+        analyzeEconomicIndicators: vi.fn().mockResolvedValue(null),
+      } as any;
+
+      mockFlex = {
+        getMarketPrice: vi.fn().mockResolvedValue({ price: 65000 }),
+        getFundingRate: vi.fn().mockResolvedValue({
+          currentFundingRate: 0.0001,
+          longPositionSize: 1000000,
+          shortPositionSize: 900000,
+        }),
+        getCollateral: vi.fn(),
+      } as any;
+
+      agent = new TradeRecommendationAgent(
+        mockFearGreed,
+        mockPolymarket,
+        mockFlex,
+        undefined as any, // cloudflare
+        undefined as any, // tradeRecService
+      );
+    });
+
+    it("should correctly fetch portfolio value when wallet address is provided", async () => {
+      // Mock collateral balance
+      vi.mocked(mockFlex.getCollateral).mockResolvedValue({
+        balance: 50000,
+      });
+
+      const context = await agent.gatherMarketContext(
+        ["BTC"],
+        "0x1234567890abcdef",
+        [0],
+      );
+
+      expect(mockFlex.getCollateral).toHaveBeenCalledWith("0x1234567890abcdef");
+      expect(context.portfolio_value_usd).toBe(50000);
+    });
+
+    it("should default portfolio value to 0 if no wallet address is provided", async () => {
+      const context = await agent.gatherMarketContext(["BTC"], undefined, [0]);
+
+      expect(mockFlex.getCollateral).not.toHaveBeenCalled();
+      expect(context.portfolio_value_usd).toBe(0);
+    });
+
+    it("should handle errors during collateral fetching by logging warning and setting portfolio value to 0", async () => {
+      // Mock error
+      vi.mocked(mockFlex.getCollateral).mockRejectedValue(
+        new Error("RPC connection failed"),
+      );
+
+      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const context = await agent.gatherMarketContext(
+        ["BTC"],
+        "0x1234567890abcdef",
+        [0],
+      );
+
+      expect(mockFlex.getCollateral).toHaveBeenCalledWith("0x1234567890abcdef");
+      expect(context.portfolio_value_usd).toBe(0);
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "Failed to fetch collateral balance, using 0:",
+        expect.any(Error),
+      );
+
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe("buildUserPrompt - portfolio value display", () => {
+    let agent: TradeRecommendationAgent;
+
+    beforeEach(() => {
+      agent = new TradeRecommendationAgent(
+        undefined as any,
+        undefined as any,
+        undefined as any,
+        undefined as any,
+        undefined as any,
+      );
+    });
+
+    it("should correctly display portfolio value in generated context", () => {
+      const mockContext = {
+        fear_greed: {
+          current: { value: 50, classification: "Neutral" },
+          min: { value: 40 },
+          max: { value: 60 },
+          trend: "stable",
+        },
+        polymarket_prediction: null,
+        economic_indicators: null,
+        markets: [
+          {
+            symbol: "BTC",
+            price: 65000,
+            funding_rate: 0.0001,
+            long_oi: 1000000,
+            short_oi: 900000,
+          },
+        ],
+        open_positions: [],
+        portfolio_value_usd: 75000,
+      };
+
+      const positionState = new Map([["BTC", "flat" as const]]);
+
+      // Access private method via type assertion
+      const prompt = (agent as any).buildUserPrompt(mockContext, positionState);
+
+      expect(prompt).toContain("Portfolio Value (USDC Collateral): $75,000");
+    });
+
+    it("should display portfolio value even when there are no open positions", () => {
+      const mockContext = {
+        fear_greed: {
+          current: { value: 50, classification: "Neutral" },
+          min: { value: 40 },
+          max: { value: 60 },
+          trend: "stable",
+        },
+        polymarket_prediction: null,
+        economic_indicators: null,
+        markets: [
+          {
+            symbol: "BTC",
+            price: 65000,
+            funding_rate: 0.0001,
+            long_oi: 1000000,
+            short_oi: 900000,
+          },
+        ],
+        open_positions: [],
+        portfolio_value_usd: 0,
+      };
+
+      const positionState = new Map([["BTC", "flat" as const]]);
+
+      const prompt = (agent as any).buildUserPrompt(mockContext, positionState);
+
+      expect(prompt).toContain("Portfolio Value (USDC Collateral): $0");
     });
   });
 });
