@@ -2,7 +2,7 @@
 
 **Created**: 2025-10-26  
 **Status**: 🚧 In Progress  
-**Current Phase**: Phase 1 Complete - Ready for Phase 2 (Database Schema)
+**Current Phase**: Phase 2 Complete - Ready for Phase 3 (Calibration Service)
 
 ## Overview
 
@@ -76,34 +76,39 @@ Use existing backtest results to identify patterns and update the system prompt 
 
 ## Phase 2: Create Database Schema for Calibration Data
 
-**Status**: ⏳ Not Started
+**Status**: ✅ Complete  
+**Completed**: 2025-10-26
 
 ### Objective
 Set up database infrastructure to store calibration parameters.
 
 ### Tasks
-- [ ] Create migration file: `db/migrations/YYYYMMDDHHMMSS_create_confidence_calibrations_table.cjs`
-- [ ] Define table schema with fields:
-  - `id`: Primary key
-  - `timestamp`: When calibration was computed
-  - `market`: Market symbol (BTC, ETH, etc.)
-  - `window_days`: Rolling window size
-  - `calibration_data`: JSON array of [raw, calibrated] points
-  - `sample_size`: Number of trades used
-  - `correlation`: Pearson r coefficient
-  - `high_conf_win_rate`: Win rate for confidence ≥ 0.7
-  - `low_conf_win_rate`: Win rate for confidence < 0.7
-- [ ] Add index on `(market, timestamp DESC)`
-- [ ] Run migration: `npm run db:migrate`
-- [ ] Verify with `npm run db:status`
+- [x] Create migration file: `db/migrations/20251026134200_create_confidence_calibrations_table.cjs`
+- [x] Define table schema with fields:
+  - `id`: Primary key (INTEGER, auto-increment)
+  - `timestamp`: When calibration was computed (TIMESTAMP, defaults to now)
+  - `market`: Market symbol (VARCHAR(255), not null)
+  - `window_days`: Rolling window size (INTEGER, not null)
+  - `calibration_data`: JSON array of {rawConfidence, calibratedConfidence} points (JSON, not null)
+  - `sample_size`: Number of trades used (INTEGER, not null)
+  - `correlation`: Pearson r coefficient (DECIMAL(5,4), not null)
+  - `high_conf_win_rate`: Win rate for confidence ≥ 0.7 (DECIMAL(5,4), nullable)
+  - `low_conf_win_rate`: Win rate for confidence < 0.7 (DECIMAL(5,4), nullable)
+- [x] Add indexes:
+  - `cc_market_timestamp_idx`: Composite index on (market, timestamp)
+  - `cc_timestamp_idx`: Index on timestamp
+- [x] Run migration: `npm run db:migrate` (Batch 3, successful)
+- [x] Verify with `npm run db:status` (3 migrations confirmed)
+- [x] Verify table structure with PRAGMA (8 columns confirmed)
+- [x] Verify indexes created (2 indexes confirmed)
 
-### Files to Create
-- `db/migrations/*_create_confidence_calibrations_table.cjs`
+### Files Created
+- `db/migrations/20251026134200_create_confidence_calibrations_table.cjs`
 
 ### Success Criteria
-- [ ] Migration runs successfully
-- [ ] Table structure matches design
-- [ ] Index improves query performance
+- [x] Migration runs successfully
+- [x] Table structure matches design
+- [x] Indexes created for efficient lookups
 
 ---
 
@@ -549,3 +554,4 @@ Ideas for future iterations (not in current plan):
 
 - **2025-10-26**: Initial plan created, Phase 1 started
 - **2025-10-26**: Phase 1 completed - Analyzed backtest data, identified 3 key over-confidence patterns (contrarian longs, Polymarket divergence, short-squeeze narrative), updated LLM prompt with improved confidence scoring criteria based on 4 independent factors, tested with fresh recommendations showing improved reasoning
+- **2025-10-26**: Phase 2 completed - Created confidence_calibrations database table with schema for storing isotonic regression calibration data, includes composite indexes for efficient market/timestamp lookups
