@@ -2,7 +2,7 @@
 
 **Created**: 2025-10-26  
 **Status**: 🚧 In Progress  
-**Current Phase**: Phase 3 Complete - Ready for Phase 4 (Calibration Command)
+**Current Phase**: Phase 4 Complete - Ready for Phase 5 (Test Calibration on Historical Data)
 
 ## Overview
 
@@ -174,38 +174,51 @@ Create service class that computes and stores calibration mappings using isotoni
 
 ## Phase 4: Create Calibration Command
 
-**Status**: ⏳ Not Started
+**Status**: ✅ Complete  
+**Completed**: 2025-10-26
 
 ### Objective
 Build CLI command to manually trigger calibration analysis.
 
 ### Tasks
-- [ ] Create `src/commands/confidenceCalibrate.ts`
-- [ ] Implement CLI interface: `npm run dev -- confidence:calibrate --market BTC --days 60 [--dry-run]`
-- [ ] Command flow implementation:
-  - [ ] Query trade recommendations from database
-  - [ ] Compute actual outcomes (win/loss per trade)
-  - [ ] Calculate win rates by confidence bucket
-  - [ ] Apply isotonic regression
-  - [ ] Display before/after analysis with ASCII visualization
-  - [ ] Save calibration (unless --dry-run)
-- [ ] Add command registration to `src/index.ts`
-- [ ] Write tests in `test/commands/confidenceCalibrate.test.ts`
-- [ ] Update `WARP.md` with usage documentation
+- [x] Create `src/commands/confidenceCalibrate.ts` (296 lines)
+- [x] Implement CLI interface: `npm run dev -- confidence:calibrate --market BTC --days 60 [--dry-run]`
+- [x] Command flow implementation:
+  - [x] Query trade recommendations from database (via ConfidenceCalibrationService)
+  - [x] Compute actual outcomes (win/loss per trade)
+  - [x] Calculate win rates by confidence bucket
+  - [x] Apply isotonic regression
+  - [x] Display before/after analysis with ASCII visualization
+  - [x] Save calibration (unless --dry-run)
+- [x] Add command registration to `src/index.ts`
+- [x] Write tests in `test/commands/confidenceCalibrate.test.ts` (21 test cases, all passing)
+- [x] Update `WARP.md` with usage documentation
 
-### Files to Create
-- `src/commands/confidenceCalibrate.ts`
-- `test/commands/confidenceCalibrate.test.ts`
+### Files Created
+- `src/commands/confidenceCalibrate.ts` (296 lines)
+- `test/commands/confidenceCalibrate.test.ts` (444 lines, 21 test cases)
 
-### Files to Modify
-- `src/index.ts`
-- `WARP.md`
+### Files Modified
+- `src/index.ts` (added confidence:calibrate command registration)
+- `WARP.md` (added Confidence Calibration section with full documentation)
 
 ### Success Criteria
-- [ ] Command runs successfully
-- [ ] Output is clear and actionable
-- [ ] Calibration produces sensible mappings
-- [ ] Dry-run mode works correctly
+- [x] Command runs successfully
+- [x] Output is clear and actionable (6 sections with ASCII visualization)
+- [x] Calibration produces sensible mappings (isotonic regression via service)
+- [x] Dry-run mode works correctly (skips saveCalibration when flag set)
+
+### Implementation Highlights
+- **Output Format**: Professional 6-section layout with Unicode box-drawing characters and emojis
+  - Header with market, window, date range, sample size
+  - Current performance metrics (correlation, win rates, gap)
+  - ASCII calibration curve (70x20 grid with plot points)
+  - Calibration points table
+  - Projected improvements (correlation, win rates, impact)
+  - Save confirmation or dry-run notice
+- **Error Handling**: Context-specific hints for insufficient data and missing recommendations
+- **Testing**: Comprehensive test coverage including successful calibration, dry-run, error scenarios, formatting validation, and edge cases
+- **Documentation**: Full WARP.md section with usage, interpretation, workflows, and troubleshooting
 
 ---
 
@@ -566,3 +579,4 @@ Ideas for future iterations (not in current plan):
 - **2025-10-26**: Phase 1 completed - Analyzed backtest data, identified 3 key over-confidence patterns (contrarian longs, Polymarket divergence, short-squeeze narrative), updated LLM prompt with improved confidence scoring criteria based on 4 independent factors, tested with fresh recommendations showing improved reasoning
 - **2025-10-26**: Phase 2 completed - Created confidence_calibrations database table with schema for storing isotonic regression calibration data, includes composite indexes for efficient market/timestamp lookups
 - **2025-10-26**: Phase 3 completed - Built ConfidenceCalibrationService with isotonic regression (pool adjacent violators algorithm), linear interpolation for score application, database CRUD operations, and comprehensive unit tests for core calibration logic
+- **2025-10-26**: Phase 4 completed - Created confidence:calibrate CLI command with 6-section output format including ASCII calibration curve visualization, comprehensive error handling, dry-run mode support, 21 passing test cases, and full WARP.md documentation with usage examples and workflows

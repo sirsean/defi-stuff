@@ -22,6 +22,7 @@ import { flexDeposit } from "./commands/flex/flexDeposit.js";
 import { flexWithdraw } from "./commands/flex/flexWithdraw.js";
 import { tradeRecommendation } from "./commands/tradeRecommendation.js";
 import { tradeBacktest } from "./commands/tradeBacktest.js";
+import { confidenceCalibrate } from "./commands/confidenceCalibrate.js";
 
 // Load environment variables
 dotenv.config();
@@ -320,6 +321,31 @@ program
   .option("-j, --json", "Output raw JSON data")
   .option("-v, --verbose", "Show detailed trade-by-trade log")
   .action(tradeBacktest);
+
+program
+  .command("confidence:calibrate")
+  .description("Compute and optionally save confidence calibration for a market")
+  .requiredOption(
+    "-m, --market <market>",
+    "Market symbol (e.g., BTC, ETH)",
+  )
+  .option(
+    "-d, --days <days>",
+    "Analysis window in days (default: 60)",
+    "60",
+  )
+  .option(
+    "--dry-run",
+    "Compute calibration but do not save to database",
+    false,
+  )
+  .action((options) => {
+    confidenceCalibrate({
+      market: options.market,
+      days: parseInt(options.days, 10),
+      dryRun: options.dryRun,
+    });
+  });
 
 // If no arguments, show help and exit successfully
 if (process.argv.length <= 2) {

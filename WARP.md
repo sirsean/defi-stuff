@@ -589,6 +589,125 @@ If gap to perfect is large (>70%):
 - Allow position flips on strong opposing signals
 - Increase recommendation frequency
 
+### Confidence Calibration
+
+Analyze and recalibrate confidence scores to better align with actual prediction accuracy.
+
+**Purpose**: Confidence scores from ML models often don't accurately reflect true probability of success. Calibration creates a mapping from raw confidence scores to calibrated probabilities based on historical performance using isotonic regression.
+
+#### Basic Usage
+
+```bash
+# Analyze BTC recommendations from last 60 days
+npm run dev -- confidence:calibrate -m BTC
+
+# Analyze specific time window
+npm run dev -- confidence:calibrate -m BTC --days 90
+
+# Preview without saving (dry run)
+npm run dev -- confidence:calibrate -m BTC --dry-run
+```
+
+#### Understanding the Output
+
+**Before Metrics:**
+- **Correlation**: How well confidence predicts returns (closer to +1.0 is better)
+- **Win Rates**: Performance at high vs low confidence levels
+- **Gap**: Difference between high/low confidence performance
+
+**Calibration Curve:**
+- ASCII visualization showing raw → calibrated mapping
+- Points should form monotonic (always increasing) curve
+- Steep regions indicate areas needing adjustment
+- Diagonal line = perfect calibration; deviations show over/under-confidence
+
+**Calibration Points:**
+- Table showing specific mapping points
+- Each point represents a confidence bucket's actual performance
+- Forms piecewise linear calibration function
+
+**After Metrics (Projected):**
+- Expected improvements if calibration is applied
+- Correlation improvement indicates better predictive power
+- Gap improvement shows better risk differentiation
+
+#### Interpreting Results
+
+**Good Calibration Signs:**
+- Correlation increases (e.g., 0.23 → 0.42)
+- High-confidence win rate improves significantly
+- Gap between high/low confidence widens
+- Monotonic curve with no inversions
+
+**Poor Calibration Signs:**
+- Correlation decreases or stays near zero
+- Win rates don't align with confidence levels
+- Non-monotonic curve (higher confidence maps lower)
+- Very few samples in key confidence ranges
+
+#### Using Calibration
+
+**Note**: Automatic calibration application is planned for a future release (Phase 7). Currently, calibrations are computed and stored but not yet automatically applied to new recommendations.
+
+Once integrated (coming soon), calibration will be automatically applied when generating recommendations:
+
+```bash
+# Future: This will use the most recent calibration for BTC
+npm run dev -- trade:recommend -m BTC --calibrate
+```
+
+For now, calibrations are:
+- Computed and stored in the database
+- Available for analysis and validation
+- Used to understand confidence score accuracy
+
+Calibrations are market-specific and time-sensitive. Recompute periodically (weekly or monthly) as market conditions change.
+
+#### Common Workflows
+
+**Initial calibration setup:**
+```bash
+# 1. Ensure you have historical recommendations
+npm run dev -- trade:recommend -m BTC --db  # Run daily for data
+
+# 2. Preview calibration after 60+ days
+npm run dev -- confidence:calibrate -m BTC --dry-run
+
+# 3. Save if results look good
+npm run dev -- confidence:calibrate -m BTC
+
+# 4. (Future) Use calibrated recommendations
+# npm run dev -- trade:recommend -m BTC --calibrate
+# Note: Automatic application coming in Phase 7
+```
+
+**Regular maintenance:**
+```bash
+# Weekly/monthly: recompute calibration
+npm run dev -- confidence:calibrate -m BTC
+
+# Compare with previous backtest results
+npm run dev -- trade:backtest -m BTC
+```
+
+**Troubleshooting:**
+- **"Insufficient data"**: Need at least 10 directional trades (long/short) in analysis window
+- **Weak correlation**: Model may need retraining or more data accumulation
+- **Non-monotonic curve**: Isotonic regression enforces monotonicity; indicates complex patterns
+
+#### How Isotonic Regression Works
+
+The calibration uses the **pool adjacent violators algorithm** to enforce monotonicity:
+
+1. **Bucket trades** by confidence (0.0-0.1, 0.1-0.2, ..., 0.9-1.0)
+2. **Calculate win rate** for each bucket
+3. **Scan for violations**: If higher confidence has lower win rate
+4. **Pool buckets**: Average violating adjacent buckets together
+5. **Repeat** until win rates are monotonically increasing
+6. **Output**: Piecewise linear mapping curve
+
+This ensures that calibrated confidence always reflects actual win probability, even when the LLM's raw scores are poorly calibrated.
+
 ### Scheduling (macOS launchd)
 ```bash
 # Set up scheduled daily reports
