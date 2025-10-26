@@ -338,12 +338,91 @@ Respond with valid JSON matching this structure:
   "market_summary": "<overall market assessment in 2-3 sentences>"
 }
 
-Confidence Scoring:
-- 0.8-1.0: Very high conviction, multiple confirming signals, clear setup
-- 0.7-0.8: High conviction, good setup with some confirming signals
-- 0.5-0.7: Moderate conviction, some signals but also conflicting data
-- 0.3-0.5: Low conviction, unclear or weak signals
-- 0.0-0.3: Very low conviction, mostly noise or conflicting signals
+Confidence Scoring Guidelines:
+
+Base confidence on TRUE signal independence - avoid counting correlated indicators as multiple confirmations.
+
+Four Independent Factors:
+1. **Sentiment**: Fear & Greed Index + Polymarket economic indicators (for macro context only)
+2. **Price Action**: Recent momentum (4-12hr trend), direction alignment, support/resistance
+3. **Positioning Cost**: Funding rate direction and magnitude (cost of carry)
+4. **Macro Backdrop**: Economic indicators, overall risk environment
+
+Confidence Tiers:
+
+- 0.8-1.0 (Very High):
+  * ALL 4 independent factors aligned
+  * Recent price momentum (last 4-12 hours) CONFIRMING intended direction (not counter-trend)
+  * Clear invalidation level within 2-3% of entry
+  * Risk/Reward ≥ 3:1
+  * Example: Trending up with momentum, bullish sentiment not extreme, negative funding (longs paid), macro risk-on
+
+- 0.7-0.8 (High):
+  * 3 of 4 independent factors aligned
+  * Price action shows some confirmation (not strongly counter-trend)
+  * Funding rate favorable or neutral
+  * Risk/Reward ≥ 2:1
+  * Example: Clear uptrend with momentum but OI crowded long (one conflicting signal)
+
+- 0.5-0.7 (Moderate):
+  * 2 of 4 independent factors aligned
+  * Mixed signals but edge still identifiable
+  * Risk/Reward ≥ 1.5:1
+  * Example: Sentiment supportive, funding neutral, but price action choppy
+
+- 0.3-0.5 (Low):
+  * Only 1 independent factor clearly supportive
+  * Conflicting signals dominate
+  * Unclear risk/reward or wide stops required
+  * Example: Extreme sentiment but price still trending opposite direction
+
+- 0.0-0.3 (Very Low):
+  * No clear edge identified
+  * Recommend HOLD or CLOSE instead
+  * Example: Ranging market with completely mixed signals
+
+CRITICAL Confidence Adjustments:
+
+**Contrarian Trades** (against recent 4-12hr momentum):
+- START at MAXIMUM 0.6 confidence (even if signals look strong)
+- Require additional confirmation beyond sentiment alone
+- "Extreme Fear" alone is NOT sufficient for 0.7+ confidence
+- Only increase to 0.7+ if:
+  * Price has ALREADY shown reversal (higher lows forming, momentum shifting)
+  * Funding has turned in your favor (negative for longs, positive for shorts)
+  * Volume profile or other technical confirmation of bottom/top
+
+**Polymarket Price Predictions**:
+- IGNORE Polymarket year-end or distant price targets for 1-day trades (they are NOT predictive at this timeframe)
+- Use Polymarket ONLY for economic indicators as macro context
+- Do NOT assign confidence weight to "BTC trading at $X vs Polymarket expectation of $Y" divergence
+
+**OI Skew Interpretation**:
+- Heavy short OI (>70%) = market IS trending down (shorts are winning) - NOT automatically a squeeze setup
+- Heavy long OI (>70%) = market IS trending up (longs are winning) - NOT automatically a top
+- Short-squeeze setup requires: Short OI + negative funding + price stabilization/reversal
+- Long-squeeze setup requires: Long OI + high positive funding (>0.01%/day) + price exhaustion
+
+**Funding Rate Veto**:
+- High funding (>0.01%/day) AGAINST your trade direction = CAP confidence at 0.6 maximum
+- Acknowledge you are counter-positioning against the funding flow
+- Modest funding (<0.01%/day) in your favor = small confidence boost (+0.05)
+
+**Recent Price Action Override**:
+- If price moved >3% in last 4 hours OPPOSITE your intended direction:
+  * REDUCE confidence by 0.2
+  * Flag as counter-trend requiring exceptional confluence for 0.7+
+- If price moved >2% in last 4 hours IN FAVOR of your intended direction:
+  * Maintain or increase confidence
+  * Trend-following is higher probability
+
+**Market Regime Consideration**:
+- Ranging/choppy market: Favor HOLD, reduce confidence in directional calls by 0.1
+- Trending market: Higher confidence acceptable when trading WITH the trend
+- High volatility with no clear direction: Wait for stabilization before high conviction
+
+For long/short actions: Show which of the 4 independent factors align and which conflict.
+Be conservative - it's better to miss a trade than force a bad one with false confidence.
 
 Action Selection Guidelines:
 - For FLAT markets: Use LONG to enter long, SHORT to enter short, or HOLD to stay flat (no compelling trade).
