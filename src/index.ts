@@ -300,6 +300,7 @@ program
   .option("-j, --json", "Output raw JSON data")
   .option("--db", "Persist generated trade recommendations to the database")
   .option("--discord", "Send recommendations to Discord channel")
+  .option("--show-raw", "Display both raw and calibrated confidence scores")
   .action(tradeRecommendation);
 
 program

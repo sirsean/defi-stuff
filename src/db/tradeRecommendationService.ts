@@ -11,6 +11,7 @@ export interface TradeRecommendationRecord {
   market: string;
   price: number;
   action: "long" | "short" | "hold" | "close";
+  raw_confidence: number;
   confidence: number;
   size_usd: number | null;
   timeframe: "intraday" | "short" | "medium" | "long";
@@ -69,6 +70,7 @@ export class TradeRecommendationService {
       market: recommendation.market,
       price: currentPrice,
       action: recommendation.action,
+      raw_confidence: recommendation.raw_confidence,
       confidence: recommendation.confidence,
       size_usd: recommendation.size_usd,
       timeframe: recommendation.timeframe,

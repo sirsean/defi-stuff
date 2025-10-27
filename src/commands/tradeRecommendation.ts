@@ -12,6 +12,7 @@ interface TradeRecommendationOptions {
   json?: boolean;
   db?: boolean;
   discord?: boolean;
+  showRaw?: boolean;
 }
 
 /**
@@ -85,7 +86,7 @@ function wrapText(text: string, width: number = 80): string {
 /**
  * Format a single recommendation
  */
-function formatRecommendation(rec: TradeRecommendation): string[] {
+function formatRecommendation(rec: TradeRecommendation, showRaw: boolean = false): string[] {
   const lines: string[] = [];
   const emoji = getMarketEmoji(rec.market);
   const actionEmoji = getActionEmoji(rec.action);
@@ -100,6 +101,16 @@ function formatRecommendation(rec: TradeRecommendation): string[] {
   const confidenceLevel = getConfidenceLevel(rec.confidence);
   lines.push(`  Confidence: ${confidenceLevel}`);
   lines.push(`  ${createConfidenceMeter(rec.confidence)}`);
+  
+  // Show raw confidence if --show-raw is enabled
+  if (showRaw && rec.raw_confidence !== undefined) {
+    const delta = rec.confidence - rec.raw_confidence;
+    const deltaStr = delta >= 0 ? `+${delta.toFixed(2)}` : delta.toFixed(2);
+    lines.push(
+      `  Raw: ${rec.raw_confidence.toFixed(2)} → Calibrated: ${rec.confidence.toFixed(2)} (${deltaStr})`,
+    );
+  }
+  
   lines.push("");
 
   // Size (if specified)
@@ -208,7 +219,7 @@ export async function tradeRecommendation(
     console.log("");
 
     for (const rec of analysis.recommendations) {
-      const recLines = formatRecommendation(rec);
+      const recLines = formatRecommendation(rec, opts.showRaw || false);
       console.log(recLines.join("\n"));
       console.log("─".repeat(80));
       console.log("");
