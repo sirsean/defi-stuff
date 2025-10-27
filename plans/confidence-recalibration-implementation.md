@@ -2,7 +2,7 @@
 
 **Created**: 2025-10-26  
 **Status**: 🚧 In Progress  
-**Current Phase**: Phase 5 Complete - Ready for Phase 6 (Database Schema Update)
+**Current Phase**: Phase 6 Complete - Ready for Phase 7 (Recommendation Integration)
 
 ## Overview
 
@@ -291,33 +291,56 @@ Validate that calibration improves backtest performance metrics.
 
 ## Phase 6: Update Database Schema for Raw Confidence
 
-**Status**: ⏳ Not Started
+**Status**: ✅ Complete  
+**Completed**: 2025-10-27
 
 ### Objective
 Store both raw LLM confidence and calibrated confidence in recommendations table.
 
 ### Tasks
-- [ ] Create migration: `db/migrations/*_add_raw_confidence_to_trade_recommendations.cjs`
-- [ ] Migration implementation:
-  - [ ] Add `raw_confidence` column (DECIMAL(5,4))
-  - [ ] Copy existing `confidence` to `raw_confidence` (preserve history)
-  - [ ] Add index on `raw_confidence`
-- [ ] Run migration: `npm run db:migrate`
-- [ ] Update TypeScript types in `src/types/tradeRecommendation.ts`:
-  - [ ] Add `raw_confidence: number` field
-  - [ ] Document that `confidence` is now calibrated
-- [ ] Verify migration with test data
+- [x] Create migration: `db/migrations/20251027224500_add_raw_confidence_to_trade_recommendations.cjs`
+- [x] Migration implementation:
+  - [x] Add `raw_confidence` column (DECIMAL(5,4))
+  - [x] Copy existing `confidence` to `raw_confidence` (preserve history)
+  - [x] Add index on `raw_confidence` (named `tr_raw_confidence_idx`)
+- [x] Run migration: `npm run db:migrate` (Batch 4, successful)
+- [x] Update TypeScript types in `src/types/tradeRecommendation.ts`:
+  - [x] Add `raw_confidence: number` field with JSDoc documentation
+  - [x] Document that `confidence` is now calibrated (after Phase 7)
+- [x] Verify migration with test data
+  - [x] Confirmed schema includes both columns
+  - [x] Verified all 475 historical records have raw_confidence populated
+  - [x] Validated confidence and raw_confidence match for existing data
+  - [x] Confirmed index created successfully
 
-### Files to Create
-- `db/migrations/*_add_raw_confidence_to_trade_recommendations.cjs`
+### Files Created
+- `db/migrations/20251027224500_add_raw_confidence_to_trade_recommendations.cjs`
 
-### Files to Modify
-- `src/types/tradeRecommendation.ts`
+### Files Modified
+- `src/types/tradeRecommendation.ts` (added `raw_confidence` field with documentation)
 
 ### Success Criteria
-- [ ] Migration runs without errors
-- [ ] Existing data preserved correctly
-- [ ] Both confidence values can be queried efficiently
+- [x] Migration runs without errors
+- [x] Existing data preserved correctly (all 475 records copied)
+- [x] Both confidence values can be queried efficiently (index created)
+
+### Implementation Notes
+
+- Migration preserves all historical data by copying existing confidence values
+- Both `raw_confidence` and `confidence` are now stored in the database
+- After Phase 7, new recommendations will have different raw vs calibrated values
+- Historical recommendations have identical values (confidence = raw_confidence) until recalibration is applied
+- The migration uses async/await pattern for clarity and proper error handling
+- Index naming follows existing convention: `tr_<column_name>_idx`
+
+### Ready for Phase 7
+
+The database schema now supports storing both raw and calibrated confidence scores.
+Next steps:
+- Update recommendation generation to populate `raw_confidence`
+- Apply calibration during recommendation generation
+- Update CLI commands to use calibrated scores
+- Update database service methods to handle both fields
 
 ---
 
@@ -615,3 +638,4 @@ Ideas for future iterations (not in current plan):
 - **2025-10-26**: Phase 4 completed - Created confidence:calibrate CLI command with 6-section output format including ASCII calibration curve visualization, comprehensive error handling, dry-run mode support, 21 passing test cases, and full WARP.md documentation with usage examples and workflows
 - **2025-10-26**: Phase 5 setup completed - Created validation script (scripts/validate-calibration.ts) with automated comparison of raw vs calibrated performance metrics, documented validation methodology in plans/calibration-validation.md, added npm run validate:calibration command
 - **2025-10-26**: Phase 5 validation completed - Ran validation on 55 BTC recommendations; results show correlation improved from -0.073 to +0.077 (+0.150 change, exactly meeting target), gap improved from -14.1% to +38.4% (+52.6 percentage points), high confidence win rate now exceeds low confidence (55.1% vs 16.7%), successfully fixed confidence inversion issue, validation passed all success criteria, ready to proceed to Phase 6
+- **2025-10-27**: Phase 6 completed - Added raw_confidence column to trade_recommendations table via migration (Batch 4), copied all 475 historical records to preserve data, created index for query performance (tr_raw_confidence_idx), updated TypeScript types with JSDoc documentation distinguishing raw vs calibrated confidence, verified all data integrity checks passed, ready for Phase 7 integration with recommendation generation flow

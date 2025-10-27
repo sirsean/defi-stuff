@@ -42,7 +42,19 @@ export interface TradeRecommendation {
   action: TradeAction;
   /** Suggested position size in USD (optional, null for close/hold) */
   size_usd: number | null;
-  /** Confidence score 0-1 (0.7+ = high confidence) */
+  /**
+   * The original, uncalibrated confidence score from the LLM (0-1).
+   * This is the raw output before any statistical calibration is applied.
+   * Value range: 0.0 to 1.0, where 1.0 represents maximum confidence.
+   */
+  raw_confidence: number;
+  /**
+   * The calibrated confidence score (0-1) based on historical performance.
+   * This represents the actual probability of success after isotonic regression calibration.
+   * Falls back to raw_confidence if no calibration model is available.
+   * Value range: 0.0 to 1.0, where 1.0 represents maximum confidence.
+   * Note: 0.7+ is generally considered "high confidence" after calibration.
+   */
   confidence: number;
   /** Detailed reasoning for the recommendation */
   reasoning: string;
