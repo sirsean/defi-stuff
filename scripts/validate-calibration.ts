@@ -181,6 +181,14 @@ async function validateCalibration(options: ValidationOptions): Promise<Validati
 
 /**
  * Apply calibration retroactively to historical data and compute metrics
+ * 
+ * This function performs a genuine retroactive analysis by:
+ * 1. Fetching the same historical trade recommendations used to compute the calibration
+ * 2. Computing trade outcomes (PnL) by comparing consecutive recommendation prices
+ * 3. Calculating metrics (correlation, win rates) using ORIGINAL confidence scores
+ * 4. Applying calibration to each recommendation's confidence score
+ * 5. Recalculating metrics using CALIBRATED confidence scores
+ * 6. Comparing the two to measure actual improvement
  */
 async function applyCalibrationRetroactively(
   calibration: CalibrationData,
@@ -189,39 +197,156 @@ async function applyCalibrationRetroactively(
   rawMetrics: { correlation: number; highWinRate: number; lowWinRate: number; gap: number };
   calibratedMetrics: { correlation: number; highWinRate: number; lowWinRate: number; gap: number };
 }> {
-  // For now, return the metrics from the calibration itself
-  // In a full implementation, this would recompute outcomes with calibrated scores
+  // Get database connection from service
+  // @ts-ignore - accessing private property for query access
+  const db = service.db;
   
-  // Raw metrics are just the input metrics from calibration
-  const rawMetrics = {
-    correlation: calibration.correlation,
-    highWinRate: calibration.highConfWinRate,
-    lowWinRate: calibration.lowConfWinRate,
-    gap: calibration.highConfWinRate - calibration.lowConfWinRate,
+  if (!db) {
+    throw new Error('Database connection not available');
+  }
+  
+  // Calculate time window for querying recommendations
+  const cutoffTimestamp = Date.now() - calibration.windowDays * 24 * 60 * 60 * 1000;
+  
+  // Fetch historical recommendations for the same market and time window
+  const recommendations = await db('trade_recommendations')
+    .where('market', calibration.market)
+    .where('timestamp', '>=', cutoffTimestamp)
+    .whereIn('action', ['long', 'short']) // Only directional trades
+    .orderBy('timestamp', 'asc')
+    .select('*');
+  
+  if (recommendations.length < 10) {
+    throw new Error(
+      `Insufficient historical data: need at least 10 trades, found ${recommendations.length}`,
+    );
+  }
+  
+  // Compute trade outcomes by pairing consecutive recommendations
+  interface TradeOutcomeWithConfidence {
+    rawConfidence: number;
+    calibratedConfidence: number;
+    pnlPercent: number;
+    isWinner: boolean;
+  }
+  
+  const outcomes: TradeOutcomeWithConfidence[] = [];
+  
+  for (let i = 0; i < recommendations.length - 1; i++) {
+    const current = recommendations[i];
+    const next = recommendations[i + 1];
+    
+    const entryPrice = Number(current.price);
+    const exitPrice = Number(next.price);
+    const rawConfidence = Number(current.confidence);
+    
+    // Calculate PnL based on trade direction
+    let pnlPercent: number;
+    if (current.action === 'long') {
+      pnlPercent = ((exitPrice - entryPrice) / entryPrice) * 100;
+    } else {
+      // short
+      pnlPercent = ((entryPrice - exitPrice) / entryPrice) * 100;
+    }
+    
+    // Apply calibration to get calibrated confidence score
+    const calibratedConfidence = service.applyCalibration(rawConfidence, calibration);
+    
+    outcomes.push({
+      rawConfidence,
+      calibratedConfidence,
+      pnlPercent,
+      isWinner: pnlPercent > 0,
+    });
+  }
+  
+  // Calculate metrics using RAW confidence scores
+  const rawCorrelation = computeCorrelation(
+    outcomes.map(o => o.rawConfidence),
+    outcomes.map(o => o.pnlPercent),
+  );
+  
+  const rawHighWinRate = computeWinRate(
+    outcomes.filter(o => o.rawConfidence >= 0.7),
+  );
+  
+  const rawLowWinRate = computeWinRate(
+    outcomes.filter(o => o.rawConfidence < 0.7),
+  );
+  
+  const rawGap = rawHighWinRate - rawLowWinRate;
+  
+  // Calculate metrics using CALIBRATED confidence scores
+  const calibratedCorrelation = computeCorrelation(
+    outcomes.map(o => o.calibratedConfidence),
+    outcomes.map(o => o.pnlPercent),
+  );
+  
+  const calibratedHighWinRate = computeWinRate(
+    outcomes.filter(o => o.calibratedConfidence >= 0.7),
+  );
+  
+  const calibratedLowWinRate = computeWinRate(
+    outcomes.filter(o => o.calibratedConfidence < 0.7),
+  );
+  
+  const calibratedGap = calibratedHighWinRate - calibratedLowWinRate;
+  
+  return {
+    rawMetrics: {
+      correlation: rawCorrelation,
+      highWinRate: rawHighWinRate,
+      lowWinRate: rawLowWinRate,
+      gap: rawGap,
+    },
+    calibratedMetrics: {
+      correlation: calibratedCorrelation,
+      highWinRate: calibratedHighWinRate,
+      lowWinRate: calibratedLowWinRate,
+      gap: calibratedGap,
+    },
   };
+}
+
+/**
+ * Compute Pearson correlation between two arrays
+ */
+function computeCorrelation(x: number[], y: number[]): number {
+  if (x.length !== y.length || x.length < 2) {
+    return 0;
+  }
   
-  // Calibrated metrics: compute by applying calibration to each point
-  // and recalculating correlation/win rates
-  // Simplified: use projected values from calibration points
-  const highCalibPoints = calibration.points.filter(p => p.rawConfidence >= 0.7);
-  const lowCalibPoints = calibration.points.filter(p => p.rawConfidence < 0.7);
+  const n = x.length;
+  const meanX = x.reduce((a, b) => a + b, 0) / n;
+  const meanY = y.reduce((a, b) => a + b, 0) / n;
   
-  const avgHighCalib = highCalibPoints.length > 0
-    ? highCalibPoints.reduce((sum, p) => sum + p.calibratedConfidence, 0) / highCalibPoints.length
-    : calibration.highConfWinRate;
+  let numerator = 0;
+  let sumSqX = 0;
+  let sumSqY = 0;
   
-  const avgLowCalib = lowCalibPoints.length > 0
-    ? lowCalibPoints.reduce((sum, p) => sum + p.calibratedConfidence, 0) / lowCalibPoints.length
-    : calibration.lowConfWinRate;
+  for (let i = 0; i < n; i++) {
+    const dX = x[i] - meanX;
+    const dY = y[i] - meanY;
+    
+    numerator += dX * dY;
+    sumSqX += dX * dX;
+    sumSqY += dY * dY;
+  }
   
-  const calibratedMetrics = {
-    correlation: Math.min(0.9, calibration.correlation + 0.15), // Projected improvement
-    highWinRate: avgHighCalib,
-    lowWinRate: avgLowCalib,
-    gap: avgHighCalib - avgLowCalib,
-  };
+  const denominator = Math.sqrt(sumSqX * sumSqY);
+  return denominator === 0 ? 0 : numerator / denominator;
+}
+
+/**
+ * Compute win rate for a set of outcomes
+ */
+function computeWinRate(outcomes: { isWinner: boolean }[]): number {
+  if (outcomes.length === 0) {
+    return 0;
+  }
   
-  return { rawMetrics, calibratedMetrics };
+  const winners = outcomes.filter(o => o.isWinner).length;
+  return winners / outcomes.length;
 }
 
 /**
