@@ -907,11 +907,12 @@ describe("TradeBacktestService", () => {
         perfect,
         byAction,
         confidence,
+        undefined, // rawConfidence
         "maintain",
       );
 
       expect(suggestions.some((s: string) => 
-        s.includes("Recalibrate model confidence")
+        s.includes("Consider running confidence calibration")
       )).toBe(true);
     });
 
@@ -956,6 +957,7 @@ describe("TradeBacktestService", () => {
         perfect,
         byAction,
         confidence,
+        undefined, // rawConfidence
         "maintain",
       );
 
@@ -1005,6 +1007,7 @@ describe("TradeBacktestService", () => {
         perfect,
         byAction,
         confidence,
+        undefined, // rawConfidence
         "maintain",
       );
 
@@ -1054,11 +1057,183 @@ describe("TradeBacktestService", () => {
         perfect,
         byAction,
         confidence,
+        undefined, // rawConfidence
         "maintain",
       );
 
       expect(suggestions.some((s: string) => 
         s.includes("Large gap to perfect") || s.includes("react faster")
+      )).toBe(true);
+    });
+
+    it("should praise calibration when it improves correlation significantly", () => {
+      const service = new TradeBacktestService(undefined, 1000);
+      
+      const recommended = {
+        total_pnl_usd: 100,
+        total_return_percent: 10,
+        win_rate: 60,
+        avg_trade_return_usd: 10,
+        avg_trade_return_percent: 1,
+        num_trades: 10,
+        trades: [],
+      };
+
+      const perfect = {
+        total_pnl_usd: 200,
+        total_return_percent: 20,
+        win_rate: 80,
+        avg_trade_return_usd: 20,
+        avg_trade_return_percent: 2,
+        num_trades: 10,
+        trades: [],
+      };
+
+      const byAction = {
+        long: { count: 5, win_rate: 60, avg_pnl: 10 },
+        short: { count: 5, win_rate: 60, avg_pnl: 10 },
+        hold: { count: 0, win_rate: 0, avg_pnl: 0 },
+        close: { count: 0, win_rate: 0, avg_pnl: 0 },
+      };
+
+      const confidence = {
+        high_confidence_win_rate: 70,
+        low_confidence_win_rate: 50,
+        correlation: 0.55, // After calibration
+      };
+
+      const rawConfidence = {
+        high_confidence_win_rate: 60,
+        low_confidence_win_rate: 60,
+        correlation: 0.25, // Before calibration (poor)
+      };
+
+      const suggestions = (service as any).generateSuggestions(
+        recommended,
+        perfect,
+        byAction,
+        confidence,
+        rawConfidence,
+        "maintain",
+      );
+
+      // Should praise the improvement (0.55 - 0.25 = 0.30 > 0.1)
+      expect(suggestions.some((s: string) => 
+        s.includes("Calibration improved correlation") && s.includes("Good job")
+      )).toBe(true);
+    });
+
+    it("should warn when calibration degrades correlation", () => {
+      const service = new TradeBacktestService(undefined, 1000);
+      
+      const recommended = {
+        total_pnl_usd: 100,
+        total_return_percent: 10,
+        win_rate: 50,
+        avg_trade_return_usd: 10,
+        avg_trade_return_percent: 1,
+        num_trades: 10,
+        trades: [],
+      };
+
+      const perfect = {
+        total_pnl_usd: 200,
+        total_return_percent: 20,
+        win_rate: 80,
+        avg_trade_return_usd: 20,
+        avg_trade_return_percent: 2,
+        num_trades: 10,
+        trades: [],
+      };
+
+      const byAction = {
+        long: { count: 5, win_rate: 50, avg_pnl: 10 },
+        short: { count: 5, win_rate: 50, avg_pnl: 10 },
+        hold: { count: 0, win_rate: 0, avg_pnl: 0 },
+        close: { count: 0, win_rate: 0, avg_pnl: 0 },
+      };
+
+      const confidence = {
+        high_confidence_win_rate: 45,
+        low_confidence_win_rate: 55,
+        correlation: 0.15, // After calibration (worse)
+      };
+
+      const rawConfidence = {
+        high_confidence_win_rate: 60,
+        low_confidence_win_rate: 40,
+        correlation: 0.45, // Before calibration (better)
+      };
+
+      const suggestions = (service as any).generateSuggestions(
+        recommended,
+        perfect,
+        byAction,
+        confidence,
+        rawConfidence,
+        "maintain",
+      );
+
+      // Should warn about degradation (0.15 - 0.45 = -0.30 < -0.1)
+      expect(suggestions.some((s: string) => 
+        s.includes("Calibration degraded correlation") && s.includes("recomputing calibration")
+      )).toBe(true);
+    });
+
+    it("should suggest running calibration when raw confidence is poor and not yet improved", () => {
+      const service = new TradeBacktestService(undefined, 1000);
+      
+      const recommended = {
+        total_pnl_usd: 100,
+        total_return_percent: 10,
+        win_rate: 50,
+        avg_trade_return_usd: 10,
+        avg_trade_return_percent: 1,
+        num_trades: 10,
+        trades: [{ market: "BTC" }] as any,
+      };
+
+      const perfect = {
+        total_pnl_usd: 200,
+        total_return_percent: 20,
+        win_rate: 80,
+        avg_trade_return_usd: 20,
+        avg_trade_return_percent: 2,
+        num_trades: 10,
+        trades: [],
+      };
+
+      const byAction = {
+        long: { count: 5, win_rate: 50, avg_pnl: 10 },
+        short: { count: 5, win_rate: 50, avg_pnl: 10 },
+        hold: { count: 0, win_rate: 0, avg_pnl: 0 },
+        close: { count: 0, win_rate: 0, avg_pnl: 0 },
+      };
+
+      const confidence = {
+        high_confidence_win_rate: 50,
+        low_confidence_win_rate: 50,
+        correlation: 0.18, // After calibration (minimal change)
+      };
+
+      const rawConfidence = {
+        high_confidence_win_rate: 51,
+        low_confidence_win_rate: 49,
+        correlation: 0.15, // Before calibration (poor, < 0.3)
+      };
+
+      const suggestions = (service as any).generateSuggestions(
+        recommended,
+        perfect,
+        byAction,
+        confidence,
+        rawConfidence,
+        "maintain",
+      );
+
+      // Should suggest running calibration (raw < 0.3 and improvement < 0.05)
+      expect(suggestions.some((s: string) => 
+        s.includes("Raw confidence correlation is low") && s.includes("confidence:calibrate")
       )).toBe(true);
     });
   });

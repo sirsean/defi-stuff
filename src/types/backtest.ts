@@ -37,8 +37,10 @@ export interface TradeResult {
   exit_price: number;
   /** Position size in USD */
   size_usd: number;
-  /** Confidence at entry (0-1) */
+  /** Confidence at entry (0-1) - calibrated confidence if calibration was applied */
   confidence: number;
+  /** Raw LLM confidence before calibration (0-1) */
+  raw_confidence?: number;
   /** Profit/loss in USD */
   pnl_usd: number;
   /** Profit/loss as percentage */
@@ -121,8 +123,10 @@ export interface BacktestResult {
   };
 
   // Analysis
-  /** Confidence vs performance relationship */
+  /** Confidence vs performance relationship (using calibrated confidence) */
   confidence_analysis: ConfidenceAnalysis;
+  /** Raw confidence vs performance relationship (before calibration) */
+  raw_confidence_analysis?: ConfidenceAnalysis;
 
   // Insights
   /** Actionable suggestions for improving recommendations */

@@ -46,7 +46,7 @@ function formatDate(date: Date): string {
  */
 function printResult(result: BacktestResult, verbose: boolean = false): void {
   const { market, date_range, total_recommendations, hold_mode } = result;
-  const { recommended_strategy, perfect_strategy, by_action, confidence_analysis } = result;
+  const { recommended_strategy, perfect_strategy, by_action, confidence_analysis, raw_confidence_analysis } = result;
 
   console.log("");
   console.log("═".repeat(80));
@@ -124,9 +124,25 @@ function printResult(result: BacktestResult, verbose: boolean = false): void {
   console.log(formatActionLine("Close", by_action.close));
   console.log("");
 
-  // Confidence analysis
+  // Raw Confidence Analysis (if available)
+  if (raw_confidence_analysis && recommended_strategy.num_trades > 0) {
+    console.log("─".repeat(80));
+    console.log("🎓 RAW CONFIDENCE ANALYSIS (Before Calibration)");
+    console.log("─".repeat(80));
+    console.log("");
+    console.log(`  High Confidence (≥0.7):    Win Rate: ${raw_confidence_analysis.high_confidence_win_rate.toFixed(1)}%`);
+    console.log(`  Low Confidence (<0.7):     Win Rate: ${raw_confidence_analysis.low_confidence_win_rate.toFixed(1)}%`);
+    console.log(`  Correlation (r):           ${raw_confidence_analysis.correlation >= 0 ? "+" : ""}${raw_confidence_analysis.correlation.toFixed(3)}`);
+    console.log("");
+  }
+
+  // Calibrated Confidence Analysis
   console.log("─".repeat(80));
-  console.log("🎓 CONFIDENCE ANALYSIS");
+  if (raw_confidence_analysis) {
+    console.log("🎓 CALIBRATED CONFIDENCE ANALYSIS (After Calibration)");
+  } else {
+    console.log("🎓 CONFIDENCE ANALYSIS");
+  }
   console.log("─".repeat(80));
   console.log("");
 
@@ -152,6 +168,47 @@ function printResult(result: BacktestResult, verbose: boolean = false): void {
     }
   }
   console.log("");
+
+  // Calibration Improvement Analysis (if both raw and calibrated are available)
+  if (raw_confidence_analysis && recommended_strategy.num_trades > 0) {
+    console.log("─".repeat(80));
+    console.log("📊 CALIBRATION IMPROVEMENT");
+    console.log("─".repeat(80));
+    console.log("");
+
+    const correlationChange = confidence_analysis.correlation - raw_confidence_analysis.correlation;
+    const rawGap = raw_confidence_analysis.high_confidence_win_rate - raw_confidence_analysis.low_confidence_win_rate;
+    const calibratedGap = confidence_analysis.high_confidence_win_rate - confidence_analysis.low_confidence_win_rate;
+    const gapChange = calibratedGap - rawGap;
+
+    // Correlation improvement
+    const correlationSymbol = correlationChange > 0.05 ? "✓" : correlationChange < -0.05 ? "✗" : "~";
+    const corrChangeStr = correlationChange >= 0 ? `+${correlationChange.toFixed(3)}` : correlationChange.toFixed(3);
+    console.log(`  Correlation Change:        ${raw_confidence_analysis.correlation.toFixed(3)} → ${confidence_analysis.correlation.toFixed(3)} (${corrChangeStr}) ${correlationSymbol}`);
+
+    // Win rate gap improvement
+    const gapSymbol = gapChange > 5 ? "✓" : gapChange < -5 ? "✗" : "~";
+    const gapChangeStr = gapChange >= 0 ? `+${gapChange.toFixed(1)}` : gapChange.toFixed(1);
+    console.log(`  High/Low Win Rate Gap:     ${rawGap.toFixed(1)}% → ${calibratedGap.toFixed(1)}% (${gapChangeStr}%) ${gapSymbol}`);
+    console.log("");
+
+    // Interpretation
+    if (correlationChange > 0.1 && gapChange > 10) {
+      console.log("  Interpretation: ✓ Calibration significantly improved confidence");
+      console.log("                  predictiveness. High-confidence trades now perform");
+      console.log("                  better than low-confidence trades.");
+    } else if (correlationChange > 0.05 || gapChange > 5) {
+      console.log("  Interpretation: ✓ Calibration moderately improved confidence");
+      console.log("                  scores. Results are trending in the right direction.");
+    } else if (correlationChange < -0.05 || gapChange < -5) {
+      console.log("  Interpretation: ✗ Calibration degraded confidence predictiveness.");
+      console.log("                  Consider recomputing calibration with more recent data.");
+    } else {
+      console.log("  Interpretation: ~ Calibration had minimal effect on confidence");
+      console.log("                  predictiveness. May need more data or refinement.");
+    }
+    console.log("");
+  }
 
   // Improvement suggestions
   if (result.improvement_suggestions.length > 0) {

@@ -92,8 +92,11 @@ export class TradeBacktestService {
     // Compute action breakdown
     const byAction = this.computeActionBreakdown(recs, recommendedTrades);
 
-    // Compute confidence analysis
+    // Compute confidence analysis (calibrated)
     const confidenceAnalysis = this.computeConfidenceAnalysis(recommendedTrades);
+
+    // Compute raw confidence analysis (before calibration)
+    const rawConfidenceAnalysis = this.computeRawConfidenceAnalysis(recommendedTrades);
 
     // Generate improvement suggestions
     const improvementSuggestions = this.generateSuggestions(
@@ -101,6 +104,7 @@ export class TradeBacktestService {
       perfectPerf,
       byAction,
       confidenceAnalysis,
+      rawConfidenceAnalysis,
       holdMode,
     );
 
@@ -117,6 +121,7 @@ export class TradeBacktestService {
       perfect_strategy: perfectPerf,
       by_action: byAction,
       confidence_analysis: confidenceAnalysis,
+      raw_confidence_analysis: rawConfidenceAnalysis,
       improvement_suggestions: improvementSuggestions,
     };
   }
@@ -185,6 +190,7 @@ export class TradeBacktestService {
       entry_time: Date;
       size_usd: number;
       confidence: number;
+      raw_confidence?: number;
     } | null = null;
 
     for (const rec of recs) {
@@ -193,6 +199,7 @@ export class TradeBacktestService {
       const timestamp = new Date(rec.timestamp);
       const sizeUsd = rec.size_usd ? Number(rec.size_usd) : this.defaultSizeUsd;
       const confidence = Number(rec.confidence);
+      const rawConfidence = rec.raw_confidence ? Number(rec.raw_confidence) : undefined;
 
       if (action === "long" || action === "short") {
         // If we have an opposite position, close it first (flip)
@@ -218,6 +225,7 @@ export class TradeBacktestService {
             entry_time: timestamp,
             size_usd: sizeUsd,
             confidence,
+            raw_confidence: rawConfidence,
           };
         }
         // If same direction, maintain (no re-entry)
@@ -265,6 +273,7 @@ export class TradeBacktestService {
       entry_time: Date;
       size_usd: number;
       confidence: number;
+      raw_confidence?: number;
     },
     exitPrice: number,
     exitTime: Date,
@@ -291,6 +300,7 @@ export class TradeBacktestService {
       exit_price: exitPrice,
       size_usd: position.size_usd,
       confidence: position.confidence,
+      raw_confidence: position.raw_confidence,
       pnl_usd: pnlUsd,
       pnl_percent: pnlPercent,
     };
@@ -479,6 +489,49 @@ export class TradeBacktestService {
   }
 
   /**
+   * Compute confidence analysis using raw confidence scores (before calibration)
+   */
+  private computeRawConfidenceAnalysis(trades: TradeResult[]): ConfidenceAnalysis | undefined {
+    // Check if trades have raw_confidence data
+    const hasRawConfidence = trades.some((t) => t.raw_confidence !== undefined);
+    if (!hasRawConfidence || trades.length === 0) {
+      return undefined;
+    }
+
+    // Filter out trades without raw confidence (shouldn't happen, but be safe)
+    const tradesWithRaw = trades.filter((t) => t.raw_confidence !== undefined);
+
+    const highConfTrades = tradesWithRaw.filter((t) => t.raw_confidence! >= 0.7);
+    const lowConfTrades = tradesWithRaw.filter((t) => t.raw_confidence! < 0.7);
+
+    const highWinRate =
+      highConfTrades.length > 0
+        ? (highConfTrades.filter((t) => t.pnl_usd > 0).length /
+            highConfTrades.length) *
+          100
+        : 0;
+
+    const lowWinRate =
+      lowConfTrades.length > 0
+        ? (lowConfTrades.filter((t) => t.pnl_usd > 0).length /
+            lowConfTrades.length) *
+          100
+        : 0;
+
+    // Compute Pearson correlation using raw confidence
+    const correlation = this.pearsonCorrelation(
+      tradesWithRaw.map((t) => t.raw_confidence!),
+      tradesWithRaw.map((t) => t.pnl_percent),
+    );
+
+    return {
+      high_confidence_win_rate: highWinRate,
+      low_confidence_win_rate: lowWinRate,
+      correlation,
+    };
+  }
+
+  /**
    * Generate improvement suggestions based on analysis
    */
   private generateSuggestions(
@@ -491,19 +544,45 @@ export class TradeBacktestService {
       close: ActionStats;
     },
     confidence: ConfidenceAnalysis,
+    rawConfidence: ConfidenceAnalysis | undefined,
     holdMode: HoldMode,
   ): string[] {
     const suggestions: string[] = [];
 
-    // 1. Confidence calibration
-    if (
-      confidence.high_confidence_win_rate < confidence.low_confidence_win_rate
-    ) {
-      suggestions.push(
-        "Recalibrate model confidence; high-confidence signals underperform low-confidence.",
-      );
+    // 1. Confidence calibration analysis
+    if (rawConfidence) {
+      const correlationImprovement = confidence.correlation - rawConfidence.correlation;
+      
+      if (correlationImprovement > 0.1) {
+        // Calibration is working well
+        suggestions.push(
+          `Calibration improved correlation by ${correlationImprovement.toFixed(2)} (${rawConfidence.correlation.toFixed(2)} → ${confidence.correlation.toFixed(2)}). Good job!`,
+        );
+      } else if (correlationImprovement < -0.1) {
+        // Calibration made things worse
+        suggestions.push(
+          `Calibration degraded correlation by ${Math.abs(correlationImprovement).toFixed(2)}. Consider recomputing calibration with more recent data.`,
+        );
+      }
+      
+      // Suggest calibration if raw confidence is poor and not yet calibrated
+      if (rawConfidence.correlation < 0.3 && Math.abs(correlationImprovement) < 0.05) {
+        suggestions.push(
+          `Raw confidence correlation is low (r=${rawConfidence.correlation.toFixed(2)}). Run 'confidence:calibrate -m ${recommended.trades[0]?.market || "MARKET"}' to improve.`,
+        );
+      }
+    } else {
+      // No raw confidence data - legacy recommendations
+      if (
+        confidence.high_confidence_win_rate < confidence.low_confidence_win_rate
+      ) {
+        suggestions.push(
+          "High-confidence signals underperform low-confidence. Consider running confidence calibration.",
+        );
+      }
     }
 
+    // 2. Confidence scaling
     if (confidence.correlation > 0.3) {
       suggestions.push(
         `Scale position size with confidence (r=${confidence.correlation.toFixed(2)} shows predictive value).`,
