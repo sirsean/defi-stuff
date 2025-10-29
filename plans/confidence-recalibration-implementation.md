@@ -514,40 +514,106 @@ Show both raw and calibrated confidence analysis in backtest reports.
 
 ## Phase 9: Create Confidence Status Command
 
-**Status**: ⏳ Not Started
+**Status**: ✅ Complete  
+**Completed**: 2025-10-28
 
 ### Objective
 Build monitoring command to check calibration health across markets.
 
 ### Tasks
-- [ ] Create `src/commands/confidenceStatus.ts`
-- [ ] Implement CLI: `npm run dev -- confidence:status [--market BTC]`
-- [ ] Display for each market:
-  - [ ] Calibration age (days since last calibration)
-  - [ ] Sample size used
-  - [ ] Current correlation coefficient
-  - [ ] High/low confidence win rates
-  - [ ] Health status (✅ HEALTHY / ⚠️ WARNING / ❌ NEEDS RECALIBRATION)
-  - [ ] Actionable recommendation
-- [ ] Define health thresholds:
-  - [ ] HEALTHY: r > 0.2, age < 7 days
-  - [ ] WARNING: r 0.1-0.2 or age 7-14 days
-  - [ ] NEEDS RECALIBRATION: r < 0.1 or age > 14 days
-- [ ] Add command registration and tests
-- [ ] Update `WARP.md`
+- [x] Create `src/commands/confidenceStatus.ts`
+- [x] Implement CLI: `npm run dev -- confidence:status [--market BTC]`
+- [x] Display for each market:
+  - [x] Calibration age (days since last calibration)
+  - [x] Sample size used
+  - [x] Current correlation coefficient
+  - [x] High/low confidence win rates
+  - [x] Health status (✅ HEALTHY / ⚠️ WARNING / ❌ NEEDS RECALIBRATION / ❌ MISSING)
+  - [x] Actionable recommendation
+- [x] Define health thresholds:
+  - [x] HEALTHY: r > 0.2, age < 7 days
+  - [x] WARNING: r 0.1-0.2 or age 7-14 days
+  - [x] NEEDS RECALIBRATION: r < 0.1 or age > 14 days
+  - [x] MISSING: No calibration exists
+- [x] Add command registration and tests
+- [x] Update `WARP.md`
 
-### Files to Create
-- `src/commands/confidenceStatus.ts`
-- `test/commands/confidenceStatus.test.ts`
+### Files Created
+- `src/commands/confidenceStatus.ts` (281 lines)
+- `test/commands/confidenceStatus.test.ts` (385 lines, 22 tests passing)
 
-### Files to Modify
-- `src/index.ts`
-- `WARP.md`
+### Files Modified
+- `src/index.ts` (added confidence:status command registration)
+- `src/db/confidenceCalibrationService.ts` (added getLatestCalibrationTimestamp method)
+- `WARP.md` (added "Monitoring Calibration Health" section with comprehensive documentation)
 
 ### Success Criteria
-- [ ] Command provides clear, at-a-glance status
-- [ ] Health indicators are accurate
-- [ ] Recommendations are actionable
+- [x] Command provides clear, at-a-glance status
+- [x] Health indicators are accurate
+- [x] Recommendations are actionable
+
+### Implementation Notes
+
+**Command Features**:
+- Check single market or all markets (BTC and ETH)
+- Visual health indicators using emojis (✅/⚠️/❌)
+- Displays calibration age formatted naturally ("Today", "1 day ago", "N days ago")
+- Shows performance metrics: correlation, win rates, gap
+- Provides interpretation of metrics in plain English
+- Generates actionable recommendations based on status
+- Summary section with counts across all health statuses
+
+**Health Status Logic**:
+```typescript
+if (correlation < 0.1 || ageDays > 14) {
+  status = NEEDS_RECALIBRATION  // ❌
+} else if ((correlation >= 0.1 && correlation <= 0.2) || (ageDays >= 7 && ageDays <= 14)) {
+  status = WARNING  // ⚠️
+} else {
+  status = HEALTHY  // ✅
+}
+```
+
+**Output Format**:
+- Professional box-drawing characters for visual structure
+- Market-by-market breakdown with health indicators
+- Separator lines between markets (when showing multiple)
+- Summary section with counts and overall recommendation
+- Context-aware action recommendations
+
+**Usage Examples**:
+```bash
+# Check all markets
+npm run dev -- confidence:status
+
+# Check specific market
+npm run dev -- confidence:status -m BTC
+```
+
+**Test Coverage**:
+- Single market scenarios: healthy, warning, needs recalibration, missing, anti-predictive
+- Multi-market scenarios: multiple markets, mixed statuses, all healthy
+- Formatting tests: age display, correlation sign, win rate gaps
+- Error handling: graceful service errors
+- Health threshold boundaries: edge cases for r and age thresholds
+
+**Correlation Interpretation Guidance**:
+- r ≥ 0.3: Strong predictive power
+- r = 0.2-0.3: Moderate predictive power
+- r = 0.1-0.2: Weak predictive power
+- r = 0.0-0.1: Very weak predictive power
+- r < 0.0: Anti-predictive (inverted)
+
+**Age Interpretation**:
+- age ≤ 7 days: Fresh
+- age 7-14 days: Aging
+- age > 14 days: Stale
+
+**Testing Notes**:
+- TypeScript compilation: ✅ Successful
+- All 22 tests passing
+- Proper mock isolation achieved using vi.resetAllMocks()
+- Service method getLatestCalibrationTimestamp() added to support timestamp retrieval
 
 ---
 

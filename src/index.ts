@@ -23,6 +23,7 @@ import { flexWithdraw } from "./commands/flex/flexWithdraw.js";
 import { tradeRecommendation } from "./commands/tradeRecommendation.js";
 import { tradeBacktest } from "./commands/tradeBacktest.js";
 import { confidenceCalibrate } from "./commands/confidenceCalibrate.js";
+import { confidenceStatus } from "./commands/confidenceStatus.js";
 
 // Load environment variables
 dotenv.config();
@@ -345,6 +346,16 @@ program
       market: options.market,
       days: parseInt(options.days, 10),
       dryRun: options.dryRun,
+    });
+  });
+
+program
+  .command("confidence:status")
+  .description("Check calibration health across markets")
+  .option("-m, --market <market>", "Check status for specific market (e.g., BTC, ETH)")
+  .action((options) => {
+    confidenceStatus({
+      market: options.market,
     });
   });
 

@@ -708,6 +708,126 @@ The calibration uses the **pool adjacent violators algorithm** to enforce monoto
 
 This ensures that calibrated confidence always reflects actual win probability, even when the LLM's raw scores are poorly calibrated.
 
+#### Monitoring Calibration Health
+
+Check the health status of calibrations across markets to know when recalibration is needed.
+
+**Purpose**: Monitor calibration freshness, correlation strength, and win rate performance to maintain system accuracy.
+
+**Basic Usage:**
+
+```bash
+# Check all markets (BTC and ETH)
+npm run dev -- confidence:status
+
+# Check specific market
+npm run dev -- confidence:status -m BTC
+```
+
+**Output includes:**
+- **Health Status**: Visual indicator (✅ HEALTHY / ⚠️ WARNING / ❌ NEEDS_RECALIBRATION / ❌ MISSING)
+- **Calibration Age**: Days since last calibration
+- **Sample Size**: Number of trades used in calibration
+- **Correlation**: Pearson r coefficient showing predictive power
+- **Win Rates**: High confidence (≥0.7) vs low confidence (<0.7) performance
+- **Gap**: Win rate difference (positive = calibration working)
+- **Interpretation**: Plain English explanation of metrics
+- **Recommendation**: Actionable next step
+- **Summary**: Overall health across all markets
+
+**Health Thresholds:**
+
+| Status | Criteria | Meaning |
+|--------|----------|----------|
+| ✅ **HEALTHY** | r > 0.2 AND age < 7 days | Calibration is working well and fresh |
+| ⚠️ **WARNING** | r = 0.1-0.2 OR age = 7-14 days | Consider recalibrating soon |
+| ❌ **NEEDS_RECALIBRATION** | r < 0.1 OR age > 14 days | Recalibrate immediately |
+| ❌ **MISSING** | No calibration exists | Initial calibration required |
+
+**Interpreting Correlation (r):**
+- **r ≥ 0.3**: Strong predictive power (high confidence trades significantly outperform)
+- **r = 0.2-0.3**: Moderate predictive power (calibration working as intended)
+- **r = 0.1-0.2**: Weak predictive power (consider recalibration)
+- **r = 0.0-0.1**: Very weak predictive power (recalibrate now)
+- **r < 0.0**: Anti-predictive / inverted (immediate recalibration critical)
+
+**Example Output:**
+
+```
+═══════════════════════════════════════════════════════════════════════════
+  📊 CONFIDENCE CALIBRATION STATUS - ALL MARKETS
+═══════════════════════════════════════════════════════════════════════════
+
+✅ BTC
+
+  Health Status:    HEALTHY
+
+  Calibration Age:  2 days ago
+  Sample Size:      56
+
+  Correlation (r):  +0.335
+
+  Win Rates:
+    High Conf (≥0.7):  62.5%
+    Low Conf (<0.7):   45.8%
+    Gap:               +16.7 pp
+
+  Interpretation:   Strong predictive power. Calibration is fresh.
+
+  Recommendation:   Calibration is in good health
+
+───────────────────────────────────────────────────────────────────────────
+❌ ETH
+
+  Status:           MISSING CALIBRATION
+
+  Recommendation:   Run: npm run dev -- confidence:calibrate -m ETH
+
+═══════════════════════════════════════════════════════════════════════════
+
+📈 SUMMARY
+
+  ✅ Healthy:              1
+  ⚠️  Warning:              0
+  ❌ Needs Recalibration:  0
+  ❌ Missing Calibration:  1
+
+💡 ACTION REQUIRED
+
+  Run calibration for markets marked with ❌
+
+═══════════════════════════════════════════════════════════════════════════
+```
+
+**Common Workflows:**
+
+**Daily/weekly check:**
+```bash
+# Quick health check
+npm run dev -- confidence:status
+
+# If any market shows ❌ or ⚠️, recalibrate:
+npm run dev -- confidence:calibrate -m BTC
+```
+
+**Before generating recommendations:**
+```bash
+# Check calibration health first
+npm run dev -- confidence:status -m BTC
+
+# If healthy, proceed with recommendations
+npm run dev -- trade:recommend -m BTC --db
+```
+
+**After updating calibration:**
+```bash
+# Recalibrate
+npm run dev -- confidence:calibrate -m BTC
+
+# Verify improvement
+npm run dev -- confidence:status -m BTC
+```
+
 ### Scheduling (macOS launchd)
 ```bash
 # Set up scheduled daily reports

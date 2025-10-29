@@ -344,6 +344,26 @@ export class ConfidenceCalibrationService {
   }
 
   /**
+   * Get the timestamp of the most recent calibration for a market
+   * 
+   * @param market Market symbol
+   * @returns Timestamp in milliseconds or null if none exists
+   */
+  async getLatestCalibrationTimestamp(market: string): Promise<number | null> {
+    // Ensure DB is initialized
+    if (!this.db) {
+      await this.initDatabase();
+    }
+
+    const record = await this.db('confidence_calibrations')
+      .where('market', market)
+      .orderBy('timestamp', 'desc')
+      .first();
+
+    return record ? Number(record.timestamp) : null;
+  }
+
+  /**
    * Check if a market's calibration is stale
    * 
    * @param market Market symbol
