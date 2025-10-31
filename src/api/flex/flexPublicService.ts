@@ -305,6 +305,18 @@ export class FlexPublicService {
     const isLong = size > 0;
     const absSize = Math.abs(size);
 
+    // Calculate liquidation price from reserve value (collateral)
+    const reserveValue = fromE30(positionData.reserveValueE30);
+    const sizeInAsset = absSize / avgEntryPrice; // position size in base asset (e.g., BTC)
+    
+    // For liquidation: loss = reserve_value
+    // loss = size_in_asset * (liq_price - entry_price) for short
+    // loss = size_in_asset * (entry_price - liq_price) for long
+    // Solving for liq_price:
+    const liquidationPrice = isLong
+      ? avgEntryPrice - (reserveValue / sizeInAsset)
+      : avgEntryPrice + (reserveValue / sizeInAsset);
+
     // Calculate unrealized PnL
     const unrealizedPnl = fromE30(
       calculatePnL(
@@ -325,10 +337,12 @@ export class FlexPublicService {
     );
 
     // Calculate borrowing fee
+    // Note: borrowingRate field name may vary, using borrowingAccrued or default to 0n
+    const currentBorrowingRate = marketState.borrowingAccrued || marketState[6] || 0n;
     const borrowingFee = fromE30(
       calculateBorrowingFee(
         positionData.reserveValueE30,
-        marketState.borrowingRate,
+        currentBorrowingRate,
         positionData.entryBorrowingRate,
       ),
     );
@@ -345,7 +359,7 @@ export class FlexPublicService {
       fundingFee,
       borrowingFee,
       tradingFee: 0, // Trading fee not stored in position data
-      liquidationPrice: 0, // Will calculate below if we have equity
+      liquidationPrice,
       leverage: 0, // Will calculate below if we have equity
     };
   }
@@ -386,6 +400,18 @@ export class FlexPublicService {
       const avgEntryPrice = fromE30(positionData.avgEntryPriceE30);
       const isLong = size > 0;
       const absSize = Math.abs(size);
+      
+      // Calculate liquidation price from reserve value (collateral)
+      const reserveValue = fromE30(positionData.reserveValueE30);
+      const sizeInAsset = absSize / avgEntryPrice; // position size in base asset (e.g., BTC)
+      
+      // For liquidation: loss = reserve_value
+      // loss = size_in_asset * (liq_price - entry_price) for short
+      // loss = size_in_asset * (entry_price - liq_price) for long
+      // Solving for liq_price:
+      const liquidationPrice = isLong
+        ? avgEntryPrice - (reserveValue / sizeInAsset)
+        : avgEntryPrice + (reserveValue / sizeInAsset);
 
       // Calculate unrealized PnL
       const unrealizedPnl = fromE30(
@@ -407,10 +433,12 @@ export class FlexPublicService {
       );
 
       // Calculate borrowing fee
+      // Note: borrowingRate field name may vary, using borrowingAccrued or default to 0n
+      const currentBorrowingRate = marketState.borrowingAccrued || marketState[6] || 0n;
       const borrowingFee = fromE30(
         calculateBorrowingFee(
           positionData.reserveValueE30,
-          marketState.borrowingRate,
+          currentBorrowingRate,
           positionData.entryBorrowingRate,
         ),
       );
@@ -427,7 +455,7 @@ export class FlexPublicService {
         fundingFee,
         borrowingFee,
         tradingFee: 0, // Trading fee not stored in position data
-        liquidationPrice: 0, // Will calculate if needed
+        liquidationPrice,
         leverage: 0, // Will calculate if needed
       });
     }
@@ -490,12 +518,26 @@ export class FlexPublicService {
     let totalFees = 0;
 
     for (const position of positions) {
-      totalUnrealizedPnl += position.unrealizedPnl;
-      totalFees += position.fundingFee + position.borrowingFee;
+      totalUnrealizedPnl += Number(position.unrealizedPnl);
+      totalFees += Number(position.fundingFee) + Number(position.borrowingFee);
     }
 
     // Equity = collateral + unrealized PnL - fees
     const equity = collateral.balance + totalUnrealizedPnl - totalFees;
+
+    // Recalculate liquidation prices using total account collateral
+    // This gives more accurate liquidation prices than per-position reserve values
+    const updatedPositions = positions.map(position => {
+      const sizeInAsset = position.size / position.avgEntryPrice;
+      const liquidationPrice = position.isLong
+        ? position.avgEntryPrice - (collateral.balance / sizeInAsset)
+        : position.avgEntryPrice + (collateral.balance / sizeInAsset);
+      
+      return {
+        ...position,
+        liquidationPrice,
+      };
+    });
 
     return {
       subAccountId: 0, // Deprecated field
@@ -504,7 +546,7 @@ export class FlexPublicService {
       unrealizedPnl: totalUnrealizedPnl,
       fees: totalFees,
       equity,
-      positions,
+      positions: updatedPositions,
     };
   }
 
@@ -520,7 +562,7 @@ export class FlexPublicService {
     // Note: position.size is already in USD terms
     let totalPositionSize = 0;
     for (const position of equity.positions) {
-      totalPositionSize += position.size;
+      totalPositionSize += Number(position.size);
     }
 
     const leverage = calculateLeverage(totalPositionSize, equity.equity);

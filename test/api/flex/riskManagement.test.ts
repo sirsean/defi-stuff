@@ -466,6 +466,7 @@ describe("RiskManager", () => {
         avgEntryPrice: 50000,
         size: 10000,
         currentPrice: 55000,
+        liquidationPrice: 25000, // Long: >50% distance = safe (54.5%)
       } as PositionData;
 
       const risk = riskManager.assessLiquidationRisk(position, 55000);
@@ -473,9 +474,9 @@ describe("RiskManager", () => {
       expect(risk.marketIndex).toBe(MARKETS.BTC.index);
       expect(risk.symbol).toBe("BTC");
       expect(risk.currentPrice).toBe(55000);
-      expect(risk.liquidationPrice).toBeLessThan(50000);
-      expect(risk.liquidationDistance).toBeGreaterThan(0);
-      expect(risk.riskLevel).toBeDefined();
+      expect(risk.liquidationPrice).toBe(25000);
+      expect(risk.liquidationDistance).toBeGreaterThan(50); // >50% = safe
+      expect(risk.riskLevel).toBe("safe");
     });
 
     it("should assess risk for short position - safe", () => {
@@ -486,12 +487,15 @@ describe("RiskManager", () => {
         avgEntryPrice: 3000,
         size: 10000,
         currentPrice: 2800,
+        liquidationPrice: 5600, // Short: >50% distance = safe (100%)
       } as PositionData;
 
       const risk = riskManager.assessLiquidationRisk(position, 2800);
 
       expect(risk.symbol).toBe("ETH");
-      expect(risk.liquidationPrice).toBeGreaterThan(3000);
+      expect(risk.liquidationPrice).toBe(5600);
+      expect(risk.liquidationDistance).toBeGreaterThan(50); // >50% = safe
+      expect(risk.riskLevel).toBe("safe");
     });
 
     it("should classify risk levels appropriately", () => {
@@ -502,6 +506,7 @@ describe("RiskManager", () => {
         avgEntryPrice: 50000,
         size: 10000,
         currentPrice: 60000,
+        liquidationPrice: 48000, // Long, safe distance
       } as PositionData;
 
       const risk = riskManager.assessLiquidationRisk(position, 60000);
@@ -521,6 +526,7 @@ describe("RiskManager", () => {
         avgEntryPrice: 50000,
         size: 10000,
         currentPrice: 55000,
+        liquidationPrice: 45000,
       } as PositionData;
 
       const risk = riskManager.assessLiquidationRisk(position, 55000, 5);
@@ -542,6 +548,7 @@ describe("RiskManager", () => {
             avgEntryPrice: 50000,
             size: 10000,
             currentPrice: 60000,
+            liquidationPrice: 45000,
           } as PositionData,
           {
             marketIndex: MARKETS.ETH.index,
@@ -550,6 +557,7 @@ describe("RiskManager", () => {
             avgEntryPrice: 3000,
             size: 5000,
             currentPrice: 3100,
+            liquidationPrice: 2700,
           } as PositionData,
         ],
       } as any);
@@ -574,12 +582,16 @@ describe("RiskManager", () => {
           {
             marketIndex: MARKETS.BTC.index,
             symbol: "BTC",
+            isLong: true,
             currentPrice: 50000,
+            liquidationPrice: 45000,
           } as PositionData,
           {
             marketIndex: MARKETS.ETH.index,
             symbol: "ETH",
+            isLong: false,
             currentPrice: 3000,
+            liquidationPrice: 3500,
           } as PositionData,
         ],
       } as any);

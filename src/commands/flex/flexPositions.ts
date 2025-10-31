@@ -66,45 +66,50 @@ export async function flexPositions(
           const direction = position.isLong ? "LONG 📈" : "SHORT 📉";
           const directionColor = position.isLong ? "🟢" : "🔴";
 
-          // Calculate PnL percentage
-          const pnlPercent = (position.unrealizedPnl / position.size) * 100;
-          const pnlSign = position.unrealizedPnl >= 0 ? "+" : "";
-          const pnlColor = position.unrealizedPnl >= 0 ? "🟢" : "🔴";
+      // Calculate PnL percentage
+      const pnlPercent = (Number(position.unrealizedPnl) / Number(position.size)) * 100;
+      const pnlSign = Number(position.unrealizedPnl) >= 0 ? "+" : "";
+      const pnlColor = Number(position.unrealizedPnl) >= 0 ? "🟢" : "🔴";
 
           console.log(`${directionColor} ${position.symbol} ${direction}`);
           console.log(`${"─".repeat(80)}`);
 
-          // Position details
-          console.log(`  Position Size:       ${formatUsd(position.size)}`);
-          console.log(
-            `  Entry Price:         ${formatUsd(position.avgEntryPrice)}`,
-          );
-          console.log(
-            `  Current Price:       ${formatUsd(position.currentPrice)}`,
-          );
-          console.log(
-            `  Liquidation Price:   ${formatUsd(position.liquidationPrice)}`,
-          );
+      // Position details
+      console.log(`  Position Size:       ${formatUsd(Number(position.size))}`);
+      console.log(
+        `  Entry Price:         ${formatUsd(Number(position.avgEntryPrice))}`,
+      );
+      console.log(
+        `  Current Price:       ${formatUsd(Number(position.currentPrice))}`,
+      );
+      console.log(
+        `  Liquidation Price:   ${formatUsd(Number(position.liquidationPrice))}`,
+      );
 
-          // PnL section
-          console.log(`\n  💰 Profit & Loss:`);
-          console.log(
-            `  Unrealized PnL:      ${pnlColor} ${pnlSign}${formatUsd(position.unrealizedPnl)} (${pnlSign}${pnlPercent.toFixed(2)}%)`,
-          );
+      // PnL section
+      console.log(`\n  💰 Profit & Loss:`);
+      console.log(
+        `  Unrealized PnL:      ${pnlColor} ${pnlSign}${formatUsd(Number(position.unrealizedPnl))} (${pnlSign}${pnlPercent.toFixed(2)}%)`,
+      );
 
-          // Fees breakdown
-          const totalFees =
-            position.fundingFee + position.borrowingFee + position.tradingFee;
+      // Show fees if they're significant (> $0.01)
+      const totalFees =
+        Number(position.fundingFee) + Number(position.borrowingFee) + Number(position.tradingFee);
+      
+      if (Math.abs(totalFees) > 0.01) {
+        console.log(`\n  💸 Fees:`);
+        if (Math.abs(Number(position.fundingFee)) > 0.01) {
           console.log(
-            `  Funding Fees:        ${formatUsd(position.fundingFee)}`,
+            `  Funding:             ${formatUsd(Number(position.fundingFee))}`,
           );
+        }
+        if (Math.abs(Number(position.borrowingFee)) > 0.01) {
           console.log(
-            `  Borrowing Fees:      ${formatUsd(position.borrowingFee)}`,
+            `  Borrowing:           ${formatUsd(Number(position.borrowingFee))}`,
           );
-          console.log(
-            `  Trading Fees:        ${formatUsd(position.tradingFee)}`,
-          );
-          console.log(`  Total Fees:          ${formatUsd(totalFees)}`);
+        }
+        console.log(`  Total Fees:          ${formatUsd(totalFees)}`);
+      }
 
           // Risk assessment
           try {
@@ -132,9 +137,6 @@ export async function flexPositions(
             console.log(
               `  Distance to Liq:     ${risk.liquidationDistance.toFixed(2)}%`,
             );
-            console.log(
-              `  Margin Buffer:       ${formatPercent(risk.marginBuffer)}`,
-            );
 
             // Warning messages
             if (risk.riskLevel === "critical") {
@@ -154,7 +156,7 @@ export async function flexPositions(
 
       console.log("\n");
 
-      totalUnrealizedPnl += position.unrealizedPnl;
+      totalUnrealizedPnl += Number(position.unrealizedPnl);
     }
 
     // Summary for multiple positions

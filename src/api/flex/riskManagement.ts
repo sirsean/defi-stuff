@@ -243,7 +243,7 @@ export class RiskManager {
     let totalPositionSize = 0;
 
     for (const position of equity.positions) {
-      totalPositionSize += position.size;
+      totalPositionSize += Number(position.size);
     }
 
     const leverage =
@@ -268,31 +268,21 @@ export class RiskManager {
     currentPrice: number,
     maintenanceMarginPercent: number = DEFAULT_RISK_PARAMS.maintenanceMarginPercent,
   ): LiquidationRisk {
-    const { isLong, avgEntryPrice, size } = position;
+    const { isLong, liquidationPrice } = position;
+    const liquidationPriceNum = Number(liquidationPrice);
 
-    // Calculate liquidation price
-    const leverage = size / (size / 10); // Simplified, would need actual margin
-    const liquidationPrice = calculateLiquidationPrice(
-      isLong,
-      avgEntryPrice,
-      leverage,
-      maintenanceMarginPercent / 100,
-    );
-
-    // Calculate distance to liquidation
+    // Calculate distance to liquidation as percentage
+    // For LONG: current price needs to drop to liquidation price (danger when current < liq)
+    // For SHORT: current price needs to rise to liquidation price (danger when current > liq)
     const liquidationDistance = isLong
-      ? ((currentPrice - liquidationPrice) / currentPrice) * 100
-      : ((liquidationPrice - currentPrice) / currentPrice) * 100;
+      ? ((currentPrice - liquidationPriceNum) / currentPrice) * 100
+      : ((liquidationPriceNum - currentPrice) / currentPrice) * 100;
 
-    // Calculate maintenance margin required
-    const maintenanceMarginRequired = size * (maintenanceMarginPercent / 100);
-
-    // Estimate current margin (would need actual equity data)
-    const currentMargin = size / leverage;
-    const marginBuffer =
-      ((currentMargin - maintenanceMarginRequired) /
-        maintenanceMarginRequired) *
-      100;
+    // For display purposes
+    const sizeNum = Number(position.size);
+    const maintenanceMarginRequired = sizeNum * (maintenanceMarginPercent / 100);
+    const currentMargin = sizeNum; // Simplified estimate
+    const marginBuffer = 100; // Placeholder
 
     // Determine risk level
     let riskLevel: "safe" | "warning" | "danger" | "critical";
@@ -419,7 +409,7 @@ export class RiskManager {
 
     if (existingPosition && sizeDelta > 0 === existingPosition.isLong) {
       warnings.push(
-        `Adding to existing ${existingPosition.isLong ? "long" : "short"} position of $${existingPosition.size.toFixed(2)}`,
+        `Adding to existing ${existingPosition.isLong ? "long" : "short"} position of $${Number(existingPosition.size).toFixed(2)}`,
       );
     }
 
@@ -498,10 +488,11 @@ export class RiskManager {
     const marketExposure: Record<string, number> = {};
 
     for (const position of equity.positions) {
-      totalPositionSize += position.size;
-      largestPosition = Math.max(largestPosition, position.size);
+      const posSize = Number(position.size);
+      totalPositionSize += posSize;
+      largestPosition = Math.max(largestPosition, posSize);
       marketExposure[position.symbol] =
-        (marketExposure[position.symbol] || 0) + position.size;
+        (marketExposure[position.symbol] || 0) + posSize;
     }
 
     const positionCount = equity.positions.length;

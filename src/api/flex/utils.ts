@@ -382,10 +382,10 @@ export function isUserRejection(error: any): boolean {
 /**
  * Calculate unrealized PnL for a position
  * @param isLong Whether position is long
- * @param sizeE30 Position size in e30 (absolute value)
- * @param entryPriceE30 Entry price in e30
- * @param currentPriceE30 Current price in e30
- * @returns PnL in e30 format
+ * @param sizeE30 Position notional value in USD (e30 format)
+ * @param entryPriceE30 Entry price in USD (e30 format)
+ * @param currentPriceE30 Current price in USD (e30 format)
+ * @returns PnL in USD (e30 format)
  */
 export function calculatePnL(
   isLong: boolean,
@@ -393,19 +393,21 @@ export function calculatePnL(
   entryPriceE30: bigint,
   currentPriceE30: bigint,
 ): bigint {
-  if (sizeE30 === 0n) return 0n;
+  if (sizeE30 === 0n || entryPriceE30 === 0n) return 0n;
 
   // Use absolute size for calculation
   const absSizeE30 = sizeE30 < 0n ? -sizeE30 : sizeE30;
   const priceDiff = currentPriceE30 - entryPriceE30;
 
-  // PnL = size * (currentPrice - entryPrice) for long
-  // PnL = size * (entryPrice - currentPrice) for short
+  // PnL = notional_size_usd * (price_change / entry_price)
+  // For long: profit when price increases (currentPrice > entryPrice)
+  // For short: profit when price decreases (currentPrice < entryPrice)
   const multiplier = isLong ? 1n : -1n;
 
-  // size is in USD (e30), priceDiff is in USD/unit (e30)
-  // Result needs to be divided by e30 to get USD
-  return (absSizeE30 * priceDiff * multiplier) / FLEX_CONSTANTS.E30;
+  // Formula: PnL = size_usd * (price_diff / entry_price)
+  // In e30: (size_e30 * price_diff_e30) / entry_price_e30
+  // This gives us the PnL in e30 format
+  return (absSizeE30 * priceDiff * multiplier) / entryPriceE30;
 }
 
 /**
