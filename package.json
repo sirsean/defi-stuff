@@ -22,6 +22,9 @@
     "scheduler:setup:trade-recs": "node scripts/setup-trade-recommendations-launchd.js",
     "scheduler:verify:trade-recs": "node scripts/verify-trade-recommendations-launchd.js",
     "scheduler:test:trade-recs": "node scripts/test-trade-recommendations-launchd.js",
+    "scheduler:calibration:setup": "node scripts/setup-confidence-calibration-launchd.js",
+    "scheduler:calibration:verify": "node scripts/verify-confidence-calibration-launchd.js",
+    "scheduler:calibration:test": "node scripts/test-confidence-calibration-launchd.js",
     "validate:calibration": "tsx scripts/validate-calibration.ts",
     "format": "prettier --write \"src/**/*.{ts,js,json,md,yml,yaml}\" \"test/**/*.{ts,js,json,md,yml,yaml}\" \"scripts/**/*.{ts,js,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"src/**/*.{ts,js,json,md,yml,yaml}\" \"test/**/*.{ts,js,json,md,yml,yaml}\" \"scripts/**/*.{ts,js,json,md,yml,yaml}\""

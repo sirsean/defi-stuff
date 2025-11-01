@@ -1005,6 +1005,51 @@ launchctl start com.defi-stuff.daily
 
 **Important**: The scheduler runs from `dist/index.js`, so run `npm run build` after code changes.
 
+### Confidence Calibration Scheduling
+
+Automated weekly confidence calibration using macOS launchd:
+
+#### Setup Weekly Calibration
+```bash
+# Set up scheduled weekly calibration (Sundays at 6:00 AM CT)
+npm run scheduler:calibration:setup
+
+# Verify scheduler configuration
+npm run scheduler:calibration:verify
+
+# Test scheduler immediately
+npm run scheduler:calibration:test
+```
+
+#### Schedule Details
+- **Frequency**: Weekly (every Sunday)
+- **Time**: 6:00 AM CT (11:00 AM UTC during standard time)
+- **Command**: `node dist/index.js confidence:calibrate -m BTC`
+- **Logs**: `logs/confidence-calibration-output.log` and `logs/confidence-calibration-error.log`
+
+#### Why Weekly?
+- Requires sufficient sample size (10+ directional trades) for reliable calibration
+- Market patterns remain stable within weekly timescales
+- Allows full week of recommendation data to accumulate (35-50 trades)
+- Runs Sunday morning before markets open, using previous week's data
+
+#### Manual Control
+```bash
+# Load the job
+launchctl load -w ~/Library/LaunchAgents/com.defi-stuff.confidence-calibration.plist
+
+# Unload the job
+launchctl unload -w ~/Library/LaunchAgents/com.defi-stuff.confidence-calibration.plist
+
+# Run immediately for testing
+launchctl start com.defi-stuff.confidence-calibration
+
+# Check job status
+launchctl list | grep confidence-calibration
+```
+
+**Important**: The scheduler runs from `dist/index.js`, so run `npm run build` after code changes.
+
 ## Portfolio Charts
 
 Generate visual portfolio performance charts from historical balance data:
