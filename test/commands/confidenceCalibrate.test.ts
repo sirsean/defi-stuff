@@ -5,26 +5,72 @@ import type { CalibrationData } from '../../src/types/confidence.js';
 // Mock console methods
 const mockConsoleLog = vi.fn();
 const mockConsoleError = vi.fn();
+const mockConsoleWarn = vi.fn();
 const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
 const mockProcessExit = vi.fn();
 const originalProcessExit = process.exit;
 
-// Mock service methods
-const mockComputeCalibration = vi.fn();
-const mockSaveCalibration = vi.fn();
-const mockClose = vi.fn();
-
 // Mock the ConfidenceCalibrationService
 vi.mock('../../src/db/confidenceCalibrationService.js', () => {
+  const mockComputeCalibration = vi.fn();
+  const mockSaveCalibration = vi.fn();
+  const mockGetLatestCalibration = vi.fn();
+  const mockClose = vi.fn();
+
   return {
     ConfidenceCalibrationService: vi.fn().mockImplementation(() => ({
       computeCalibration: mockComputeCalibration,
       saveCalibration: mockSaveCalibration,
+      getLatestCalibration: mockGetLatestCalibration,
       close: mockClose,
     })),
+    // Export mocks for test access
+    mockComputeCalibration,
+    mockSaveCalibration,
+    mockGetLatestCalibration,
+    mockClose,
   };
 });
+
+// Mock Discord service
+vi.mock('../../src/api/discord/discordService.js', () => {
+  const mockSendMessage = vi.fn();
+  const mockShutdown = vi.fn();
+  const mockCreateEmbedMessage = vi.fn();
+
+  return {
+    discordService: {
+      sendMessage: mockSendMessage,
+      shutdown: mockShutdown,
+      createEmbedMessage: mockCreateEmbedMessage,
+    },
+    DiscordColors: {
+      GREEN: 0x00ff00,
+      RED: 0xff0000,
+    },
+    // Export mocks for test access
+    mockSendMessage,
+    mockShutdown,
+    mockCreateEmbedMessage,
+  };
+});
+
+// Import mocks after vi.mock calls
+import type { Mock } from 'vitest';
+const {
+  mockComputeCalibration,
+  mockSaveCalibration,
+  mockGetLatestCalibration,
+  mockClose,
+} = await import('../../src/db/confidenceCalibrationService.js') as any;
+
+const {
+  mockSendMessage,
+  mockShutdown,
+  mockCreateEmbedMessage,
+} = await import('../../src/api/discord/discordService.js') as any;
 
 describe('confidenceCalibrate command', () => {
   // Sample calibration data for testing
@@ -51,6 +97,7 @@ describe('confidenceCalibrate command', () => {
     // Mock console methods
     console.log = mockConsoleLog;
     console.error = mockConsoleError;
+    console.warn = mockConsoleWarn;
     process.exit = mockProcessExit as any;
 
     // Clear all mocks
@@ -66,13 +113,24 @@ describe('confidenceCalibrate command', () => {
       };
     });
     mockSaveCalibration.mockResolvedValue(1); // Mock returning ID
+    mockGetLatestCalibration.mockResolvedValue(null); // No previous calibration by default
     mockClose.mockResolvedValue(undefined);
+    mockSendMessage.mockResolvedValue(undefined);
+    mockShutdown.mockResolvedValue(undefined);
+    mockCreateEmbedMessage.mockReturnValue({
+      addTitle: vi.fn().mockReturnThis(),
+      setColor: vi.fn().mockReturnThis(),
+      addDescription: vi.fn().mockReturnThis(),
+      addFields: vi.fn().mockReturnThis(),
+      addTimestamp: vi.fn().mockReturnThis(),
+    });
   });
 
   afterEach(() => {
     // Restore console methods
     console.log = originalConsoleLog;
     console.error = originalConsoleError;
+    console.warn = originalConsoleWarn;
     process.exit = originalProcessExit;
   });
 
@@ -468,6 +526,268 @@ describe('confidenceCalibrate command', () => {
       
       const output = mockConsoleLog.mock.calls.map(call => call[0]).join('\n');
       expect(output).toContain('Analysis Window: 180 days');
+    });
+  });
+
+  describe('Discord notifications', () => {
+    const previousCalibrationLow: CalibrationData = {
+      ...mockCalibrationData,
+      correlation: 0.15,
+      highConfWinRate: 0.45,
+      lowConfWinRate: 0.52,
+      sampleSize: 100,
+    };
+
+    const newCalibrationHigh: CalibrationData = {
+      ...mockCalibrationData,
+      correlation: 0.40,
+      highConfWinRate: 0.62,
+      lowConfWinRate: 0.48,
+      sampleSize: 142,
+    };
+
+    const previousCalibrationHigh: CalibrationData = {
+      ...mockCalibrationData,
+      correlation: 0.35,
+      highConfWinRate: 0.58,
+      lowConfWinRate: 0.50,
+      sampleSize: 120,
+    };
+
+    const newCalibrationLow: CalibrationData = {
+      ...mockCalibrationData,
+      correlation: 0.15,
+      highConfWinRate: 0.48,
+      lowConfWinRate: 0.52,
+      sampleSize: 142,
+    };
+
+    beforeEach(() => {
+      // Reset Discord mocks
+      mockCreateEmbedMessage.mockClear();
+      mockCreateEmbedMessage.mockReturnValue({
+        addTitle: vi.fn().mockReturnThis(),
+        setColor: vi.fn().mockReturnThis(),
+        addDescription: vi.fn().mockReturnThis(),
+        addFields: vi.fn().mockReturnThis(),
+        addTimestamp: vi.fn().mockReturnThis(),
+      });
+    });
+
+    it('should send Discord notification on significant improvement', async () => {
+      // Arrange: Previous correlation 0.15, new 0.40 (+0.25)
+      mockGetLatestCalibration.mockResolvedValue(previousCalibrationLow);
+      mockComputeCalibration.mockResolvedValue(newCalibrationHigh);
+
+      // Act
+      await confidenceCalibrate({
+        market: 'BTC',
+        days: 60,
+        discord: true,
+      });
+
+      // Assert: Discord notification sent
+      expect(mockSendMessage).toHaveBeenCalledTimes(1);
+      expect(mockShutdown).toHaveBeenCalledTimes(1);
+
+      // Assert: Improvement title used
+      const embedBuilder = mockCreateEmbedMessage.mock.results[0].value;
+      expect(embedBuilder.addTitle).toHaveBeenCalledWith('🎯 Confidence Calibration Improvement');
+      expect(embedBuilder.setColor).toHaveBeenCalledWith(0x00ff00); // GREEN
+
+      // Assert: Console log confirmation
+      const output = mockConsoleLog.mock.calls.map(call => call[0]).join('\n');
+      expect(output).toContain('✓ Discord notification sent: Improvement');
+    });
+
+    it('should send Discord notification on significant degradation', async () => {
+      // Arrange: Previous correlation 0.35, new 0.15 (-0.20)
+      mockGetLatestCalibration.mockResolvedValue(previousCalibrationHigh);
+      mockComputeCalibration.mockResolvedValue(newCalibrationLow);
+
+      // Act
+      await confidenceCalibrate({
+        market: 'BTC',
+        days: 60,
+        discord: true,
+      });
+
+      // Assert: Discord notification sent
+      expect(mockSendMessage).toHaveBeenCalledTimes(1);
+      expect(mockShutdown).toHaveBeenCalledTimes(1);
+
+      // Assert: Degradation title used
+      const embedBuilder = mockCreateEmbedMessage.mock.results[0].value;
+      expect(embedBuilder.addTitle).toHaveBeenCalledWith('⚠️ Confidence Calibration Degradation');
+      expect(embedBuilder.setColor).toHaveBeenCalledWith(0xff0000); // RED
+
+      // Assert: Console log confirmation
+      const output = mockConsoleLog.mock.calls.map(call => call[0]).join('\n');
+      expect(output).toContain('✓ Discord notification sent: Degradation');
+    });
+
+    it('should not send notification for insignificant change', async () => {
+      // Arrange: Previous correlation 0.234, new 0.284 (+0.05)
+      const previousCalibration: CalibrationData = {
+        ...mockCalibrationData,
+        correlation: 0.234,
+      };
+      const newCalibration: CalibrationData = {
+        ...mockCalibrationData,
+        correlation: 0.284,
+      };
+      mockGetLatestCalibration.mockResolvedValue(previousCalibration);
+      mockComputeCalibration.mockResolvedValue(newCalibration);
+
+      // Act
+      await confidenceCalibrate({
+        market: 'BTC',
+        days: 60,
+        discord: true,
+      });
+
+      // Assert: No Discord notification sent
+      expect(mockSendMessage).not.toHaveBeenCalled();
+      expect(mockShutdown).not.toHaveBeenCalled();
+
+      // Assert: No Discord log message
+      const output = mockConsoleLog.mock.calls.map(call => call[0]).join('\n');
+      expect(output).not.toContain('Discord notification sent');
+    });
+
+    it('should not send notification when discord flag is false', async () => {
+      // Arrange: Significant improvement but discord flag not set
+      mockGetLatestCalibration.mockResolvedValue(previousCalibrationLow);
+      mockComputeCalibration.mockResolvedValue(newCalibrationHigh);
+
+      // Act
+      await confidenceCalibrate({
+        market: 'BTC',
+        days: 60,
+        discord: false,
+      });
+
+      // Assert: No Discord calls made
+      expect(mockSendMessage).not.toHaveBeenCalled();
+      expect(mockShutdown).not.toHaveBeenCalled();
+    });
+
+    it('should not send notification on first calibration (no previous)', async () => {
+      // Arrange: No previous calibration exists
+      mockGetLatestCalibration.mockResolvedValue(null);
+      mockComputeCalibration.mockResolvedValue(newCalibrationHigh);
+
+      // Act
+      await confidenceCalibrate({
+        market: 'BTC',
+        days: 60,
+        discord: true,
+      });
+
+      // Assert: No Discord notification (can't compare)
+      expect(mockSendMessage).not.toHaveBeenCalled();
+      expect(mockShutdown).not.toHaveBeenCalled();
+    });
+
+    it('should handle Discord failure gracefully', async () => {
+      // Arrange: Discord sendMessage fails
+      mockGetLatestCalibration.mockResolvedValue(previousCalibrationLow);
+      mockComputeCalibration.mockResolvedValue(newCalibrationHigh);
+      mockSendMessage.mockRejectedValue(new Error('Discord API error'));
+
+      // Act: Should not throw
+      await confidenceCalibrate({
+        market: 'BTC',
+        days: 60,
+        discord: true,
+      });
+
+      // Assert: Calibration still saved
+      expect(mockSaveCalibration).toHaveBeenCalled();
+
+      // Assert: Warning logged
+      const warnOutput = mockConsoleWarn.mock.calls.map(call => call[0]).join('\n');
+      expect(warnOutput).toContain('⚠️  Failed to send Discord notification:');
+
+      // Assert: Shutdown still called
+      expect(mockShutdown).toHaveBeenCalled();
+    });
+
+    it('should include all metrics in Discord embed', async () => {
+      // Arrange
+      mockGetLatestCalibration.mockResolvedValue(previousCalibrationLow);
+      mockComputeCalibration.mockResolvedValue(newCalibrationHigh);
+
+      // Act
+      await confidenceCalibrate({
+        market: 'BTC',
+        days: 60,
+        discord: true,
+      });
+
+      // Assert: Embed builder methods called with correct data
+      const embedBuilder = mockCreateEmbedMessage.mock.results[0].value;
+      expect(embedBuilder.addDescription).toHaveBeenCalledWith('Market: **BTC**');
+      expect(embedBuilder.addFields).toHaveBeenCalled();
+
+      // Check that fields include before/after metrics
+      const fieldsCall = embedBuilder.addFields.mock.calls[0][0];
+      expect(fieldsCall).toHaveLength(4); // Before, After, Change, Curve
+      expect(fieldsCall[0].name).toBe('Before Metrics');
+      expect(fieldsCall[1].name).toBe('After Metrics');
+      expect(fieldsCall[2].name).toBe('Change Summary');
+      expect(fieldsCall[3].name).toBe('Calibration Curve');
+
+      // Check timestamp added
+      expect(embedBuilder.addTimestamp).toHaveBeenCalled();
+    });
+
+    it('should respect improvement threshold of 0.2', async () => {
+      // Arrange: Correlation change exactly 0.2 (threshold)
+      const previous: CalibrationData = {
+        ...mockCalibrationData,
+        correlation: 0.20,
+      };
+      const current: CalibrationData = {
+        ...mockCalibrationData,
+        correlation: 0.40, // +0.20 exactly
+      };
+      mockGetLatestCalibration.mockResolvedValue(previous);
+      mockComputeCalibration.mockResolvedValue(current);
+
+      // Act
+      await confidenceCalibrate({
+        market: 'BTC',
+        days: 60,
+        discord: true,
+      });
+
+      // Assert: Notification sent (threshold met)
+      expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    });
+
+    it('should respect degradation threshold of -0.15', async () => {
+      // Arrange: Correlation change exactly -0.15 (threshold)
+      const previous: CalibrationData = {
+        ...mockCalibrationData,
+        correlation: 0.30,
+      };
+      const current: CalibrationData = {
+        ...mockCalibrationData,
+        correlation: 0.15, // 0.15 - 0.30 = -0.15 exactly
+      };
+      mockGetLatestCalibration.mockResolvedValue(previous);
+      mockComputeCalibration.mockResolvedValue(current);
+
+      // Act
+      await confidenceCalibrate({
+        market: 'BTC',
+        days: 60,
+        discord: true,
+      });
+
+      // Assert: Notification sent (threshold met)
+      expect(mockSendMessage).toHaveBeenCalledTimes(1);
     });
   });
 });

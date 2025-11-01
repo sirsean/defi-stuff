@@ -606,6 +606,32 @@ npm run dev -- confidence:calibrate -m BTC --days 90
 
 # Preview without saving (dry run)
 npm run dev -- confidence:calibrate -m BTC --dry-run
+
+# Send Discord notification if significant change detected
+npm run dev -- confidence:calibrate -m BTC --discord
+```
+
+**Discord Notifications:**
+
+The `--discord` flag enables automatic Discord notifications when calibration changes are significant:
+
+- **Improvement**: Sent when correlation improves by ≥0.2 (e.g., 0.15 → 0.35 or higher)
+- **Degradation**: Sent when correlation degrades by ≤-0.15 (e.g., 0.35 → 0.20 or lower)
+- **Not sent**: When change is insignificant or no previous calibration exists
+
+**Notification includes:**
+- Market name and calibration metrics (before/after)
+- Correlation change and impact assessment
+- ASCII calibration curve visualization
+- Color-coded: Green for improvements, Red for degradations
+
+**Usage:**
+```bash
+# Manual calibration with Discord notification
+npm run dev -- confidence:calibrate -m BTC --discord
+
+# Automated weekly calibration (via launchd) includes --discord flag automatically
+# See "Confidence Calibration Scheduling" section below
 ```
 
 #### Understanding the Output
@@ -1024,7 +1050,8 @@ npm run scheduler:calibration:test
 #### Schedule Details
 - **Frequency**: Weekly (every Sunday)
 - **Time**: 6:00 AM CT (11:00 AM UTC during standard time)
-- **Command**: `node dist/index.js confidence:calibrate -m BTC`
+- **Command**: `node dist/index.js confidence:calibrate -m BTC --discord`
+- **Discord**: Automatically sends notifications for significant calibration changes
 - **Logs**: `logs/confidence-calibration-output.log` and `logs/confidence-calibration-error.log`
 
 #### Why Weekly?

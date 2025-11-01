@@ -2,7 +2,7 @@
 
 **Created**: 2025-10-26  
 **Status**: 🚧 In Progress  
-**Current Phase**: Phase 10 Complete - Ready for Phase 11 (Discord Notifications)
+**Current Phase**: Phase 11 Complete - Ready for Phase 12 (Documentation and Final Testing)
 
 ## Overview
 
@@ -733,36 +733,39 @@ launchctl start com.defi-stuff.confidence-calibration
 
 ## Phase 11: Add Discord Notifications for Calibration Changes
 
-**Status**: ⏳ Not Started
+**Status**: ✅ Complete  
+**Completed**: 2025-11-01
 
 ### Objective
 Send alerts when calibration significantly improves or degrades.
 
 ### Tasks
-- [ ] Modify `src/commands/confidenceCalibrate.ts`:
-  - [ ] Compare with previous calibration after saving
-  - [ ] If correlation change > 0.2 (improvement) or < -0.15 (degradation):
-    - [ ] Create Discord embed message
-    - [ ] Include before/after metrics
-    - [ ] Show ASCII calibration curve
-  - [ ] Add `--discord` flag to enable notifications
-- [ ] Design Discord message format
-- [ ] Update automated scheduler to include `--discord`
-- [ ] Test Discord integration:
-  - [ ] Run calibration with significant change
-  - [ ] Verify message sent
-  - [ ] Check formatting
-- [ ] Add tests for notification logic
+- [x] Modify `src/commands/confidenceCalibrate.ts`:
+  - [x] Compare with previous calibration after saving
+  - [x] If correlation change > 0.2 (improvement) or < -0.15 (degradation):
+    - [x] Create Discord embed message
+    - [x] Include before/after metrics
+    - [x] Show ASCII calibration curve
+  - [x] Add `--discord` flag to enable notifications
+- [x] Design Discord message format
+- [x] Update automated scheduler to include `--discord`
+- [x] Test Discord integration:
+  - [x] Run calibration with significant change
+  - [x] Verify message sent
+  - [x] Check formatting
+- [x] Add tests for notification logic
 
-### Files to Modify
-- `src/commands/confidenceCalibrate.ts`
-- `scripts/setup-confidence-calibration-launchd.js`
-- `test/commands/confidenceCalibrate.test.ts`
+### Files Modified
+- `src/commands/confidenceCalibrate.ts` (added Discord integration with sendDiscordNotificationIfSignificant function)
+- `src/index.ts` (added --discord flag to command registration)
+- `scripts/templates/com.defi-stuff.confidence-calibration.plist` (updated command to include --discord)
+- `test/commands/confidenceCalibrate.test.ts` (added 10 Discord notification tests)
+- `WARP.md` (added Discord notification documentation)
 
 ### Success Criteria
-- [ ] Notifications sent for significant changes only
-- [ ] Discord messages are clear and actionable
-- [ ] ASCII visualization is readable
+- [x] Notifications sent for significant changes only
+- [x] Discord messages are clear and actionable
+- [x] ASCII visualization is readable
 
 ---
 
@@ -880,3 +883,4 @@ Ideas for future iterations (not in current plan):
 - **2025-10-28**: Phase 8 completed - Enhanced backtest output to display both raw and calibrated confidence analysis with three-section format (RAW CONFIDENCE ANALYSIS, CALIBRATED CONFIDENCE ANALYSIS, CALIBRATION IMPROVEMENT), added raw_confidence field to TradeResult and raw_confidence_analysis to BacktestResult types, updated TradeBacktestService to capture and analyze raw confidence scores separately from calibrated scores, implemented computeRawConfidenceAnalysis() method to compute metrics using raw scores, enhanced generateSuggestions() to provide context-aware suggestions based on calibration status (success/failure/need), added visual indicators (✓/✗/~) to show calibration effectiveness, updated output formatting to show correlation change and win rate gap improvement with detailed interpretation, backward compatible with legacy recommendations without raw confidence, TypeScript compilation successful, manually tested with BTC data showing proper three-section display, ready for Phase 9 (Confidence Status Command)
 - **2025-10-28**: Phase 9 completed - Created confidence:status command (281 lines) to monitor calibration health across markets, implemented health status logic with four states (HEALTHY/WARNING/NEEDS_RECALIBRATION/MISSING) based on correlation (r) and age thresholds, displays calibration metrics (age, sample size, correlation, win rates, gap) with visual health indicators (✅/⚠️/❌), provides plain English interpretation and actionable recommendations, added getLatestCalibrationTimestamp() method to ConfidenceCalibrationService, wrote 22 passing tests covering single/multi-market scenarios and edge cases, updated WARP.md with "Monitoring Calibration Health" section including usage examples and interpretation guidance, TypeScript compilation successful, ready for Phase 10 (Automated Weekly Calibration)
 - **2025-11-01**: Phase 10 completed - Implemented automated weekly calibration scheduler using macOS launchd, created plist template (com.defi-stuff.confidence-calibration.plist) scheduled for Sunday 6:00 AM CT (11:00 AM UTC), created three support scripts (setup/verify/test, 87/77/64 lines) following existing scheduler patterns, added 3 npm scripts (scheduler:calibration:{setup,verify,test}) to package.json, updated WARP.md with comprehensive "Confidence Calibration Scheduling" section including rationale for weekly schedule, documented why weekly is superior to daily (statistical significance, market regime stability, data accumulation ~18 samples/week, model stability, alignment with health checks), command runs `confidence:calibrate -m BTC` with timestamped logs to logs/confidence-calibration-{output,error}.log, TypeScript compilation successful, ready for Phase 11 (Discord Notifications for Calibration Changes)
+- **2025-11-01**: Phase 11 completed - Added Discord notifications for significant calibration changes, modified confidenceCalibrate.ts to compare new calibration with previous and send notification if correlation change ≥0.2 (improvement) or ≤-0.15 (degradation), added --discord flag to command registration in index.ts, implemented sendDiscordNotificationIfSignificant() function with error handling that creates Discord embed with before/after metrics, correlation change summary, and ASCII calibration curve visualization, updated plist template to include --discord flag for automated weekly runs, added 10 comprehensive tests covering improvement/degradation notifications, insignificant changes, first calibration, Discord failures, threshold validation, and flag respect, updated WARP.md with Discord notification documentation explaining thresholds and usage, all 30 tests passing, TypeScript compilation successful, ready for Phase 12 (Documentation and Final Testing)

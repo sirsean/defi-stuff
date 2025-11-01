@@ -341,11 +341,17 @@ program
     "Compute calibration but do not save to database",
     false,
   )
+  .option(
+    "--discord",
+    "Send Discord notification if significant change detected",
+    false,
+  )
   .action((options) => {
     confidenceCalibrate({
       market: options.market,
       days: parseInt(options.days, 10),
       dryRun: options.dryRun,
+      discord: options.discord,
     });
   });
 

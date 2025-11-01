@@ -1,10 +1,12 @@
 import { ConfidenceCalibrationService } from '../db/confidenceCalibrationService.js';
 import type { CalibrationData } from '../types/confidence.js';
+import { discordService, DiscordColors } from '../api/discord/discordService.js';
 
 interface ConfidenceCalibrateOptions {
   market: string;
   days?: number;
   dryRun?: boolean;
+  discord?: boolean;
 }
 
 /**
@@ -115,6 +117,82 @@ function renderPointsTable(points: CalibrationData['points']): string {
   }
   
   return lines.join('\n');
+}
+
+/**
+ * Send Discord notification if calibration change is significant
+ */
+async function sendDiscordNotificationIfSignificant(
+  newCalibration: CalibrationData,
+  previousCalibration: CalibrationData,
+): Promise<void> {
+  const correlationChange = newCalibration.correlation - previousCalibration.correlation;
+  
+  // Check if change is significant
+  const isImprovement = correlationChange >= 0.2;
+  const isDegradation = correlationChange <= -0.15;
+  
+  if (!isImprovement && !isDegradation) {
+    // Change not significant, no notification needed
+    return;
+  }
+  
+  try {
+    // Generate ASCII curve for Discord
+    const asciiCurve = renderCalibrationCurve(newCalibration.points);
+    
+    // Build Discord embed
+    const title = isImprovement
+      ? '🎯 Confidence Calibration Improvement'
+      : '⚠️ Confidence Calibration Degradation';
+    
+    const color = isImprovement ? DiscordColors.GREEN : DiscordColors.RED;
+    
+    const beforeMetrics = [
+      `Correlation: ${formatCorrelation(previousCalibration.correlation)}`,
+      `High Confidence Win Rate: ${formatWinRate(previousCalibration.highConfWinRate)}`,
+      `Low Confidence Win Rate: ${formatWinRate(previousCalibration.lowConfWinRate)}`,
+      `Sample Size: ${previousCalibration.sampleSize} trades`,
+    ].join('\n');
+    
+    const afterMetrics = [
+      `Correlation: ${formatCorrelation(newCalibration.correlation)}`,
+      `High Confidence Win Rate: ${formatWinRate(newCalibration.highConfWinRate)}`,
+      `Low Confidence Win Rate: ${formatWinRate(newCalibration.lowConfWinRate)}`,
+      `Sample Size: ${newCalibration.sampleSize} trades`,
+    ].join('\n');
+    
+    const changeSign = correlationChange >= 0 ? '+' : '';
+    const changeSummary = [
+      `Correlation Change: ${changeSign}${correlationChange.toFixed(3)}`,
+      `Impact: ${isImprovement ? 'Improved' : 'Degraded'} predictive power`,
+    ].join('\n');
+    
+    const embedMessage = discordService
+      .createEmbedMessage()
+      .addTitle(title)
+      .setColor(color)
+      .addDescription(`Market: **${newCalibration.market}**`)
+      .addFields([
+        { name: 'Before Metrics', value: beforeMetrics },
+        { name: 'After Metrics', value: afterMetrics },
+        { name: 'Change Summary', value: changeSummary },
+        { name: 'Calibration Curve', value: `\`\`\`\n${asciiCurve}\n\`\`\`` },
+      ])
+      .addTimestamp();
+    
+    await discordService.sendMessage(embedMessage);
+    console.log(`✓ Discord notification sent: ${isImprovement ? 'Improvement' : 'Degradation'}`);
+  } catch (error: any) {
+    console.warn('⚠️  Failed to send Discord notification:', error.message);
+    // Don't throw - Discord failure shouldn't break calibration
+  } finally {
+    try {
+      await discordService.shutdown();
+    } catch (shutdownError) {
+      // Ignore shutdown errors
+    }
+  }
 }
 
 /**
@@ -266,7 +344,19 @@ export async function confidenceCalibrate(
     
     // Save to database unless dry-run
     if (!dryRun) {
+      // Get previous calibration before saving new one
+      const previousCalibration = await service.getLatestCalibration(market);
+      
+      // Save new calibration
       await service.saveCalibration(calibration);
+      
+      // Send Discord notification if requested and change is significant
+      if (options.discord && previousCalibration) {
+        await sendDiscordNotificationIfSignificant(
+          calibration,
+          previousCalibration,
+        );
+      }
     }
   } catch (error: any) {
     console.error('');

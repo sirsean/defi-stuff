@@ -8,7 +8,7 @@
     <array>
         <string>sh</string>
         <string>-c</string>
-        <string>cd $WORKING_DIR && echo "[$(date '+%Y-%m-%d %H:%M:%S')]" >> $WORKING_DIR/logs/confidence-calibration-output.log && echo "[$(date '+%Y-%m-%d %H:%M:%S')]" >> $WORKING_DIR/logs/confidence-calibration-error.log && $NODE_PATH $WORKING_DIR/dist/index.js confidence:calibrate -m BTC >> $WORKING_DIR/logs/confidence-calibration-output.log 2>> $WORKING_DIR/logs/confidence-calibration-error.log</string>
+        <string>cd $WORKING_DIR && echo "[$(date '+%Y-%m-%d %H:%M:%S')]" >> $WORKING_DIR/logs/confidence-calibration-output.log && echo "[$(date '+%Y-%m-%d %H:%M:%S')]" >> $WORKING_DIR/logs/confidence-calibration-error.log && $NODE_PATH $WORKING_DIR/dist/index.js confidence:calibrate -m BTC --discord >> $WORKING_DIR/logs/confidence-calibration-output.log 2>> $WORKING_DIR/logs/confidence-calibration-error.log</string>
     </array>
     <key>EnvironmentVariables</key>
     <dict>
