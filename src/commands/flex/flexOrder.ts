@@ -108,8 +108,8 @@ export async function flexOrder(
 
     console.log(`\n📝 ${orderType.toUpperCase()} Order - ${market.symbol}\n`);
 
-    // Get current market price
-    const priceData = await publicService.getMarketPrice(market.index);
+    // Get current market price from Pyth (same oracle Flex uses)
+    const priceData = await publicService.getPythPrice(market.index);
     const currentPrice = priceData.price;
 
     console.log(`Market: ${market.symbol}`);

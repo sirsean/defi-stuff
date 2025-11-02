@@ -135,12 +135,12 @@ export class FlexPublicService {
   // ============================================================================
 
   /**
-   * Get current market price from oracle
-   * Uses Chainlink price feeds on Base for BTC and ETH
+   * Get current market price from Chainlink oracle
+   * Note: Only available for BTC and ETH markets on Base
    * @param marketIndex Market index (e.g., 1 for BTC)
-   * @returns Market data with current price
+   * @returns Market data with current Chainlink price
    */
-  async getMarketPrice(marketIndex: number): Promise<MarketData> {
+  async getChainlinkPrice(marketIndex: number): Promise<MarketData> {
     await this.validateNetwork();
 
     const market = Object.values(MARKETS).find((m) => m.index === marketIndex);
@@ -334,7 +334,7 @@ export class FlexPublicService {
     }
 
     // Get current market price for PnL calculation
-    const marketData = await this.getMarketPrice(marketIndex);
+    const marketData = await this.getPythPrice(marketIndex);
 
     // Get market state for funding
     const marketState = await this.perpStorage.getMarketByIndex(marketIndex);
@@ -430,7 +430,7 @@ export class FlexPublicService {
       }
 
       // Get current market price for PnL calculation
-      const marketData = await this.getMarketPrice(marketIndex);
+      const marketData = await this.getPythPrice(marketIndex);
 
       // Get market state for funding
       const marketState = await this.perpStorage.getMarketByIndex(marketIndex);

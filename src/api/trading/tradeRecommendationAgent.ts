@@ -246,7 +246,7 @@ export class TradeRecommendationAgent {
 
       try {
         const [priceData, fundingData] = await Promise.all([
-          this.flex.getMarketPrice(market.index),
+          this.flex.getPythPrice(market.index),
           this.flex.getFundingRate(market.index),
         ]);
 

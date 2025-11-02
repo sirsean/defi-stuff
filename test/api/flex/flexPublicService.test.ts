@@ -63,8 +63,8 @@ describe("FlexPublicService", () => {
   });
 
   describe("Market Data Queries", () => {
-    describe("getMarketPrice", () => {
-      it("should fetch BTC market price", async () => {
+    describe("getChainlinkPrice", () => {
+      it("should fetch BTC market price from Chainlink", async () => {
         const btcMarketIndex = 1;
         const mockPrice = 64000;
 
@@ -73,7 +73,7 @@ describe("FlexPublicService", () => {
           mockPrice,
         );
 
-        const result = await service.getMarketPrice(btcMarketIndex);
+        const result = await service.getChainlinkPrice(btcMarketIndex);
 
         expect(result.marketIndex).toBe(btcMarketIndex);
         expect(result.symbol).toBe("BTC");
@@ -82,7 +82,7 @@ describe("FlexPublicService", () => {
         expect(chainlink.chainlinkOracle.getBtcUsd).toHaveBeenCalled();
       });
 
-      it("should fetch ETH market price", async () => {
+      it("should fetch ETH market price from Chainlink", async () => {
         const ethMarketIndex = 0;
         const mockPrice = 3200;
 
@@ -91,7 +91,7 @@ describe("FlexPublicService", () => {
           mockPrice,
         );
 
-        const result = await service.getMarketPrice(ethMarketIndex);
+        const result = await service.getChainlinkPrice(ethMarketIndex);
 
         expect(result.marketIndex).toBe(ethMarketIndex);
         expect(result.symbol).toBe("ETH");
@@ -100,7 +100,7 @@ describe("FlexPublicService", () => {
       });
 
       it("should throw error for invalid market index", async () => {
-        await expect(service.getMarketPrice(999)).rejects.toThrow(
+        await expect(service.getChainlinkPrice(999)).rejects.toThrow(
           "Market index 999 not found",
         );
       });
@@ -114,7 +114,7 @@ describe("FlexPublicService", () => {
           mockPrice,
         );
 
-        const result = await service.getMarketPrice(btcMarketIndex);
+        const result = await service.getChainlinkPrice(btcMarketIndex);
 
         expect(result.price).toBeCloseTo(mockPrice, 2);
       });
@@ -425,8 +425,8 @@ describe("FlexPublicService", () => {
           .fn()
           .mockResolvedValue(mockMarketState);
 
-        // Mock chainlink oracle for price fetch
-        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(64000);
+        // Mock Pyth oracle for price fetch (used by getPosition internally)
+        vi.mocked(pyth.pythOracle.getPriceForAsset).mockResolvedValue(64000);
 
         const result = await service.getPosition(testAccount, 1);
 
@@ -467,8 +467,8 @@ describe("FlexPublicService", () => {
           .fn()
           .mockResolvedValue(mockMarketState);
 
-        // Mock chainlink oracle for price fetch
-        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(64000);
+        // Mock Pyth oracle for price fetch (used by getPosition internally)
+        vi.mocked(pyth.pythOracle.getPriceForAsset).mockResolvedValue(64000);
 
         const result = await service.getPosition(testAccount, 1);
 
@@ -505,8 +505,8 @@ describe("FlexPublicService", () => {
           .fn()
           .mockResolvedValue(mockMarketState);
 
-        // Mock chainlink oracle for price fetch
-        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(64000);
+        // Mock Pyth oracle for price fetch (used by getPosition internally)
+        vi.mocked(pyth.pythOracle.getPriceForAsset).mockResolvedValue(64000);
 
         const result = await service.getPosition(testAccount, 1);
 
@@ -541,8 +541,8 @@ describe("FlexPublicService", () => {
           6: 7n * 10n ** 27n,
         });
 
-        // Mock chainlink oracle for price fetch
-        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(64000);
+        // Mock Pyth oracle for price fetch (used by getAllPositions internally)
+        vi.mocked(pyth.pythOracle.getPriceForAsset).mockResolvedValue(64000);
 
         const result = await service.getAllPositions(testAccount);
 
@@ -655,8 +655,8 @@ describe("FlexPublicService", () => {
           6: 6n,
         });
 
-        // Mock chainlink oracle for price fetch
-        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(65000);
+        // Mock Pyth oracle for price fetch (used by getEquity internally)
+        vi.mocked(pyth.pythOracle.getPriceForAsset).mockResolvedValue(65000);
 
         const result = await service.getEquity(testAccount);
 
@@ -703,8 +703,8 @@ describe("FlexPublicService", () => {
           6: 5n * 10n ** 27n,
         });
 
-        // Mock chainlink oracle for price fetch
-        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(60000);
+        // Mock Pyth oracle for price fetch (used by getLeverage internally)
+        vi.mocked(pyth.pythOracle.getPriceForAsset).mockResolvedValue(60000);
 
         const result = await service.getLeverage(testAccount);
 
@@ -745,8 +745,8 @@ describe("FlexPublicService", () => {
           6: 5n * 10n ** 27n,
         });
 
-        // Mock chainlink oracle for price fetch
-        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(60000);
+        // Mock Pyth oracle for price fetch (used by getLeverage internally)
+        vi.mocked(pyth.pythOracle.getPriceForAsset).mockResolvedValue(60000);
 
         const result = await service.getLeverage(testAccount);
 
@@ -805,8 +805,8 @@ describe("FlexPublicService", () => {
           6: 5n * 10n ** 27n,
         });
 
-        // Mock chainlink oracle for price fetch
-        vi.mocked(chainlink.chainlinkOracle.getBtcUsd).mockResolvedValue(60000);
+        // Mock Pyth oracle for price fetch (used by getAvailableMargin internally)
+        vi.mocked(pyth.pythOracle.getPriceForAsset).mockResolvedValue(60000);
 
         const result = await service.getAvailableMargin(testAccount, 5);
 

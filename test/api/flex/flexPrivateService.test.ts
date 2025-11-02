@@ -225,9 +225,9 @@ describe("FlexPrivateService", () => {
   describe("Market Orders", () => {
     describe("executeMarketOrder", () => {
       beforeEach(() => {
-        // Mock getMarketPrice from public service
+        // Mock getPythPrice from public service
         const mockPublicService = (service as any).publicService;
-        mockPublicService.getMarketPrice = vi.fn().mockResolvedValue({
+        mockPublicService.getPythPrice = vi.fn().mockResolvedValue({
           price: 64000,
           priceE30: 64000n * 10n ** 30n,
         });
@@ -476,7 +476,7 @@ describe("FlexPrivateService", () => {
           isLong: true,
           size: 1000, // $1000 long position
         });
-        mockPublicService.getMarketPrice = vi.fn().mockResolvedValue({
+        mockPublicService.getPythPrice = vi.fn().mockResolvedValue({
           price: 64000,
           priceE30: 64000n * 10n ** 30n,
         });
@@ -594,9 +594,9 @@ describe("FlexPrivateService", () => {
     });
 
     it("should handle contract revert", async () => {
-      // Mock getMarketPrice first so it doesn't fail
+      // Mock getPythPrice first so it doesn't fail
       const mockPublicService = (service as any).publicService;
-      mockPublicService.getMarketPrice = vi.fn().mockResolvedValue({
+      mockPublicService.getPythPrice = vi.fn().mockResolvedValue({
         price: 64000,
         priceE30: 64000n * 10n ** 30n,
       });

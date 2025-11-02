@@ -277,8 +277,8 @@ export class FlexPrivateService {
       if (params.acceptablePrice) {
         acceptablePriceE30 = toE30(params.acceptablePrice);
       } else {
-        // Use current price with 1% slippage tolerance
-        const currentPrice = await this.publicService.getMarketPrice(
+        // Use current Pyth price with 1% slippage tolerance (same oracle Flex uses)
+        const currentPrice = await this.publicService.getPythPrice(
           params.marketIndex,
         );
         const slippage = isLong ? 1.01 : 0.99;

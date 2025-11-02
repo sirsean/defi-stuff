@@ -411,7 +411,7 @@ describe("TradeRecommendationAgent", () => {
       } as any;
 
       mockFlex = {
-        getMarketPrice: vi.fn().mockResolvedValue({ price: 65000 }),
+        getPythPrice: vi.fn().mockResolvedValue({ price: 65000 }),
         getFundingRate: vi.fn().mockResolvedValue({
           currentFundingRate: 0.0001,
           longPositionSize: 1000000,
@@ -797,7 +797,7 @@ describe("TradeRecommendationAgent", () => {
       } as any;
 
       mockFlex = {
-        getMarketPrice: vi.fn().mockResolvedValue({ price: 65000 }),
+        getPythPrice: vi.fn().mockResolvedValue({ price: 65000 }),
         getFundingRate: vi.fn().mockResolvedValue({
           currentFundingRate: 0.0001,
           longPositionSize: 1000000,

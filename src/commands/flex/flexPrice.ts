@@ -94,7 +94,7 @@ export async function flexPrice(options: FlexPriceOptions): Promise<void> {
         // Try Chainlink oracle (only BTC and ETH)
         if (symbol === "BTC" || symbol === "ETH") {
           try {
-            const chainlinkData = await publicService.getMarketPrice(index);
+            const chainlinkData = await publicService.getChainlinkPrice(index);
             chainlinkPrice = chainlinkData.price;
           } catch (error: any) {
             chainlinkError = error.message;
