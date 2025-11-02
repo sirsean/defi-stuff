@@ -315,10 +315,7 @@ export class TradeRecommendationService {
 
       return result ? this.fromDbRecord(result) : null;
     } catch (error) {
-      console.error(
-        "Error getting latest recommendation for market:",
-        error,
-      );
+      console.error("Error getting latest recommendation for market:", error);
       throw error;
     }
   }

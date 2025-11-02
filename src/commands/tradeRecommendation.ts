@@ -86,7 +86,10 @@ function wrapText(text: string, width: number = 80): string {
 /**
  * Format a single recommendation
  */
-function formatRecommendation(rec: TradeRecommendation, showRaw: boolean = false): string[] {
+function formatRecommendation(
+  rec: TradeRecommendation,
+  showRaw: boolean = false,
+): string[] {
   const lines: string[] = [];
   const emoji = getMarketEmoji(rec.market);
   const actionEmoji = getActionEmoji(rec.action);
@@ -101,7 +104,7 @@ function formatRecommendation(rec: TradeRecommendation, showRaw: boolean = false
   const confidenceLevel = getConfidenceLevel(rec.confidence);
   lines.push(`  Confidence: ${confidenceLevel}`);
   lines.push(`  ${createConfidenceMeter(rec.confidence)}`);
-  
+
   // Show raw confidence if --show-raw is enabled
   if (showRaw && rec.raw_confidence !== undefined) {
     const delta = rec.confidence - rec.raw_confidence;
@@ -110,7 +113,7 @@ function formatRecommendation(rec: TradeRecommendation, showRaw: boolean = false
       `  Raw: ${rec.raw_confidence.toFixed(2)} → Calibrated: ${rec.confidence.toFixed(2)} (${deltaStr})`,
     );
   }
-  
+
   lines.push("");
 
   // Size (if specified)
@@ -253,9 +256,7 @@ export async function tradeRecommendation(
         console.error(
           `\n⚠️ Failed to fetch market context: ${contextError?.message ?? "Unknown error"}`,
         );
-        console.error(
-          "Discord and database operations will be skipped.\n",
-        );
+        console.error("Discord and database operations will be skipped.\n");
       }
     }
 
@@ -263,9 +264,12 @@ export async function tradeRecommendation(
     let positionStatesForDiscord: Map<string, any> | null = null;
     if (opts.discord && recommendationsWithPrices.length > 0) {
       try {
-        positionStatesForDiscord = await tradeRecommendationAgent.getPreviousPositionState(markets);
+        positionStatesForDiscord =
+          await tradeRecommendationAgent.getPreviousPositionState(markets);
       } catch (error: any) {
-        console.warn(`⚠️ Failed to get position states for Discord: ${error?.message ?? "Unknown error"}`);
+        console.warn(
+          `⚠️ Failed to get position states for Discord: ${error?.message ?? "Unknown error"}`,
+        );
       }
     }
 
@@ -305,32 +309,36 @@ export async function tradeRecommendation(
           // Initialize Discord service
           await discordService.initialize();
           discordInitialized = true;
-          
+
           // Filter out HOLD actions - they're not actionable and don't need notifications
           // HOLD means "maintain current state" (flat/long/short) so there's nothing to act on
           let recommendationsToSend = recommendationsWithPrices.filter(
-            (recWithPrice) => recWithPrice.recommendation.action !== "hold"
+            (recWithPrice) => recWithPrice.recommendation.action !== "hold",
           );
-          
+
           // If both --db and --discord are active, additionally filter for changed recommendations
           if (opts.db && recommendationsToSend.length > 0) {
             const tradeRecommendationService = new TradeRecommendationService();
             const changedRecommendations = [];
-            
+
             console.log("🔍 Checking for recommendation changes...");
-            
+
             for (const recWithPrice of recommendationsToSend) {
               const market = recWithPrice.recommendation.market;
               const newAction = recWithPrice.recommendation.action;
-              
+
               // Get the most recent previous recommendation for this market
               // Skip the most recent one (which we just saved) by getting 2 records
-              const recentRecs = await tradeRecommendationService.getRecommendationsByMarket(market, 2);
-              
+              const recentRecs =
+                await tradeRecommendationService.getRecommendationsByMarket(
+                  market,
+                  2,
+                );
+
               // If there's a previous recommendation (index 1), compare actions
               if (recentRecs.length > 1) {
                 const previousAction = recentRecs[1].action;
-                
+
                 if (previousAction !== newAction) {
                   console.log(
                     `  • ${market}: ${previousAction.toUpperCase()} → ${newAction.toUpperCase()} (changed)`,
@@ -349,10 +357,12 @@ export async function tradeRecommendation(
                 changedRecommendations.push(recWithPrice);
               }
             }
-            
+
             await tradeRecommendationService.close();
             recommendationsToSend = changedRecommendations;
-          } else if (recommendationsToSend.length < recommendationsWithPrices.length) {
+          } else if (
+            recommendationsToSend.length < recommendationsWithPrices.length
+          ) {
             // If we filtered out HOLDs but --db is not active, log which were skipped
             console.log("🔍 Filtering recommendations for Discord...");
             for (const recWithPrice of recommendationsWithPrices) {
@@ -363,7 +373,7 @@ export async function tradeRecommendation(
               }
             }
           }
-          
+
           if (recommendationsToSend.length > 0) {
             console.log("📤 Sending recommendations to Discord...");
 
@@ -427,7 +437,7 @@ export async function tradeRecommendation(
     try {
       // Cleanup agent's internal database service (if it was lazily created)
       await tradeRecommendationAgent.cleanup();
-      
+
       // Always destroy the database connection pool
       await KnexConnector.destroy();
     } catch (cleanupError: any) {

@@ -138,7 +138,7 @@ export async function flexPrice(options: FlexPriceOptions): Promise<void> {
 
           // Market Prices
           console.log("\n💰 Market Prices:");
-          
+
           if (pythPrice !== null) {
             console.log(`  Pyth Price:          ${formatUsd(pythPrice)}`);
           } else if (pythError) {

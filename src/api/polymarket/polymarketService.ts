@@ -219,16 +219,14 @@ export class PolymarketService {
 
     // Find closest date to target, preferring active markets
     let actualDate = targetDate;
-    
+
     // If target date exists but has no active markets, use nearest active date
     if (uniqueDates.has(targetDate) && !activeDates.has(targetDate)) {
       console.warn(
         `⚠️  Markets for ${targetDate} are closed. Finding nearest active market date...`,
       );
       actualDate = this.findNearestFutureDate(targetDate, availableActiveDates);
-      console.warn(
-        `⚠️  Using active market date: ${actualDate}`,
-      );
+      console.warn(`⚠️  Using active market date: ${actualDate}`);
     } else if (!uniqueDates.has(targetDate)) {
       // Target date doesn't exist at all, find closest
       actualDate = this.findClosestDate(targetDate, availableDates);
@@ -369,10 +367,10 @@ export class PolymarketService {
         `⚠️  No valid BTC price markets found for ${actualDate}. ` +
           `Found ${debugStats.totalForDate} markets but they were filtered out.`,
       );
-      
+
       // Try to find next valid date
-      const remainingDates = availableActiveDates.filter(d => d > actualDate);
-      
+      const remainingDates = availableActiveDates.filter((d) => d > actualDate);
+
       if (remainingDates.length > 0) {
         console.warn(
           `⚠️  Attempting to use next available date: ${remainingDates[0]}`,
@@ -380,7 +378,7 @@ export class PolymarketService {
         // Recursively call with the next date
         return this.analyzeBTCPrice(remainingDates[0]);
       }
-      
+
       // No fallback available, throw detailed error
       const activeDatesStr =
         availableActiveDates.length > 0
@@ -388,7 +386,7 @@ export class PolymarketService {
           : "none";
       const allDatesStr =
         availableDates.length > 0 ? availableDates.join(", ") : "none";
-      
+
       let errorMsg = `No valid BTC price markets found for target date ${actualDate}.\n`;
       errorMsg += `Found ${debugStats.totalForDate} total markets for this date, but:\n`;
       errorMsg += `  - ${debugStats.closedMarkets} were closed\n`;
@@ -398,7 +396,7 @@ export class PolymarketService {
       errorMsg += `Active market dates: ${activeDatesStr}\n`;
       errorMsg += `All dates (including closed): ${allDatesStr}\n`;
       errorMsg += `Tried all available dates but none had valid markets.`;
-      
+
       throw new Error(errorMsg);
     }
 

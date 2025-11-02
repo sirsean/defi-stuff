@@ -63,16 +63,17 @@ export async function flexPositions(
 
     // Display each position
     for (const position of positions) {
-          const direction = position.isLong ? "LONG 📈" : "SHORT 📉";
-          const directionColor = position.isLong ? "🟢" : "🔴";
+      const direction = position.isLong ? "LONG 📈" : "SHORT 📉";
+      const directionColor = position.isLong ? "🟢" : "🔴";
 
       // Calculate PnL percentage
-      const pnlPercent = (Number(position.unrealizedPnl) / Number(position.size)) * 100;
+      const pnlPercent =
+        (Number(position.unrealizedPnl) / Number(position.size)) * 100;
       const pnlSign = Number(position.unrealizedPnl) >= 0 ? "+" : "";
       const pnlColor = Number(position.unrealizedPnl) >= 0 ? "🟢" : "🔴";
 
-          console.log(`${directionColor} ${position.symbol} ${direction}`);
-          console.log(`${"─".repeat(80)}`);
+      console.log(`${directionColor} ${position.symbol} ${direction}`);
+      console.log(`${"─".repeat(80)}`);
 
       // Position details
       console.log(`  Position Size:       ${formatUsd(Number(position.size))}`);
@@ -94,8 +95,10 @@ export async function flexPositions(
 
       // Show fees if they're significant (> $0.01)
       const totalFees =
-        Number(position.fundingFee) + Number(position.borrowingFee) + Number(position.tradingFee);
-      
+        Number(position.fundingFee) +
+        Number(position.borrowingFee) +
+        Number(position.tradingFee);
+
       if (Math.abs(totalFees) > 0.01) {
         console.log(`\n  💸 Fees:`);
         if (Math.abs(Number(position.fundingFee)) > 0.01) {
@@ -111,48 +114,48 @@ export async function flexPositions(
         console.log(`  Total Fees:          ${formatUsd(totalFees)}`);
       }
 
-          // Risk assessment
-          try {
-            const risk = riskManager.assessLiquidationRisk(
-              position,
-              position.currentPrice,
-            );
+      // Risk assessment
+      try {
+        const risk = riskManager.assessLiquidationRisk(
+          position,
+          position.currentPrice,
+        );
 
-            console.log(`\n  ⚠️  Risk Assessment:`);
+        console.log(`\n  ⚠️  Risk Assessment:`);
 
-            let riskEmoji = "🟢";
-            let riskLabel = "Safe";
-            if (risk.riskLevel === "warning") {
-              riskEmoji = "🟡";
-              riskLabel = "Warning";
-            } else if (risk.riskLevel === "danger") {
-              riskEmoji = "🟠";
-              riskLabel = "Danger";
-            } else if (risk.riskLevel === "critical") {
-              riskEmoji = "🔴";
-              riskLabel = "CRITICAL";
-            }
+        let riskEmoji = "🟢";
+        let riskLabel = "Safe";
+        if (risk.riskLevel === "warning") {
+          riskEmoji = "🟡";
+          riskLabel = "Warning";
+        } else if (risk.riskLevel === "danger") {
+          riskEmoji = "🟠";
+          riskLabel = "Danger";
+        } else if (risk.riskLevel === "critical") {
+          riskEmoji = "🔴";
+          riskLabel = "CRITICAL";
+        }
 
-            console.log(`  Risk Level:          ${riskEmoji} ${riskLabel}`);
-            console.log(
-              `  Distance to Liq:     ${risk.liquidationDistance.toFixed(2)}%`,
-            );
+        console.log(`  Risk Level:          ${riskEmoji} ${riskLabel}`);
+        console.log(
+          `  Distance to Liq:     ${risk.liquidationDistance.toFixed(2)}%`,
+        );
 
-            // Warning messages
-            if (risk.riskLevel === "critical") {
-              console.log(
-                `\n  🚨 WARNING: Position is at high risk of liquidation!`,
-              );
-            } else if (risk.riskLevel === "danger") {
-              console.log(
-                `\n  ⚠️  CAUTION: Consider adding margin or reducing position size`,
-              );
-            }
-          } catch (error: any) {
-            console.log(
-              `\n  ⚠️  Risk Assessment: Unable to calculate (${error.message})`,
-            );
-          }
+        // Warning messages
+        if (risk.riskLevel === "critical") {
+          console.log(
+            `\n  🚨 WARNING: Position is at high risk of liquidation!`,
+          );
+        } else if (risk.riskLevel === "danger") {
+          console.log(
+            `\n  ⚠️  CAUTION: Consider adding margin or reducing position size`,
+          );
+        }
+      } catch (error: any) {
+        console.log(
+          `\n  ⚠️  Risk Assessment: Unable to calculate (${error.message})`,
+        );
+      }
 
       console.log("\n");
 

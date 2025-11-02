@@ -498,9 +498,7 @@ describe("Pyth Oracle Service", () => {
     });
 
     it("should handle network errors", async () => {
-      vi.mocked(fetch).mockRejectedValueOnce(
-        new Error("Connection timeout"),
-      );
+      vi.mocked(fetch).mockRejectedValueOnce(new Error("Connection timeout"));
 
       await expect(getMultiplePrices(["BTC", "ETH"])).rejects.toThrow(
         "Failed to fetch Pyth prices for multiple assets: Connection timeout",

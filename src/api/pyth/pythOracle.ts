@@ -4,7 +4,10 @@
  * Source: https://hermes.pyth.network
  */
 
-import { PYTH_HERMES_ENDPOINT, PYTH_PRICE_FEED_IDS } from "../flex/constants.js";
+import {
+  PYTH_HERMES_ENDPOINT,
+  PYTH_PRICE_FEED_IDS,
+} from "../flex/constants.js";
 
 /**
  * Pyth price feed response structure
@@ -48,11 +51,11 @@ function getPythFeedId(assetId: string): string {
  */
 function convertPythPrice(priceStr: string, expo: number): number {
   const price = parseFloat(priceStr) * Math.pow(10, expo);
-  
+
   if (!Number.isFinite(price) || price <= 0) {
     throw new Error(`Invalid Pyth price: ${priceStr} with exponent ${expo}`);
   }
-  
+
   return price;
 }
 
@@ -63,31 +66,31 @@ function convertPythPrice(priceStr: string, expo: number): number {
  */
 export async function getPriceForAsset(assetId: string): Promise<number> {
   const feedId = getPythFeedId(assetId);
-  
+
   const url = new URL(`${PYTH_HERMES_ENDPOINT}/api/latest_price_feeds`);
   url.searchParams.append("ids[]", feedId);
-  
+
   try {
     const response = await fetch(url.toString());
-    
+
     if (!response.ok) {
       throw new Error(
         `Pyth API request failed: ${response.status} ${response.statusText}`,
       );
     }
-    
+
     const data = await response.json();
-    
+
     if (!Array.isArray(data) || data.length === 0) {
       throw new Error(`No price data returned from Pyth for asset: ${assetId}`);
     }
-    
+
     const priceFeed = data[0] as PythPriceFeed;
-    
+
     if (!priceFeed.price) {
       throw new Error(`Invalid price feed structure for asset: ${assetId}`);
     }
-    
+
     return convertPythPrice(priceFeed.price.price, priceFeed.price.expo);
   } catch (error: any) {
     if (error.message.includes("Pyth")) {
@@ -110,40 +113,40 @@ export async function getMultiplePrices(
   if (assetIds.length === 0) {
     return {};
   }
-  
+
   // Get feed IDs for all assets
   const feedIds = assetIds.map((assetId) => getPythFeedId(assetId));
-  
+
   const url = new URL(`${PYTH_HERMES_ENDPOINT}/api/latest_price_feeds`);
   feedIds.forEach((feedId) => {
     url.searchParams.append("ids[]", feedId);
   });
-  
+
   try {
     const response = await fetch(url.toString());
-    
+
     if (!response.ok) {
       throw new Error(
         `Pyth API request failed: ${response.status} ${response.statusText}`,
       );
     }
-    
+
     const data = await response.json();
-    
+
     if (!Array.isArray(data)) {
       throw new Error("Invalid response format from Pyth API");
     }
-    
+
     // Build a map from feed ID back to asset ID
     const feedIdToAsset: Record<string, string> = {};
     assetIds.forEach((assetId) => {
       const feedId = getPythFeedId(assetId);
       feedIdToAsset[feedId] = assetId;
     });
-    
+
     // Convert price feeds to prices
     const prices: Record<string, number> = {};
-    
+
     for (const priceFeed of data as PythPriceFeed[]) {
       const assetId = feedIdToAsset[priceFeed.id];
       if (assetId && priceFeed.price) {
@@ -153,7 +156,7 @@ export async function getMultiplePrices(
         );
       }
     }
-    
+
     return prices;
   } catch (error: any) {
     if (error.message.includes("Pyth")) {

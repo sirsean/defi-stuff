@@ -4,7 +4,7 @@
 
 /**
  * Hold mode interpretation
- * 
+ *
  * @deprecated HoldMode is deprecated as recommendations now explicitly encode
  * position intent with separate HOLD and CLOSE actions. The backtest system
  * now follows position-aware semantics where:

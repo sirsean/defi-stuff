@@ -607,9 +607,7 @@ export async function baseusdAddCore(
       provider,
       owner,
       async (nonce) => {
-        console.log(
-          `Submitting approval transaction with nonce ${nonce}...`,
-        );
+        console.log(`Submitting approval transaction with nonce ${nonce}...`);
         return await usdcWithSigner.approve(built.to, assets, { nonce });
       },
     );
@@ -635,19 +633,15 @@ export async function baseusdAddCore(
 
   // Execute deposit with explicit nonce management and retry logic
   console.log("Submitting deposit transaction...");
-  const tx = await executeWithNonceRetry(
-    provider,
-    owner,
-    async (nonce) => {
-      console.log(`Submitting deposit transaction with nonce ${nonce}...`);
-      return await signer.sendTransaction({
-        to: built.to,
-        data: built.data,
-        value: built.value,
-        nonce,
-      });
-    },
-  );
+  const tx = await executeWithNonceRetry(provider, owner, async (nonce) => {
+    console.log(`Submitting deposit transaction with nonce ${nonce}...`);
+    return await signer.sendTransaction({
+      to: built.to,
+      data: built.data,
+      value: built.value,
+      nonce,
+    });
+  });
 
   console.log(`Submitted tx: ${tx.hash}`);
   const receipt = await tx.wait();

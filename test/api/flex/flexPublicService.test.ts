@@ -180,7 +180,7 @@ describe("FlexPublicService", () => {
 
       it("should throw error for invalid market index", async () => {
         vi.clearAllMocks(); // Clear any previous calls
-        
+
         await expect(service.getPythPrice(999)).rejects.toThrow(
           "Market index 999 not found",
         );
@@ -554,9 +554,7 @@ describe("FlexPublicService", () => {
 
       it("should return empty array when no positions exist", async () => {
         const mockPerpStorage = (service as any).perpStorage;
-        mockPerpStorage.getPositionBySubAccount = vi
-          .fn()
-          .mockResolvedValue([]);
+        mockPerpStorage.getPositionBySubAccount = vi.fn().mockResolvedValue([]);
 
         const result = await service.getAllPositions(testAccount);
 
@@ -639,7 +637,7 @@ describe("FlexPublicService", () => {
             positionSizeE30: 1000n * 10n ** 30n,
             avgEntryPriceE30: 60000n * 10n ** 30n,
             reserveValueE30: 100n * 10n ** 30n,
-            lastFundingAccrued: 1000n, // Tiny value for negligible fee  
+            lastFundingAccrued: 1000n, // Tiny value for negligible fee
             entryBorrowingRate: 5n, // Tiny value for negligible fee
           },
         ];

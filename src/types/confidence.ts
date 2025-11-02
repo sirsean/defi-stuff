@@ -1,6 +1,6 @@
 /**
  * Types for confidence calibration system
- * 
+ *
  * The calibration system adjusts LLM-generated confidence scores based on
  * historical performance using isotonic regression to ensure higher confidence
  * correlates with better trade outcomes.

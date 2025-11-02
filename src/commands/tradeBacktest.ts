@@ -46,7 +46,13 @@ function formatDate(date: Date): string {
  */
 function printResult(result: BacktestResult, verbose: boolean = false): void {
   const { market, date_range, total_recommendations, hold_mode } = result;
-  const { recommended_strategy, perfect_strategy, by_action, confidence_analysis, raw_confidence_analysis } = result;
+  const {
+    recommended_strategy,
+    perfect_strategy,
+    by_action,
+    confidence_analysis,
+    raw_confidence_analysis,
+  } = result;
 
   console.log("");
   console.log("═".repeat(80));
@@ -56,7 +62,9 @@ function printResult(result: BacktestResult, verbose: boolean = false): void {
 
   // Summary
   console.log(`Market: ${market}`);
-  console.log(`Period: ${formatDate(date_range.start)} - ${formatDate(date_range.end)}`);
+  console.log(
+    `Period: ${formatDate(date_range.start)} - ${formatDate(date_range.end)}`,
+  );
   console.log(`Total Recommendations: ${total_recommendations}`);
   console.log("");
 
@@ -69,10 +77,18 @@ function printResult(result: BacktestResult, verbose: boolean = false): void {
   if (recommended_strategy.num_trades === 0) {
     console.log("  No trades executed");
   } else {
-    console.log(`  Total PnL:              ${toUsd(recommended_strategy.total_pnl_usd)}`);
-    console.log(`  Total Return:           ${toPct(recommended_strategy.total_return_percent)}`);
-    console.log(`  Win Rate:               ${recommended_strategy.win_rate.toFixed(2)}%`);
-    console.log(`  Avg Trade Return:       ${toUsd(recommended_strategy.avg_trade_return_usd)} (${toPct(recommended_strategy.avg_trade_return_percent)})`);
+    console.log(
+      `  Total PnL:              ${toUsd(recommended_strategy.total_pnl_usd)}`,
+    );
+    console.log(
+      `  Total Return:           ${toPct(recommended_strategy.total_return_percent)}`,
+    );
+    console.log(
+      `  Win Rate:               ${recommended_strategy.win_rate.toFixed(2)}%`,
+    );
+    console.log(
+      `  Avg Trade Return:       ${toUsd(recommended_strategy.avg_trade_return_usd)} (${toPct(recommended_strategy.avg_trade_return_percent)})`,
+    );
     console.log(`  Number of Trades:       ${recommended_strategy.num_trades}`);
   }
   console.log("");
@@ -86,20 +102,33 @@ function printResult(result: BacktestResult, verbose: boolean = false): void {
   if (perfect_strategy.num_trades === 0) {
     console.log("  No trades possible (insufficient price movements)");
   } else {
-    console.log(`  Total PnL:              ${toUsd(perfect_strategy.total_pnl_usd)}`);
-    console.log(`  Total Return:           ${toPct(perfect_strategy.total_return_percent)}`);
-    console.log(`  Win Rate:               ${perfect_strategy.win_rate.toFixed(2)}%`);
-    console.log(`  Avg Trade Return:       ${toUsd(perfect_strategy.avg_trade_return_usd)} (${toPct(perfect_strategy.avg_trade_return_percent)})`);
+    console.log(
+      `  Total PnL:              ${toUsd(perfect_strategy.total_pnl_usd)}`,
+    );
+    console.log(
+      `  Total Return:           ${toPct(perfect_strategy.total_return_percent)}`,
+    );
+    console.log(
+      `  Win Rate:               ${perfect_strategy.win_rate.toFixed(2)}%`,
+    );
+    console.log(
+      `  Avg Trade Return:       ${toUsd(perfect_strategy.avg_trade_return_usd)} (${toPct(perfect_strategy.avg_trade_return_percent)})`,
+    );
     console.log(`  Number of Trades:       ${perfect_strategy.num_trades}`);
     console.log("");
 
     // Performance gap
-    if (recommended_strategy.num_trades > 0 && perfect_strategy.total_pnl_usd > 0) {
+    if (
+      recommended_strategy.num_trades > 0 &&
+      perfect_strategy.total_pnl_usd > 0
+    ) {
       const gapPercent =
         ((perfect_strategy.total_pnl_usd - recommended_strategy.total_pnl_usd) /
           perfect_strategy.total_pnl_usd) *
         100;
-      console.log(`  Performance Gap:        ${gapPercent.toFixed(2)}% below perfect`);
+      console.log(
+        `  Performance Gap:        ${gapPercent.toFixed(2)}% below perfect`,
+      );
     }
   }
   console.log("");
@@ -110,7 +139,10 @@ function printResult(result: BacktestResult, verbose: boolean = false): void {
   console.log("─".repeat(80));
   console.log("");
 
-  const formatActionLine = (name: string, stats: { count: number; win_rate: number; avg_pnl: number }): string => {
+  const formatActionLine = (
+    name: string,
+    stats: { count: number; win_rate: number; avg_pnl: number },
+  ): string => {
     if (stats.count === 0) return `  ${name}:     0 recommendations`;
     if (name === "Hold" || name === "Close") {
       return `  ${name}:     ${stats.count} recommendations | (no PnL attribution)`;
@@ -130,9 +162,15 @@ function printResult(result: BacktestResult, verbose: boolean = false): void {
     console.log("🎓 RAW CONFIDENCE ANALYSIS (Before Calibration)");
     console.log("─".repeat(80));
     console.log("");
-    console.log(`  High Confidence (≥0.7):    Win Rate: ${raw_confidence_analysis.high_confidence_win_rate.toFixed(1)}%`);
-    console.log(`  Low Confidence (<0.7):     Win Rate: ${raw_confidence_analysis.low_confidence_win_rate.toFixed(1)}%`);
-    console.log(`  Correlation (r):           ${raw_confidence_analysis.correlation >= 0 ? "+" : ""}${raw_confidence_analysis.correlation.toFixed(3)}`);
+    console.log(
+      `  High Confidence (≥0.7):    Win Rate: ${raw_confidence_analysis.high_confidence_win_rate.toFixed(1)}%`,
+    );
+    console.log(
+      `  Low Confidence (<0.7):     Win Rate: ${raw_confidence_analysis.low_confidence_win_rate.toFixed(1)}%`,
+    );
+    console.log(
+      `  Correlation (r):           ${raw_confidence_analysis.correlation >= 0 ? "+" : ""}${raw_confidence_analysis.correlation.toFixed(3)}`,
+    );
     console.log("");
   }
 
@@ -149,19 +187,33 @@ function printResult(result: BacktestResult, verbose: boolean = false): void {
   if (recommended_strategy.num_trades === 0) {
     console.log("  No trades to analyze");
   } else {
-    console.log(`  High Confidence (≥0.7):    Win Rate: ${confidence_analysis.high_confidence_win_rate.toFixed(1)}%`);
-    console.log(`  Low Confidence (<0.7):     Win Rate: ${confidence_analysis.low_confidence_win_rate.toFixed(1)}%`);
-    console.log(`  Correlation (r):           ${confidence_analysis.correlation >= 0 ? "+" : ""}${confidence_analysis.correlation.toFixed(3)}`);
+    console.log(
+      `  High Confidence (≥0.7):    Win Rate: ${confidence_analysis.high_confidence_win_rate.toFixed(1)}%`,
+    );
+    console.log(
+      `  Low Confidence (<0.7):     Win Rate: ${confidence_analysis.low_confidence_win_rate.toFixed(1)}%`,
+    );
+    console.log(
+      `  Correlation (r):           ${confidence_analysis.correlation >= 0 ? "+" : ""}${confidence_analysis.correlation.toFixed(3)}`,
+    );
     console.log("");
 
     // Interpretation
     if (confidence_analysis.correlation > 0.3) {
-      console.log("  Interpretation: Strong positive correlation. Higher confidence");
-      console.log("                  trades perform better. Consider scaling position");
+      console.log(
+        "  Interpretation: Strong positive correlation. Higher confidence",
+      );
+      console.log(
+        "                  trades perform better. Consider scaling position",
+      );
       console.log("                  sizes with confidence levels.");
     } else if (confidence_analysis.correlation < -0.3) {
-      console.log("  Interpretation: Strong negative correlation. Higher confidence");
-      console.log("                  trades perform worse. Model may be anti-calibrated.");
+      console.log(
+        "  Interpretation: Strong negative correlation. Higher confidence",
+      );
+      console.log(
+        "                  trades perform worse. Model may be anti-calibrated.",
+      );
     } else {
       console.log("  Interpretation: Weak correlation. Confidence may not be");
       console.log("                  predictive of trade outcomes.");
@@ -176,36 +228,66 @@ function printResult(result: BacktestResult, verbose: boolean = false): void {
     console.log("─".repeat(80));
     console.log("");
 
-    const correlationChange = confidence_analysis.correlation - raw_confidence_analysis.correlation;
-    const rawGap = raw_confidence_analysis.high_confidence_win_rate - raw_confidence_analysis.low_confidence_win_rate;
-    const calibratedGap = confidence_analysis.high_confidence_win_rate - confidence_analysis.low_confidence_win_rate;
+    const correlationChange =
+      confidence_analysis.correlation - raw_confidence_analysis.correlation;
+    const rawGap =
+      raw_confidence_analysis.high_confidence_win_rate -
+      raw_confidence_analysis.low_confidence_win_rate;
+    const calibratedGap =
+      confidence_analysis.high_confidence_win_rate -
+      confidence_analysis.low_confidence_win_rate;
     const gapChange = calibratedGap - rawGap;
 
     // Correlation improvement
-    const correlationSymbol = correlationChange > 0.05 ? "✓" : correlationChange < -0.05 ? "✗" : "~";
-    const corrChangeStr = correlationChange >= 0 ? `+${correlationChange.toFixed(3)}` : correlationChange.toFixed(3);
-    console.log(`  Correlation Change:        ${raw_confidence_analysis.correlation.toFixed(3)} → ${confidence_analysis.correlation.toFixed(3)} (${corrChangeStr}) ${correlationSymbol}`);
+    const correlationSymbol =
+      correlationChange > 0.05 ? "✓" : correlationChange < -0.05 ? "✗" : "~";
+    const corrChangeStr =
+      correlationChange >= 0
+        ? `+${correlationChange.toFixed(3)}`
+        : correlationChange.toFixed(3);
+    console.log(
+      `  Correlation Change:        ${raw_confidence_analysis.correlation.toFixed(3)} → ${confidence_analysis.correlation.toFixed(3)} (${corrChangeStr}) ${correlationSymbol}`,
+    );
 
     // Win rate gap improvement
     const gapSymbol = gapChange > 5 ? "✓" : gapChange < -5 ? "✗" : "~";
-    const gapChangeStr = gapChange >= 0 ? `+${gapChange.toFixed(1)}` : gapChange.toFixed(1);
-    console.log(`  High/Low Win Rate Gap:     ${rawGap.toFixed(1)}% → ${calibratedGap.toFixed(1)}% (${gapChangeStr}%) ${gapSymbol}`);
+    const gapChangeStr =
+      gapChange >= 0 ? `+${gapChange.toFixed(1)}` : gapChange.toFixed(1);
+    console.log(
+      `  High/Low Win Rate Gap:     ${rawGap.toFixed(1)}% → ${calibratedGap.toFixed(1)}% (${gapChangeStr}%) ${gapSymbol}`,
+    );
     console.log("");
 
     // Interpretation
     if (correlationChange > 0.1 && gapChange > 10) {
-      console.log("  Interpretation: ✓ Calibration significantly improved confidence");
-      console.log("                  predictiveness. High-confidence trades now perform");
+      console.log(
+        "  Interpretation: ✓ Calibration significantly improved confidence",
+      );
+      console.log(
+        "                  predictiveness. High-confidence trades now perform",
+      );
       console.log("                  better than low-confidence trades.");
     } else if (correlationChange > 0.05 || gapChange > 5) {
-      console.log("  Interpretation: ✓ Calibration moderately improved confidence");
-      console.log("                  scores. Results are trending in the right direction.");
+      console.log(
+        "  Interpretation: ✓ Calibration moderately improved confidence",
+      );
+      console.log(
+        "                  scores. Results are trending in the right direction.",
+      );
     } else if (correlationChange < -0.05 || gapChange < -5) {
-      console.log("  Interpretation: ✗ Calibration degraded confidence predictiveness.");
-      console.log("                  Consider recomputing calibration with more recent data.");
+      console.log(
+        "  Interpretation: ✗ Calibration degraded confidence predictiveness.",
+      );
+      console.log(
+        "                  Consider recomputing calibration with more recent data.",
+      );
     } else {
-      console.log("  Interpretation: ~ Calibration had minimal effect on confidence");
-      console.log("                  predictiveness. May need more data or refinement.");
+      console.log(
+        "  Interpretation: ~ Calibration had minimal effect on confidence",
+      );
+      console.log(
+        "                  predictiveness. May need more data or refinement.",
+      );
     }
     console.log("");
   }
@@ -238,7 +320,9 @@ function printResult(result: BacktestResult, verbose: boolean = false): void {
       const pnlUsd = toUsd(trade.pnl_usd);
       const pnlPct = `(${toPct(trade.pnl_percent)})`;
 
-      console.log(`  Trade #${(i + 1).toString().padStart(3)}:  ${entryTime}  ${action}  @ ${entryPrice}  →  ${exitPrice}  |  ${pnlUsd} ${pnlPct}`);
+      console.log(
+        `  Trade #${(i + 1).toString().padStart(3)}:  ${entryTime}  ${action}  @ ${entryPrice}  →  ${exitPrice}  |  ${pnlUsd} ${pnlPct}`,
+      );
     });
     console.log("");
   }
@@ -263,7 +347,9 @@ export async function tradeBacktest(
 
     // Validate hold mode
     if (!["maintain", "close", "both"].includes(holdModeInput)) {
-      console.error("❌ Invalid hold mode. Must be 'maintain', 'close', or 'both'.");
+      console.error(
+        "❌ Invalid hold mode. Must be 'maintain', 'close', or 'both'.",
+      );
       process.exit(1);
     }
 
@@ -283,7 +369,9 @@ export async function tradeBacktest(
       // JSON output
       if (jsonOutput) {
         if (Array.isArray(result)) {
-          console.log(JSON.stringify({ mode: "both", results: result }, null, 2));
+          console.log(
+            JSON.stringify({ mode: "both", results: result }, null, 2),
+          );
         } else {
           console.log(JSON.stringify(result, null, 2));
         }
@@ -301,7 +389,8 @@ export async function tradeBacktest(
         // Comparison summary if both modes
         if (result.length === 2) {
           const [maintain, close] = result;
-          const maintainReturn = maintain.recommended_strategy.total_return_percent;
+          const maintainReturn =
+            maintain.recommended_strategy.total_return_percent;
           const closeReturn = close.recommended_strategy.total_return_percent;
           const diff = maintainReturn - closeReturn;
 
@@ -312,15 +401,21 @@ export async function tradeBacktest(
           console.log("");
           console.log(`  Maintain-on-Hold:  ${toPct(maintainReturn)} return`);
           console.log(`  Close-on-Hold:     ${toPct(closeReturn)} return`);
-          console.log(`  Difference:        ${toPct(Math.abs(diff))} ${diff >= 0 ? "(maintain wins)" : "(close wins)"}`);
+          console.log(
+            `  Difference:        ${toPct(Math.abs(diff))} ${diff >= 0 ? "(maintain wins)" : "(close wins)"}`,
+          );
           console.log("");
 
           if (Math.abs(diff) > 5) {
             const winner = diff >= 0 ? "maintain-on-hold" : "close-on-hold";
-            console.log(`  💡 Recommendation: Use ${winner} policy (${toPct(Math.abs(diff))} better return)`);
+            console.log(
+              `  💡 Recommendation: Use ${winner} policy (${toPct(Math.abs(diff))} better return)`,
+            );
             console.log("");
           } else {
-            console.log("  💡 Recommendation: Performance is similar; choose based on risk preference");
+            console.log(
+              "  💡 Recommendation: Performance is similar; choose based on risk preference",
+            );
             console.log("");
           }
           console.log("═".repeat(80));

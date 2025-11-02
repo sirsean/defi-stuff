@@ -6,8 +6,16 @@ import { execSync } from "child_process";
 
 const WORKING_DIR = process.cwd();
 const JOB_LABEL = "com.defi-stuff.confidence-calibration";
-const OUTPUT_LOG = path.join(WORKING_DIR, "logs", "confidence-calibration-output.log");
-const ERROR_LOG = path.join(WORKING_DIR, "logs", "confidence-calibration-error.log");
+const OUTPUT_LOG = path.join(
+  WORKING_DIR,
+  "logs",
+  "confidence-calibration-output.log",
+);
+const ERROR_LOG = path.join(
+  WORKING_DIR,
+  "logs",
+  "confidence-calibration-error.log",
+);
 
 console.log("═══════════════════════════════════════════════════════════");
 console.log("  Confidence Calibration Scheduler Verification");
@@ -70,8 +78,14 @@ console.log(`Errors:    ${ERROR_LOG}`);
 console.log("\n📌 Next Steps:");
 console.log("───────────────────────────────────────────────────────────");
 console.log("• Test job manually:  npm run scheduler:calibration:test");
-console.log("• View full output:   tail -f logs/confidence-calibration-output.log");
-console.log("• View full errors:   tail -f logs/confidence-calibration-error.log");
-console.log("• Unload job:         launchctl unload -w ~/Library/LaunchAgents/com.defi-stuff.confidence-calibration.plist");
+console.log(
+  "• View full output:   tail -f logs/confidence-calibration-output.log",
+);
+console.log(
+  "• View full errors:   tail -f logs/confidence-calibration-error.log",
+);
+console.log(
+  "• Unload job:         launchctl unload -w ~/Library/LaunchAgents/com.defi-stuff.confidence-calibration.plist",
+);
 
 console.log("\n═══════════════════════════════════════════════════════════\n");

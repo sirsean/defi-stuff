@@ -18,13 +18,17 @@ console.log("Testing launchd job execution...");
 try {
   if (!fs.existsSync(PLIST_PATH)) {
     console.error(`ERROR: Plist file not found at ${PLIST_PATH}`);
-    console.log('Run "npm run scheduler:setup:trade-recs" to create the plist file');
+    console.log(
+      'Run "npm run scheduler:setup:trade-recs" to create the plist file',
+    );
     process.exit(1);
   }
 
   // Check if job is loaded in launchd
   try {
-    execSync(`launchctl list | grep com.defi-stuff.trade-recommendations`).toString();
+    execSync(
+      `launchctl list | grep com.defi-stuff.trade-recommendations`,
+    ).toString();
     console.log("✅ Job is loaded in launchd");
   } catch (error) {
     console.error("❌ Job is not loaded in launchd");

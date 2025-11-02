@@ -1,5 +1,8 @@
 import { discordService, DiscordColors } from "./discordService.js";
-import type { TradeRecommendation, PositionState } from "../../types/tradeRecommendation.js";
+import type {
+  TradeRecommendation,
+  PositionState,
+} from "../../types/tradeRecommendation.js";
 
 /**
  * Discord formatter for trade recommendations
@@ -116,7 +119,9 @@ export class TradeRecommendationDiscordFormatter {
 
     const message = discordService
       .createEmbedMessage()
-      .addTitle(`${recommendation.market} ${actionEmoji} ${recommendation.action.toUpperCase()}`)
+      .addTitle(
+        `${recommendation.market} ${actionEmoji} ${recommendation.action.toUpperCase()}`,
+      )
       .setColor(color);
 
     // Position flow field (if position state is provided)

@@ -17,7 +17,9 @@ console.log("Verifying launchd configuration...");
 // Check if plist file exists
 if (!fs.existsSync(PLIST_PATH)) {
   console.error(`ERROR: Plist file not found at ${PLIST_PATH}`);
-  console.log('Run "npm run scheduler:setup:trade-recs" to create the plist file');
+  console.log(
+    'Run "npm run scheduler:setup:trade-recs" to create the plist file',
+  );
   process.exit(1);
 }
 

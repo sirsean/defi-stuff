@@ -29,17 +29,16 @@ describe("TradeRecommendationAgent", () => {
 
     it("should return flat when no prior recommendations exist", async () => {
       // Mock: no recommendations
-      vi.mocked(mockTradeRecService.getRecommendationsByMarket).mockResolvedValue(
-        [],
-      );
+      vi.mocked(
+        mockTradeRecService.getRecommendationsByMarket,
+      ).mockResolvedValue([]);
 
       const result = await agent.getPreviousPositionState(["BTC"]);
 
       expect(result.get("BTC")).toBe("flat");
-      expect(mockTradeRecService.getRecommendationsByMarket).toHaveBeenCalledWith(
-        "BTC",
-        50,
-      );
+      expect(
+        mockTradeRecService.getRecommendationsByMarket,
+      ).toHaveBeenCalledWith("BTC", 50);
     });
 
     it("should return long when last non-hold recommendation is long", async () => {
@@ -83,9 +82,9 @@ describe("TradeRecommendationAgent", () => {
         },
       ];
 
-      vi.mocked(mockTradeRecService.getRecommendationsByMarket).mockResolvedValue(
-        mockRecs,
-      );
+      vi.mocked(
+        mockTradeRecService.getRecommendationsByMarket,
+      ).mockResolvedValue(mockRecs);
 
       const result = await agent.getPreviousPositionState(["BTC"]);
 
@@ -133,9 +132,9 @@ describe("TradeRecommendationAgent", () => {
         },
       ];
 
-      vi.mocked(mockTradeRecService.getRecommendationsByMarket).mockResolvedValue(
-        mockRecs,
-      );
+      vi.mocked(
+        mockTradeRecService.getRecommendationsByMarket,
+      ).mockResolvedValue(mockRecs);
 
       const result = await agent.getPreviousPositionState(["ETH"]);
 
@@ -195,9 +194,9 @@ describe("TradeRecommendationAgent", () => {
         },
       ];
 
-      vi.mocked(mockTradeRecService.getRecommendationsByMarket).mockResolvedValue(
-        mockRecs,
-      );
+      vi.mocked(
+        mockTradeRecService.getRecommendationsByMarket,
+      ).mockResolvedValue(mockRecs);
 
       const result = await agent.getPreviousPositionState(["BTC"]);
 
@@ -245,9 +244,9 @@ describe("TradeRecommendationAgent", () => {
         },
       ];
 
-      vi.mocked(mockTradeRecService.getRecommendationsByMarket).mockResolvedValue(
-        mockRecs,
-      );
+      vi.mocked(
+        mockTradeRecService.getRecommendationsByMarket,
+      ).mockResolvedValue(mockRecs);
 
       const result = await agent.getPreviousPositionState(["BTC"]);
 
@@ -295,9 +294,9 @@ describe("TradeRecommendationAgent", () => {
         },
       ];
 
-      vi.mocked(mockTradeRecService.getRecommendationsByMarket).mockResolvedValue(
-        mockRecs,
-      );
+      vi.mocked(
+        mockTradeRecService.getRecommendationsByMarket,
+      ).mockResolvedValue(mockRecs);
 
       const result = await agent.getPreviousPositionState(["BTC"]);
 
@@ -306,56 +305,57 @@ describe("TradeRecommendationAgent", () => {
 
     it("should handle multiple markets correctly", async () => {
       // Mock responses for different markets
-      vi.mocked(mockTradeRecService.getRecommendationsByMarket)
-        .mockImplementation(async (market: string) => {
-          if (market === "BTC") {
-            return [
-              {
-                id: 1,
-                timestamp: new Date(),
-                market: "BTC",
-                price: 65000,
-                action: "long",
-                confidence: 0.8,
-                size_usd: 1000,
-                timeframe: "short",
-                reasoning: "Bullish",
-                risk_factors: [],
-              },
-            ];
-          } else if (market === "ETH") {
-            return [
-              {
-                id: 1,
-                timestamp: new Date(),
-                market: "ETH",
-                price: 3000,
-                action: "close",
-                confidence: 0.7,
-                size_usd: null,
-                timeframe: "short",
-                reasoning: "Exited",
-                risk_factors: [],
-              },
-            ];
-          } else if (market === "SOL") {
-            return [
-              {
-                id: 1,
-                timestamp: new Date(),
-                market: "SOL",
-                price: 150,
-                action: "short",
-                confidence: 0.75,
-                size_usd: 500,
-                timeframe: "short",
-                reasoning: "Bearish",
-                risk_factors: [],
-              },
-            ];
-          }
-          return [];
-        });
+      vi.mocked(
+        mockTradeRecService.getRecommendationsByMarket,
+      ).mockImplementation(async (market: string) => {
+        if (market === "BTC") {
+          return [
+            {
+              id: 1,
+              timestamp: new Date(),
+              market: "BTC",
+              price: 65000,
+              action: "long",
+              confidence: 0.8,
+              size_usd: 1000,
+              timeframe: "short",
+              reasoning: "Bullish",
+              risk_factors: [],
+            },
+          ];
+        } else if (market === "ETH") {
+          return [
+            {
+              id: 1,
+              timestamp: new Date(),
+              market: "ETH",
+              price: 3000,
+              action: "close",
+              confidence: 0.7,
+              size_usd: null,
+              timeframe: "short",
+              reasoning: "Exited",
+              risk_factors: [],
+            },
+          ];
+        } else if (market === "SOL") {
+          return [
+            {
+              id: 1,
+              timestamp: new Date(),
+              market: "SOL",
+              price: 150,
+              action: "short",
+              confidence: 0.75,
+              size_usd: 500,
+              timeframe: "short",
+              reasoning: "Bearish",
+              risk_factors: [],
+            },
+          ];
+        }
+        return [];
+      });
 
       const result = await agent.getPreviousPositionState([
         "BTC",
@@ -370,9 +370,9 @@ describe("TradeRecommendationAgent", () => {
 
     it("should default to flat on error", async () => {
       // Mock: throw error
-      vi.mocked(mockTradeRecService.getRecommendationsByMarket).mockRejectedValue(
-        new Error("Database error"),
-      );
+      vi.mocked(
+        mockTradeRecService.getRecommendationsByMarket,
+      ).mockRejectedValue(new Error("Database error"));
 
       const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
@@ -683,10 +683,7 @@ describe("TradeRecommendationAgent", () => {
         true,
       );
 
-      const result = await (agent as any).applyCalibratedConfidence(
-        "BTC",
-        0.7,
-      );
+      const result = await (agent as any).applyCalibratedConfidence("BTC", 0.7);
 
       expect(result).toBe(0.7);
       expect(mockCalibrationService.getLatestCalibration).toHaveBeenCalledWith(
@@ -753,10 +750,7 @@ describe("TradeRecommendationAgent", () => {
         },
       );
 
-      const result = await (agent as any).applyCalibratedConfidence(
-        "ETH",
-        0.8,
-      );
+      const result = await (agent as any).applyCalibratedConfidence("ETH", 0.8);
 
       expect(result).toBe(0.8);
       expect(consoleWarnSpy).toHaveBeenCalledWith(

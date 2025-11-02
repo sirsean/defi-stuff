@@ -668,22 +668,22 @@ describe("tradeRecommendation command", () => {
       // Should log that ETH HOLD is being skipped
       expect(mockSendRecommendations).toHaveBeenCalledWith(
         expect.arrayContaining([
-          expect.objectContaining({ 
-            recommendation: expect.objectContaining({ action: 'long' })
+          expect.objectContaining({
+            recommendation: expect.objectContaining({ action: "long" }),
           }),
-          expect.objectContaining({ 
-            recommendation: expect.objectContaining({ action: 'short' })
+          expect.objectContaining({
+            recommendation: expect.objectContaining({ action: "short" }),
           }),
         ]),
         expect.any(Map),
       );
-      
+
       // Verify HOLD was filtered out - check that the call doesn't include it
       const callArgs = mockSendRecommendations.mock.calls[0];
       if (callArgs) {
         const recommendations = callArgs[0];
         const hasHold = recommendations.some(
-          (r: any) => r.recommendation.action === 'hold'
+          (r: any) => r.recommendation.action === "hold",
         );
         expect(hasHold).toBe(false);
       }

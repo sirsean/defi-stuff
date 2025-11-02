@@ -49,7 +49,9 @@ export class TradeBacktestService {
   /**
    * Run backtest analysis
    */
-  async run(options: BacktestOptions): Promise<BacktestResult | BacktestResult[]> {
+  async run(
+    options: BacktestOptions,
+  ): Promise<BacktestResult | BacktestResult[]> {
     const { holdMode, market, days } = options;
 
     // Fetch and preprocess recommendations
@@ -93,10 +95,12 @@ export class TradeBacktestService {
     const byAction = this.computeActionBreakdown(recs, recommendedTrades);
 
     // Compute confidence analysis (calibrated)
-    const confidenceAnalysis = this.computeConfidenceAnalysis(recommendedTrades);
+    const confidenceAnalysis =
+      this.computeConfidenceAnalysis(recommendedTrades);
 
     // Compute raw confidence analysis (before calibration)
-    const rawConfidenceAnalysis = this.computeRawConfidenceAnalysis(recommendedTrades);
+    const rawConfidenceAnalysis =
+      this.computeRawConfidenceAnalysis(recommendedTrades);
 
     // Generate improvement suggestions
     const improvementSuggestions = this.generateSuggestions(
@@ -170,13 +174,13 @@ export class TradeBacktestService {
 
   /**
    * Simulate recommended strategy with position tracking
-   * 
+   *
    * Position-aware semantics (holdMode parameter is deprecated and ignored):
    * - LONG: Enter or maintain long position; flip to long if currently short
    * - SHORT: Enter or maintain short position; flip to short if currently long
    * - HOLD: Maintain current state (flat stays flat, long stays long, short stays short)
    * - CLOSE: Exit to flat; no-op if already flat (invalid action when flat)
-   * 
+   *
    * @deprecated holdMode parameter is deprecated and has no effect
    */
   private simulateRecommendedStrategy(
@@ -199,14 +203,13 @@ export class TradeBacktestService {
       const timestamp = new Date(rec.timestamp);
       const sizeUsd = rec.size_usd ? Number(rec.size_usd) : this.defaultSizeUsd;
       const confidence = Number(rec.confidence);
-      const rawConfidence = rec.raw_confidence ? Number(rec.raw_confidence) : undefined;
+      const rawConfidence = rec.raw_confidence
+        ? Number(rec.raw_confidence)
+        : undefined;
 
       if (action === "long" || action === "short") {
         // If we have an opposite position, close it first (flip)
-        if (
-          currentPosition &&
-          currentPosition.action !== action
-        ) {
+        if (currentPosition && currentPosition.action !== action) {
           const trade = this.closeTrade(
             currentPosition,
             price,
@@ -491,7 +494,9 @@ export class TradeBacktestService {
   /**
    * Compute confidence analysis using raw confidence scores (before calibration)
    */
-  private computeRawConfidenceAnalysis(trades: TradeResult[]): ConfidenceAnalysis | undefined {
+  private computeRawConfidenceAnalysis(
+    trades: TradeResult[],
+  ): ConfidenceAnalysis | undefined {
     // Check if trades have raw_confidence data
     const hasRawConfidence = trades.some((t) => t.raw_confidence !== undefined);
     if (!hasRawConfidence || trades.length === 0) {
@@ -501,7 +506,9 @@ export class TradeBacktestService {
     // Filter out trades without raw confidence (shouldn't happen, but be safe)
     const tradesWithRaw = trades.filter((t) => t.raw_confidence !== undefined);
 
-    const highConfTrades = tradesWithRaw.filter((t) => t.raw_confidence! >= 0.7);
+    const highConfTrades = tradesWithRaw.filter(
+      (t) => t.raw_confidence! >= 0.7,
+    );
     const lowConfTrades = tradesWithRaw.filter((t) => t.raw_confidence! < 0.7);
 
     const highWinRate =
@@ -551,8 +558,9 @@ export class TradeBacktestService {
 
     // 1. Confidence calibration analysis
     if (rawConfidence) {
-      const correlationImprovement = confidence.correlation - rawConfidence.correlation;
-      
+      const correlationImprovement =
+        confidence.correlation - rawConfidence.correlation;
+
       if (correlationImprovement > 0.1) {
         // Calibration is working well
         suggestions.push(
@@ -564,9 +572,12 @@ export class TradeBacktestService {
           `Calibration degraded correlation by ${Math.abs(correlationImprovement).toFixed(2)}. Consider recomputing calibration with more recent data.`,
         );
       }
-      
+
       // Suggest calibration if raw confidence is poor and not yet calibrated
-      if (rawConfidence.correlation < 0.3 && Math.abs(correlationImprovement) < 0.05) {
+      if (
+        rawConfidence.correlation < 0.3 &&
+        Math.abs(correlationImprovement) < 0.05
+      ) {
         suggestions.push(
           `Raw confidence correlation is low (r=${rawConfidence.correlation.toFixed(2)}). Run 'confidence:calibrate -m ${recommended.trades[0]?.market || "MARKET"}' to improve.`,
         );

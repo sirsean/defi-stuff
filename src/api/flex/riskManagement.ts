@@ -246,8 +246,7 @@ export class RiskManager {
       totalPositionSize += Number(position.size);
     }
 
-    const leverage =
-      equity.equity > 0 ? totalPositionSize / equity.equity : 0;
+    const leverage = equity.equity > 0 ? totalPositionSize / equity.equity : 0;
 
     return {
       totalPositionSize,
@@ -280,7 +279,8 @@ export class RiskManager {
 
     // For display purposes
     const sizeNum = Number(position.size);
-    const maintenanceMarginRequired = sizeNum * (maintenanceMarginPercent / 100);
+    const maintenanceMarginRequired =
+      sizeNum * (maintenanceMarginPercent / 100);
     const currentMargin = sizeNum; // Simplified estimate
     const marginBuffer = 100; // Placeholder
 
@@ -317,10 +317,7 @@ export class RiskManager {
     const equity = await this.publicService.getEquity(account);
 
     for (const position of equity.positions) {
-      const risk = this.assessLiquidationRisk(
-        position,
-        position.currentPrice,
-      );
+      const risk = this.assessLiquidationRisk(position, position.currentPrice);
       risks.push(risk);
     }
 

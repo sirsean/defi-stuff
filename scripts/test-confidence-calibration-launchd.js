@@ -29,7 +29,9 @@ if (!fs.existsSync(DIST_INDEX)) {
 // Check if plist file exists
 if (!fs.existsSync(PLIST_PATH)) {
   console.error(`❌ ERROR: Plist file not found at ${PLIST_PATH}`);
-  console.log('Run "npm run scheduler:calibration:setup" to create the plist file');
+  console.log(
+    'Run "npm run scheduler:calibration:setup" to create the plist file',
+  );
   process.exit(1);
 }
 

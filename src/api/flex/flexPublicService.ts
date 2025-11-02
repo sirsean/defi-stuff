@@ -321,7 +321,8 @@ export class FlexPublicService {
     }
 
     // Get all positions for this account
-    const allPositions = await this.perpStorage.getPositionBySubAccount(account);
+    const allPositions =
+      await this.perpStorage.getPositionBySubAccount(account);
 
     // Find the position for the requested market
     const positionData = allPositions.find(
@@ -347,14 +348,14 @@ export class FlexPublicService {
     // Calculate liquidation price from reserve value (collateral)
     const reserveValue = fromE30(positionData.reserveValueE30);
     const sizeInAsset = absSize / avgEntryPrice; // position size in base asset (e.g., BTC)
-    
+
     // For liquidation: loss = reserve_value
     // loss = size_in_asset * (liq_price - entry_price) for short
     // loss = size_in_asset * (entry_price - liq_price) for long
     // Solving for liq_price:
     const liquidationPrice = isLong
-      ? avgEntryPrice - (reserveValue / sizeInAsset)
-      : avgEntryPrice + (reserveValue / sizeInAsset);
+      ? avgEntryPrice - reserveValue / sizeInAsset
+      : avgEntryPrice + reserveValue / sizeInAsset;
 
     // Calculate unrealized PnL
     const unrealizedPnl = fromE30(
@@ -377,7 +378,8 @@ export class FlexPublicService {
 
     // Calculate borrowing fee
     // Note: borrowingRate field name may vary, using borrowingAccrued or default to 0n
-    const currentBorrowingRate = marketState.borrowingAccrued || marketState[6] || 0n;
+    const currentBorrowingRate =
+      marketState.borrowingAccrued || marketState[6] || 0n;
     const borrowingFee = fromE30(
       calculateBorrowingFee(
         positionData.reserveValueE30,
@@ -410,7 +412,8 @@ export class FlexPublicService {
     await this.validateNetwork();
 
     // Get all positions from PerpStorage
-    const allPositions = await this.perpStorage.getPositionBySubAccount(account);
+    const allPositions =
+      await this.perpStorage.getPositionBySubAccount(account);
 
     const positions: PositionData[] = [];
 
@@ -422,7 +425,9 @@ export class FlexPublicService {
       }
 
       const marketIndex = Number(positionData.marketIndex);
-      const market = Object.values(MARKETS).find((m) => m.index === marketIndex);
+      const market = Object.values(MARKETS).find(
+        (m) => m.index === marketIndex,
+      );
 
       if (!market) {
         console.warn(`Unknown market index ${marketIndex}, skipping`);
@@ -439,18 +444,18 @@ export class FlexPublicService {
       const avgEntryPrice = fromE30(positionData.avgEntryPriceE30);
       const isLong = size > 0;
       const absSize = Math.abs(size);
-      
+
       // Calculate liquidation price from reserve value (collateral)
       const reserveValue = fromE30(positionData.reserveValueE30);
       const sizeInAsset = absSize / avgEntryPrice; // position size in base asset (e.g., BTC)
-      
+
       // For liquidation: loss = reserve_value
       // loss = size_in_asset * (liq_price - entry_price) for short
       // loss = size_in_asset * (entry_price - liq_price) for long
       // Solving for liq_price:
       const liquidationPrice = isLong
-        ? avgEntryPrice - (reserveValue / sizeInAsset)
-        : avgEntryPrice + (reserveValue / sizeInAsset);
+        ? avgEntryPrice - reserveValue / sizeInAsset
+        : avgEntryPrice + reserveValue / sizeInAsset;
 
       // Calculate unrealized PnL
       const unrealizedPnl = fromE30(
@@ -473,7 +478,8 @@ export class FlexPublicService {
 
       // Calculate borrowing fee
       // Note: borrowingRate field name may vary, using borrowingAccrued or default to 0n
-      const currentBorrowingRate = marketState.borrowingAccrued || marketState[6] || 0n;
+      const currentBorrowingRate =
+        marketState.borrowingAccrued || marketState[6] || 0n;
       const borrowingFee = fromE30(
         calculateBorrowingFee(
           positionData.reserveValueE30,
@@ -566,12 +572,12 @@ export class FlexPublicService {
 
     // Recalculate liquidation prices using total account collateral
     // This gives more accurate liquidation prices than per-position reserve values
-    const updatedPositions = positions.map(position => {
+    const updatedPositions = positions.map((position) => {
       const sizeInAsset = position.size / position.avgEntryPrice;
       const liquidationPrice = position.isLong
-        ? position.avgEntryPrice - (collateral.balance / sizeInAsset)
-        : position.avgEntryPrice + (collateral.balance / sizeInAsset);
-      
+        ? position.avgEntryPrice - collateral.balance / sizeInAsset
+        : position.avgEntryPrice + collateral.balance / sizeInAsset;
+
       return {
         ...position,
         liquidationPrice,

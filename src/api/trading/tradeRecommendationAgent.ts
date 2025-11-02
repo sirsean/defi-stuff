@@ -12,12 +12,8 @@ import {
   CloudflareClient,
 } from "../cloudflare/cloudflareClient.js";
 import { MARKETS } from "../flex/constants.js";
-import {
-  TradeRecommendationService,
-} from "../../db/tradeRecommendationService.js";
-import {
-  ConfidenceCalibrationService,
-} from "../../db/confidenceCalibrationService.js";
+import { TradeRecommendationService } from "../../db/tradeRecommendationService.js";
+import { ConfidenceCalibrationService } from "../../db/confidenceCalibrationService.js";
 import type {
   MarketContext,
   MarketData,
@@ -34,7 +30,8 @@ import type {
  */
 export class TradeRecommendationAgent {
   private tradeRecServiceInstance: TradeRecommendationService | null = null;
-  private calibrationServiceInstance: ConfidenceCalibrationService | null = null;
+  private calibrationServiceInstance: ConfidenceCalibrationService | null =
+    null;
 
   constructor(
     private fearGreed: FearGreedService = fearGreedService,
@@ -75,10 +72,10 @@ export class TradeRecommendationAgent {
 
   /**
    * Apply confidence calibration to a raw confidence score
-   * 
+   *
    * Queries the latest calibration for the market and applies it if fresh (<7 days).
    * Falls back to raw confidence if no calibration exists or if it's stale.
-   * 
+   *
    * @param market Market symbol (e.g., "BTC", "ETH")
    * @param rawConfidence The raw LLM-generated confidence score (0-1)
    * @returns Calibrated confidence score (0-1)
@@ -89,53 +86,55 @@ export class TradeRecommendationAgent {
   ): Promise<number> {
     try {
       const calibrationService = await this.getCalibrationService();
-      
+
       // Get latest calibration for this market
       const calibration = await calibrationService.getLatestCalibration(market);
-      
+
       if (!calibration) {
         console.log(
           `ℹ️  No calibration found for ${market}, using raw confidence (${rawConfidence.toFixed(2)})`,
         );
         return rawConfidence;
       }
-      
+
       // Check if calibration is stale (>7 days)
       const isStale = await calibrationService.isCalibrationStale(market, 7);
-      
+
       if (isStale) {
         console.log(
           `⚠️  Calibration for ${market} is stale, using raw confidence (${rawConfidence.toFixed(2)})`,
         );
         return rawConfidence;
       }
-      
+
       // Apply calibration mapping using the service method
       const calibratedConfidence = calibrationService.applyCalibration(
         rawConfidence,
         calibration,
       );
-      
+
       const delta = calibratedConfidence - rawConfidence;
       const deltaStr = delta >= 0 ? `+${delta.toFixed(2)}` : delta.toFixed(2);
-      
+
       console.log(
         `✓ Applied calibration to ${market}: ${rawConfidence.toFixed(2)} → ${calibratedConfidence.toFixed(2)} (${deltaStr})`,
       );
-      
+
       return calibratedConfidence;
     } catch (error: any) {
       console.warn(
         `⚠️  Error applying calibration for ${market}: ${error.message}`,
       );
-      console.log(`   Falling back to raw confidence (${rawConfidence.toFixed(2)})`);
+      console.log(
+        `   Falling back to raw confidence (${rawConfidence.toFixed(2)})`,
+      );
       return rawConfidence;
     }
   }
 
   /**
    * Cleanup resources used by the agent
-   * 
+   *
    * Closes the database connection if it was lazily created
    */
   async cleanup(): Promise<void> {
@@ -164,10 +163,7 @@ export class TradeRecommendationAgent {
     for (const market of markets) {
       try {
         // Get recent recommendations for this market (up to 50 to handle long hold sequences)
-        const recentRecs = await service.getRecommendationsByMarket(
-          market,
-          50,
-        );
+        const recentRecs = await service.getRecommendationsByMarket(market, 50);
 
         if (recentRecs.length === 0) {
           // No prior recommendations - market is flat
@@ -277,7 +273,7 @@ export class TradeRecommendationAgent {
         const collateral = await this.flex.getCollateral(walletAddress);
         portfolioValue = collateral.balance;
       } catch (error) {
-        console.warn('Failed to fetch collateral balance, using 0:', error);
+        console.warn("Failed to fetch collateral balance, using 0:", error);
       }
     }
 
@@ -660,7 +656,9 @@ Be conservative - it's better to miss a trade than to force a bad one.`;
     }
 
     // Always show portfolio value (whether or not there are positions)
-    lines.push(`Portfolio Value (USDC Collateral): $${context.portfolio_value_usd.toLocaleString()}`);
+    lines.push(
+      `Portfolio Value (USDC Collateral): $${context.portfolio_value_usd.toLocaleString()}`,
+    );
     lines.push("");
 
     // Request
@@ -731,22 +729,22 @@ Be conservative - it's better to miss a trade than to force a bad one.`;
       // Apply confidence calibration to each recommendation
       console.log("");
       console.log("🔧 Applying confidence calibration...");
-      
+
       for (const rec of analysis.recommendations) {
         // Store the LLM output as raw_confidence
         const rawConfidence = rec.confidence;
         (rec as any).raw_confidence = rawConfidence;
-        
+
         // Apply calibration (or fall back to raw if unavailable/stale)
         const calibratedConfidence = await this.applyCalibratedConfidence(
           rec.market,
           rawConfidence,
         );
-        
+
         // Update the confidence field with the calibrated value
         rec.confidence = calibratedConfidence;
       }
-      
+
       console.log("");
 
       // Validate recommendations against position state (warn if invalid)

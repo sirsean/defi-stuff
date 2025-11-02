@@ -1,5 +1,5 @@
-import { ConfidenceCalibrationService } from '../db/confidenceCalibrationService.js';
-import type { CalibrationData } from '../types/confidence.js';
+import { ConfidenceCalibrationService } from "../db/confidenceCalibrationService.js";
+import type { CalibrationData } from "../types/confidence.js";
 
 interface StatusOptions {
   market?: string;
@@ -14,7 +14,7 @@ interface MarketStatus {
   highConfWinRate: number | null;
   lowConfWinRate: number | null;
   winRateGap: number | null;
-  healthStatus: 'HEALTHY' | 'WARNING' | 'NEEDS_RECALIBRATION' | 'MISSING';
+  healthStatus: "HEALTHY" | "WARNING" | "NEEDS_RECALIBRATION" | "MISSING";
   statusEmoji: string;
   recommendation: string;
 }
@@ -24,8 +24,8 @@ export async function confidenceStatus(options: StatusOptions): Promise<void> {
 
   try {
     // Determine which markets to check
-    const markets = options.market ? [options.market] : ['BTC', 'ETH'];
-    
+    const markets = options.market ? [options.market] : ["BTC", "ETH"];
+
     // Fetch status for each market
     const statuses: MarketStatus[] = [];
     for (const market of markets) {
@@ -36,14 +36,14 @@ export async function confidenceStatus(options: StatusOptions): Promise<void> {
     // Display results
     displayStatusReport(statuses, options.market !== undefined);
   } catch (error) {
-    console.error('Error checking confidence status:', error);
+    console.error("Error checking confidence status:", error);
     throw error;
   }
 }
 
 async function getMarketStatus(
   service: ConfidenceCalibrationService,
-  market: string
+  market: string,
 ): Promise<MarketStatus> {
   const calibration = await service.getLatestCalibration(market);
 
@@ -57,8 +57,8 @@ async function getMarketStatus(
       highConfWinRate: null,
       lowConfWinRate: null,
       winRateGap: null,
-      healthStatus: 'MISSING',
-      statusEmoji: '❌',
+      healthStatus: "MISSING",
+      statusEmoji: "❌",
       recommendation: `Run: npm run dev -- confidence:calibrate -m ${market}`,
     };
   }
@@ -76,8 +76,8 @@ async function getMarketStatus(
       highConfWinRate: null,
       lowConfWinRate: null,
       winRateGap: null,
-      healthStatus: 'MISSING',
-      statusEmoji: '❌',
+      healthStatus: "MISSING",
+      statusEmoji: "❌",
       recommendation: `Run: npm run dev -- confidence:calibrate -m ${market}`,
     };
   }
@@ -85,7 +85,9 @@ async function getMarketStatus(
   // Calculate age in days
   const now = new Date();
   const calibrationDate = new Date(timestamp);
-  const ageDays = Math.floor((now.getTime() - calibrationDate.getTime()) / (1000 * 60 * 60 * 24));
+  const ageDays = Math.floor(
+    (now.getTime() - calibrationDate.getTime()) / (1000 * 60 * 60 * 24),
+  );
 
   // Calculate win rate gap
   const winRateGap = calibration.highConfWinRate - calibration.lowConfWinRate;
@@ -94,7 +96,7 @@ async function getMarketStatus(
   const { healthStatus, statusEmoji, recommendation } = evaluateHealth(
     calibration.correlation,
     ageDays,
-    market
+    market,
   );
 
   return {
@@ -115,61 +117,79 @@ async function getMarketStatus(
 function evaluateHealth(
   correlation: number,
   ageDays: number,
-  market: string
-): { healthStatus: MarketStatus['healthStatus']; statusEmoji: string; recommendation: string } {
+  market: string,
+): {
+  healthStatus: MarketStatus["healthStatus"];
+  statusEmoji: string;
+  recommendation: string;
+} {
   // Check for NEEDS_RECALIBRATION (worst case first)
   if (correlation < 0.1 || ageDays > 14) {
     return {
-      healthStatus: 'NEEDS_RECALIBRATION',
-      statusEmoji: '❌',
+      healthStatus: "NEEDS_RECALIBRATION",
+      statusEmoji: "❌",
       recommendation: `Recalibrate now: npm run dev -- confidence:calibrate -m ${market}`,
     };
   }
 
   // Check for WARNING (medium priority)
-  if ((correlation >= 0.1 && correlation <= 0.2) || (ageDays >= 7 && ageDays <= 14)) {
+  if (
+    (correlation >= 0.1 && correlation <= 0.2) ||
+    (ageDays >= 7 && ageDays <= 14)
+  ) {
     return {
-      healthStatus: 'WARNING',
-      statusEmoji: '⚠️',
+      healthStatus: "WARNING",
+      statusEmoji: "⚠️",
       recommendation: `Consider recalibrating soon: npm run dev -- confidence:calibrate -m ${market}`,
     };
   }
 
   // HEALTHY (best case)
   return {
-    healthStatus: 'HEALTHY',
-    statusEmoji: '✅',
-    recommendation: 'Calibration is in good health',
+    healthStatus: "HEALTHY",
+    statusEmoji: "✅",
+    recommendation: "Calibration is in good health",
   };
 }
 
-function displayStatusReport(statuses: MarketStatus[], singleMarket: boolean): void {
+function displayStatusReport(
+  statuses: MarketStatus[],
+  singleMarket: boolean,
+): void {
   const title = singleMarket
-    ? '📊 CONFIDENCE CALIBRATION STATUS'
-    : '📊 CONFIDENCE CALIBRATION STATUS - ALL MARKETS';
+    ? "📊 CONFIDENCE CALIBRATION STATUS"
+    : "📊 CONFIDENCE CALIBRATION STATUS - ALL MARKETS";
 
-  console.log('═'.repeat(79));
+  console.log("═".repeat(79));
   console.log(`  ${title}`);
-  console.log('═'.repeat(79));
+  console.log("═".repeat(79));
   console.log();
 
   for (const status of statuses) {
     displayMarketStatus(status);
     if (statuses.length > 1) {
-      console.log('─'.repeat(79));
+      console.log("─".repeat(79));
     }
   }
 
-  console.log('═'.repeat(79));
+  console.log("═".repeat(79));
   console.log();
 
   // Summary
-  const healthyCnt = statuses.filter((s) => s.healthStatus === 'HEALTHY').length;
-  const warningCnt = statuses.filter((s) => s.healthStatus === 'WARNING').length;
-  const needsRecalCnt = statuses.filter((s) => s.healthStatus === 'NEEDS_RECALIBRATION').length;
-  const missingCnt = statuses.filter((s) => s.healthStatus === 'MISSING').length;
+  const healthyCnt = statuses.filter(
+    (s) => s.healthStatus === "HEALTHY",
+  ).length;
+  const warningCnt = statuses.filter(
+    (s) => s.healthStatus === "WARNING",
+  ).length;
+  const needsRecalCnt = statuses.filter(
+    (s) => s.healthStatus === "NEEDS_RECALIBRATION",
+  ).length;
+  const missingCnt = statuses.filter(
+    (s) => s.healthStatus === "MISSING",
+  ).length;
 
-  console.log('📈 SUMMARY');
+  console.log("📈 SUMMARY");
   console.log();
   console.log(`  ✅ Healthy:              ${healthyCnt}`);
   console.log(`  ⚠️  Warning:              ${warningCnt}`);
@@ -179,23 +199,23 @@ function displayStatusReport(statuses: MarketStatus[], singleMarket: boolean): v
 
   // Overall recommendation
   if (needsRecalCnt > 0 || missingCnt > 0) {
-    console.log('💡 ACTION REQUIRED');
+    console.log("💡 ACTION REQUIRED");
     console.log();
-    console.log('  Run calibration for markets marked with ❌');
+    console.log("  Run calibration for markets marked with ❌");
     console.log();
   } else if (warningCnt > 0) {
-    console.log('💡 RECOMMENDATION');
+    console.log("💡 RECOMMENDATION");
     console.log();
-    console.log('  Consider recalibrating markets marked with ⚠️  soon');
+    console.log("  Consider recalibrating markets marked with ⚠️  soon");
     console.log();
   } else {
-    console.log('💡 STATUS');
+    console.log("💡 STATUS");
     console.log();
-    console.log('  All calibrations are healthy ✅');
+    console.log("  All calibrations are healthy ✅");
     console.log();
   }
 
-  console.log('═'.repeat(79));
+  console.log("═".repeat(79));
 }
 
 function displayMarketStatus(status: MarketStatus): void {
@@ -203,7 +223,7 @@ function displayMarketStatus(status: MarketStatus): void {
   console.log();
 
   if (!status.hasCalibration) {
-    console.log('  Status:           MISSING CALIBRATION');
+    console.log("  Status:           MISSING CALIBRATION");
     console.log();
     console.log(`  Recommendation:   ${status.recommendation}`);
     console.log();
@@ -215,18 +235,22 @@ function displayMarketStatus(status: MarketStatus): void {
   console.log();
 
   // Calibration metrics
-  console.log('  Calibration Age:  ' + formatAge(status.ageDays!));
+  console.log("  Calibration Age:  " + formatAge(status.ageDays!));
   console.log(`  Sample Size:      ${status.sampleSize}`);
   console.log();
 
   // Performance metrics
-  console.log('  Correlation (r):  ' + formatCorrelation(status.correlation!));
-  
+  console.log("  Correlation (r):  " + formatCorrelation(status.correlation!));
+
   if (status.highConfWinRate !== null && status.lowConfWinRate !== null) {
     console.log();
-    console.log('  Win Rates:');
-    console.log(`    High Conf (≥0.7):  ${formatPercent(status.highConfWinRate)}`);
-    console.log(`    Low Conf (<0.7):   ${formatPercent(status.lowConfWinRate)}`);
+    console.log("  Win Rates:");
+    console.log(
+      `    High Conf (≥0.7):  ${formatPercent(status.highConfWinRate)}`,
+    );
+    console.log(
+      `    Low Conf (<0.7):   ${formatPercent(status.lowConfWinRate)}`,
+    );
     console.log(`    Gap:               ${formatGap(status.winRateGap!)}`);
   }
 
@@ -244,28 +268,28 @@ function displayInterpretation(status: MarketStatus): void {
   const r = status.correlation!;
   const age = status.ageDays!;
 
-  let interpretation = '';
+  let interpretation = "";
 
   // Correlation interpretation
   if (r >= 0.3) {
-    interpretation = 'Strong predictive power.';
+    interpretation = "Strong predictive power.";
   } else if (r >= 0.2) {
-    interpretation = 'Moderate predictive power.';
+    interpretation = "Moderate predictive power.";
   } else if (r >= 0.1) {
-    interpretation = 'Weak predictive power.';
+    interpretation = "Weak predictive power.";
   } else if (r >= 0.0) {
-    interpretation = 'Very weak predictive power.';
+    interpretation = "Very weak predictive power.";
   } else {
-    interpretation = 'Anti-predictive (inverted).';
+    interpretation = "Anti-predictive (inverted).";
   }
 
   // Age consideration
   if (age > 14) {
-    interpretation += ' Calibration is stale.';
+    interpretation += " Calibration is stale.";
   } else if (age > 7) {
-    interpretation += ' Calibration aging.';
+    interpretation += " Calibration aging.";
   } else {
-    interpretation += ' Calibration is fresh.';
+    interpretation += " Calibration is fresh.";
   }
 
   console.log(`  Interpretation:   ${interpretation}`);
@@ -274,16 +298,16 @@ function displayInterpretation(status: MarketStatus): void {
 
 function formatAge(days: number): string {
   if (days === 0) {
-    return 'Today';
+    return "Today";
   } else if (days === 1) {
-    return '1 day ago';
+    return "1 day ago";
   } else {
     return `${days} days ago`;
   }
 }
 
 function formatCorrelation(r: number): string {
-  const sign = r >= 0 ? '+' : '';
+  const sign = r >= 0 ? "+" : "";
   return `${sign}${r.toFixed(3)}`;
 }
 
@@ -292,6 +316,6 @@ function formatPercent(value: number): string {
 }
 
 function formatGap(gap: number): string {
-  const sign = gap >= 0 ? '+' : '';
+  const sign = gap >= 0 ? "+" : "";
   return `${sign}${(gap * 100).toFixed(1)} pp`;
 }

@@ -306,16 +306,11 @@ program
 
 program
   .command("trade:backtest")
-  .description("Backtest historical trade recommendations against actual prices")
-  .option(
-    "-m, --market <market>",
-    "Filter by market symbol (e.g., BTC, ETH)",
+  .description(
+    "Backtest historical trade recommendations against actual prices",
   )
-  .option(
-    "-d, --days <number>",
-    "Number of days to look back",
-    parseInt,
-  )
+  .option("-m, --market <market>", "Filter by market symbol (e.g., BTC, ETH)")
+  .option("-d, --days <number>", "Number of days to look back", parseInt)
   .option(
     "--hold-mode <mode>",
     "Hold interpretation: maintain, close, or both (default: maintain)",
@@ -326,21 +321,12 @@ program
 
 program
   .command("confidence:calibrate")
-  .description("Compute and optionally save confidence calibration for a market")
-  .requiredOption(
-    "-m, --market <market>",
-    "Market symbol (e.g., BTC, ETH)",
+  .description(
+    "Compute and optionally save confidence calibration for a market",
   )
-  .option(
-    "-d, --days <days>",
-    "Analysis window in days (default: 60)",
-    "60",
-  )
-  .option(
-    "--dry-run",
-    "Compute calibration but do not save to database",
-    false,
-  )
+  .requiredOption("-m, --market <market>", "Market symbol (e.g., BTC, ETH)")
+  .option("-d, --days <days>", "Analysis window in days (default: 60)", "60")
+  .option("--dry-run", "Compute calibration but do not save to database", false)
   .option(
     "--discord",
     "Send Discord notification if significant change detected",
@@ -358,7 +344,10 @@ program
 program
   .command("confidence:status")
   .description("Check calibration health across markets")
-  .option("-m, --market <market>", "Check status for specific market (e.g., BTC, ETH)")
+  .option(
+    "-m, --market <market>",
+    "Check status for specific market (e.g., BTC, ETH)",
+  )
   .action((options) => {
     confidenceStatus({
       market: options.market,
