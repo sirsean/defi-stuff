@@ -7,12 +7,21 @@ import { ethers } from "ethers";
 import { FlexPublicService } from "../../../src/api/flex/flexPublicService.js";
 import { MARKETS } from "../../../src/api/flex/constants.js";
 import * as chainlink from "../../../src/api/chainlink/chainlinkOracle.js";
+import * as pyth from "../../../src/api/pyth/pythOracle.js";
 
 // Mock chainlink oracle
 vi.mock("../../../src/api/chainlink/chainlinkOracle.js", () => ({
   chainlinkOracle: {
     getBtcUsd: vi.fn(),
     getEthUsd: vi.fn(),
+  },
+}));
+
+// Mock pyth oracle
+vi.mock("../../../src/api/pyth/pythOracle.js", () => ({
+  pythOracle: {
+    getPriceForAsset: vi.fn(),
+    getMultiplePrices: vi.fn(),
   },
 }));
 
@@ -108,6 +117,177 @@ describe("FlexPublicService", () => {
         const result = await service.getMarketPrice(btcMarketIndex);
 
         expect(result.price).toBeCloseTo(mockPrice, 2);
+      });
+    });
+
+    describe("getPythPrice", () => {
+      it("should fetch BTC price from Pyth Network", async () => {
+        const btcMarketIndex = 1;
+        const mockPrice = 64000;
+
+        // Mock pyth oracle
+        vi.mocked(pyth.pythOracle.getPriceForAsset).mockResolvedValue(
+          mockPrice,
+        );
+
+        const result = await service.getPythPrice(btcMarketIndex);
+
+        expect(result.marketIndex).toBe(btcMarketIndex);
+        expect(result.symbol).toBe("BTC");
+        expect(result.assetId).toBe("BTC");
+        expect(result.price).toBe(mockPrice);
+        expect(result.oracleType).toBe("pyth");
+        expect(pyth.pythOracle.getPriceForAsset).toHaveBeenCalledWith("BTC");
+      });
+
+      it("should fetch ETH price from Pyth Network", async () => {
+        const ethMarketIndex = 0;
+        const mockPrice = 3200;
+
+        // Mock pyth oracle
+        vi.mocked(pyth.pythOracle.getPriceForAsset).mockResolvedValue(
+          mockPrice,
+        );
+
+        const result = await service.getPythPrice(ethMarketIndex);
+
+        expect(result.marketIndex).toBe(ethMarketIndex);
+        expect(result.symbol).toBe("ETH");
+        expect(result.assetId).toBe("ETH");
+        expect(result.price).toBe(mockPrice);
+        expect(result.oracleType).toBe("pyth");
+        expect(pyth.pythOracle.getPriceForAsset).toHaveBeenCalledWith("ETH");
+      });
+
+      it("should fetch SOL price from Pyth Network", async () => {
+        const solMarketIndex = 2;
+        const mockPrice = 185.5;
+
+        // Mock pyth oracle
+        vi.mocked(pyth.pythOracle.getPriceForAsset).mockResolvedValue(
+          mockPrice,
+        );
+
+        const result = await service.getPythPrice(solMarketIndex);
+
+        expect(result.marketIndex).toBe(solMarketIndex);
+        expect(result.symbol).toBe("SOL");
+        expect(result.assetId).toBe("SOL");
+        expect(result.price).toBe(mockPrice);
+        expect(result.oracleType).toBe("pyth");
+        expect(pyth.pythOracle.getPriceForAsset).toHaveBeenCalledWith("SOL");
+      });
+
+      it("should throw error for invalid market index", async () => {
+        vi.clearAllMocks(); // Clear any previous calls
+        
+        await expect(service.getPythPrice(999)).rejects.toThrow(
+          "Market index 999 not found",
+        );
+        expect(pyth.pythOracle.getPriceForAsset).not.toHaveBeenCalled();
+      });
+
+      it("should handle price with decimals", async () => {
+        const btcMarketIndex = 1;
+        const mockPrice = 64123.45;
+
+        // Mock pyth oracle
+        vi.mocked(pyth.pythOracle.getPriceForAsset).mockResolvedValue(
+          mockPrice,
+        );
+
+        const result = await service.getPythPrice(btcMarketIndex);
+
+        expect(result.price).toBeCloseTo(mockPrice, 2);
+      });
+
+      it("should convert price to e30 format", async () => {
+        const btcMarketIndex = 1;
+        const mockPrice = 64000;
+
+        // Mock pyth oracle
+        vi.mocked(pyth.pythOracle.getPriceForAsset).mockResolvedValue(
+          mockPrice,
+        );
+
+        const result = await service.getPythPrice(btcMarketIndex);
+
+        // priceE30 should be price * 10^30
+        expect(result.priceE30).toBe(BigInt(Math.floor(mockPrice * 1e30)));
+      });
+
+      it("should include timestamp", async () => {
+        const btcMarketIndex = 1;
+        const mockPrice = 64000;
+        const beforeTime = Math.floor(Date.now() / 1000);
+
+        // Mock pyth oracle
+        vi.mocked(pyth.pythOracle.getPriceForAsset).mockResolvedValue(
+          mockPrice,
+        );
+
+        const result = await service.getPythPrice(btcMarketIndex);
+
+        const afterTime = Math.floor(Date.now() / 1000);
+        expect(result.timestamp).toBeGreaterThanOrEqual(beforeTime);
+        expect(result.timestamp).toBeLessThanOrEqual(afterTime);
+      });
+
+      it("should propagate Pyth oracle errors with context", async () => {
+        const btcMarketIndex = 1;
+
+        // Mock pyth oracle to throw error
+        vi.mocked(pyth.pythOracle.getPriceForAsset).mockRejectedValue(
+          new Error("Pyth API request failed: 500 Internal Server Error"),
+        );
+
+        await expect(service.getPythPrice(btcMarketIndex)).rejects.toThrow(
+          "Failed to fetch Pyth price for BTC (index 1)",
+        );
+        await expect(service.getPythPrice(btcMarketIndex)).rejects.toThrow(
+          "Pyth API request failed: 500 Internal Server Error",
+        );
+      });
+
+      it("should handle network errors", async () => {
+        const ethMarketIndex = 0;
+
+        // Mock pyth oracle to throw network error
+        vi.mocked(pyth.pythOracle.getPriceForAsset).mockRejectedValue(
+          new Error("Network connection failed"),
+        );
+
+        await expect(service.getPythPrice(ethMarketIndex)).rejects.toThrow(
+          "Failed to fetch Pyth price for ETH",
+        );
+        await expect(service.getPythPrice(ethMarketIndex)).rejects.toThrow(
+          "Network connection failed",
+        );
+      });
+
+      it("should support all markets with Pyth feeds", async () => {
+        const markets = [
+          { index: 0, symbol: "ETH", assetId: "ETH" },
+          { index: 1, symbol: "BTC", assetId: "BTC" },
+          { index: 2, symbol: "SOL", assetId: "SOL" },
+          { index: 3, symbol: "XRP", assetId: "XRP" },
+          { index: 4, symbol: "BNB", assetId: "BNB" },
+        ];
+
+        for (const market of markets) {
+          vi.mocked(pyth.pythOracle.getPriceForAsset).mockResolvedValue(100);
+
+          const result = await service.getPythPrice(market.index);
+
+          expect(result.symbol).toBe(market.symbol);
+          expect(result.assetId).toBe(market.assetId);
+          expect(result.oracleType).toBe("pyth");
+          expect(pyth.pythOracle.getPriceForAsset).toHaveBeenCalledWith(
+            market.assetId,
+          );
+
+          vi.clearAllMocks();
+        }
       });
     });
 

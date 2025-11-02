@@ -77,6 +77,30 @@ export async function flexPrice(options: FlexPriceOptions): Promise<void> {
           };
         }
 
+        // Fetch prices from both oracles
+        let pythPrice: number | null = null;
+        let chainlinkPrice: number | null = null;
+        let pythError: string | null = null;
+        let chainlinkError: string | null = null;
+
+        // Try Pyth oracle (works for all markets)
+        try {
+          const pythData = await publicService.getPythPrice(index);
+          pythPrice = pythData.price;
+        } catch (error: any) {
+          pythError = error.message;
+        }
+
+        // Try Chainlink oracle (only BTC and ETH)
+        if (symbol === "BTC" || symbol === "ETH") {
+          try {
+            const chainlinkData = await publicService.getMarketPrice(index);
+            chainlinkPrice = chainlinkData.price;
+          } catch (error: any) {
+            chainlinkError = error.message;
+          }
+        }
+
         if (options.all) {
           // Compact format for --all
           const currentFunding = formatPercent(
@@ -90,9 +114,18 @@ export async function flexPrice(options: FlexPriceOptions): Promise<void> {
                 ? "🟢"
                 : "⚪";
 
+          // Format price display
+          let priceDisplay = "Price: ";
+          if (pythPrice !== null) {
+            priceDisplay += formatUsd(pythPrice).padStart(12);
+          } else {
+            priceDisplay += "N/A".padStart(12);
+          }
+
           console.log(
             `${symbol.padEnd(8)} ` +
-              `Leverage: ${marketInfo.maxLeverage.toFixed(0)}x  ` +
+              priceDisplay +
+              `  Leverage: ${marketInfo.maxLeverage.toFixed(0)}x  ` +
               `Funding: ${fundingColor} ${currentFunding.padStart(8)}  ` +
               `Long: ${formatUsd(fundingRate.longPositionSize).padStart(12)}  ` +
               `Short: ${formatUsd(fundingRate.shortPositionSize).padStart(12)}`,
@@ -102,6 +135,41 @@ export async function flexPrice(options: FlexPriceOptions): Promise<void> {
           console.log(`${"=".repeat(70)}`);
           console.log(`📉 ${symbol}`);
           console.log(`${"=".repeat(70)}`);
+
+          // Market Prices
+          console.log("\n💰 Market Prices:");
+          
+          if (pythPrice !== null) {
+            console.log(`  Pyth Price:          ${formatUsd(pythPrice)}`);
+          } else if (pythError) {
+            console.log(`  Pyth Price:          ❌ ${pythError}`);
+          }
+
+          if (chainlinkPrice !== null) {
+            console.log(`  Chainlink Price:     ${formatUsd(chainlinkPrice)}`);
+          } else if (chainlinkError && (symbol === "BTC" || symbol === "ETH")) {
+            console.log(`  Chainlink Price:     ❌ ${chainlinkError}`);
+          } else if (symbol !== "BTC" && symbol !== "ETH") {
+            console.log(`  Chainlink Price:     N/A (not supported)`);
+          }
+
+          // Calculate and display price difference if both prices available
+          if (pythPrice !== null && chainlinkPrice !== null) {
+            const diff = pythPrice - chainlinkPrice;
+            const avgPrice = (pythPrice + chainlinkPrice) / 2;
+            const spreadPercent = (Math.abs(diff) / avgPrice) * 100;
+            const spreadColor = spreadPercent > 0.5 ? "⚠️ " : "";
+
+            console.log(
+              `  Price Difference:    ${spreadColor}${formatUsd(Math.abs(diff))} (${spreadPercent.toFixed(3)}%)`,
+            );
+
+            if (spreadPercent > 0.5) {
+              console.log(
+                `  ⚠️  Significant price spread detected between oracles`,
+              );
+            }
+          }
 
           // Market configuration
           console.log("\n📋 Market Configuration:");

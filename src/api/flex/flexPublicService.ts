@@ -12,6 +12,7 @@ import {
   BASE_CHAIN_ID,
 } from "./constants.js";
 import { chainlinkOracle } from "../chainlink/chainlinkOracle.js";
+import { pythOracle } from "../pyth/pythOracle.js";
 import {
   getProvider,
   assertBaseNetwork,
@@ -174,6 +175,44 @@ export class FlexPublicService {
       timestamp: Math.floor(Date.now() / 1000),
       oracleType: "chainlink", // Using Chainlink oracle
     };
+  }
+
+  /**
+   * Get current market price from Pyth Network
+   * Uses Pyth price feeds for all supported markets on Base
+   * @param marketIndex Market index (e.g., 1 for BTC)
+   * @returns Market data with current price from Pyth
+   */
+  async getPythPrice(marketIndex: number): Promise<MarketData> {
+    await this.validateNetwork();
+
+    const market = Object.values(MARKETS).find((m) => m.index === marketIndex);
+
+    if (!market) {
+      throw new Error(`Market index ${marketIndex} not found`);
+    }
+
+    try {
+      // Fetch price from Pyth Network using asset ID
+      const price = await pythOracle.getPriceForAsset(market.assetId);
+
+      // Convert price to e30 format (used by Flex)
+      const priceE30 = BigInt(Math.floor(price * 1e30));
+
+      return {
+        marketIndex,
+        symbol: market.symbol,
+        assetId: market.assetId,
+        price,
+        priceE30,
+        timestamp: Math.floor(Date.now() / 1000),
+        oracleType: "pyth", // Using Pyth Network oracle
+      };
+    } catch (error: any) {
+      throw new Error(
+        `Failed to fetch Pyth price for ${market.symbol} (index ${marketIndex}): ${error.message}`,
+      );
+    }
   }
 
   /**
