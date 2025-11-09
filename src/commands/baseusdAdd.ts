@@ -576,7 +576,8 @@ export async function baseusdAddCore(
   const built = buildDepositStakeMulticall(amount, {
     minSharesOutOverride: minSharesOut,
     slippageBps,
-    approveBaseUsdAmountOverride: expectedShares,
+    // Don't override approve amount - let template use MAX_UINT256 to stake all router shares
+    // This handles residual baseUSD shares from previous operations
   });
 
   const pk = process.env.MAIN_PRIVATE_KEY;

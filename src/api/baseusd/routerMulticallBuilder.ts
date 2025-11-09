@@ -143,10 +143,14 @@ export function buildDepositStakeMulticall(
           tokenIdx >= 0 &&
           typeof newArgs[tokenIdx] === "string" &&
           (newArgs[tokenIdx] as string).toLowerCase() ===
-            BASEUSD_ADDRESS.toLowerCase() &&
-          opts.approveBaseUsdAmountOverride !== undefined
+            BASEUSD_ADDRESS.toLowerCase()
         ) {
-          newArgs[amountIdx] = opts.approveBaseUsdAmountOverride;
+          // For baseUSD approvals to rewarder, preserve MAX_UINT256 from template
+          // This allows staking all router-held shares, including residuals
+          if (opts.approveBaseUsdAmountOverride !== undefined) {
+            newArgs[amountIdx] = opts.approveBaseUsdAmountOverride;
+          }
+          // else: keep the template value (MAX_UINT256)
         } else if (amountIdx >= 0) {
           newArgs[amountIdx] = amountIn;
         }
