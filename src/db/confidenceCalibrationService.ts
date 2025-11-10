@@ -18,6 +18,11 @@ import type {
 export class ConfidenceCalibrationService {
   private db!: Knex;
 
+  // HOLD evaluation configuration parameters
+  private readonly OPPORTUNITY_THRESHOLD = 0.5; // 0.5% price movement required to flag missed opportunity
+  private readonly MIN_CONFIDENCE_FOR_EVALUATION = 0.5; // Only evaluate HOLDs above this confidence
+  private readonly HOLD_PENALTY_WEIGHT = 1.0; // Weight for synthetic outcomes (1.0 = equal to real trades)
+
   constructor() {
     this.initDatabase();
   }
@@ -58,7 +63,7 @@ export class ConfidenceCalibrationService {
     const recommendations = await this.db("trade_recommendations")
       .where("market", market)
       .where("timestamp", ">=", cutoffTimestamp)
-      .where("action", "in", ["long", "short"]) // Only directional trades
+      .where("action", "in", ["long", "short", "hold"]) // Include HOLD for missed opportunity evaluation
       .orderBy("timestamp", "asc")
       .select("*");
 
@@ -79,19 +84,49 @@ export class ConfidenceCalibrationService {
       const exitPrice = Number(next.price);
       const confidence = Number(current.confidence);
 
-      let pnlPercent: number;
-      if (current.action === "long") {
-        pnlPercent = ((exitPrice - entryPrice) / entryPrice) * 100;
-      } else {
-        // short
-        pnlPercent = ((entryPrice - exitPrice) / entryPrice) * 100;
-      }
+      if (current.action === "hold") {
+        // Evaluate HOLD for missed opportunities
+        // Compute hypothetical LONG outcome
+        const pnlLong = ((exitPrice - entryPrice) / entryPrice) * 100;
 
-      outcomes.push({
-        confidence,
-        isWinner: pnlPercent > 0,
-        pnlPercent,
-      });
+        // Compute hypothetical SHORT outcome
+        const pnlShort = ((entryPrice - exitPrice) / entryPrice) * 100;
+
+        // Determine if this was a missed opportunity
+        const missedLong =
+          pnlLong > this.OPPORTUNITY_THRESHOLD &&
+          confidence >= this.MIN_CONFIDENCE_FOR_EVALUATION;
+        const missedShort =
+          pnlShort > this.OPPORTUNITY_THRESHOLD &&
+          confidence >= this.MIN_CONFIDENCE_FOR_EVALUATION;
+
+        if (missedLong || missedShort) {
+          // Add synthetic outcome for missed opportunity
+          const bestPnl = Math.max(pnlLong, pnlShort);
+          outcomes.push({
+            confidence,
+            isWinner: false, // Penalize for missing opportunity
+            pnlPercent: -Math.abs(bestPnl) * this.HOLD_PENALTY_WEIGHT,
+          });
+        }
+        // If not a missed opportunity, no outcome is added (correct HOLD)
+      } else if (current.action === "long") {
+        // Evaluate actual LONG trade
+        const pnlPercent = ((exitPrice - entryPrice) / entryPrice) * 100;
+        outcomes.push({
+          confidence,
+          isWinner: pnlPercent > 0,
+          pnlPercent,
+        });
+      } else if (current.action === "short") {
+        // Evaluate actual SHORT trade
+        const pnlPercent = ((entryPrice - exitPrice) / entryPrice) * 100;
+        outcomes.push({
+          confidence,
+          isWinner: pnlPercent > 0,
+          pnlPercent,
+        });
+      }
     }
 
     // Group outcomes into confidence buckets

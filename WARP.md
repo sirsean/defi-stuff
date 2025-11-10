@@ -734,6 +734,46 @@ The calibration uses the **pool adjacent violators algorithm** to enforce monoto
 
 This ensures that calibrated confidence always reflects actual win probability, even when the LLM's raw scores are poorly calibrated.
 
+#### HOLD Evaluation and Missed Opportunities
+
+Calibration now evaluates **HOLD recommendations** to ensure the system learns when it should have been more aggressive:
+
+**What Gets Evaluated:**
+- **LONG/SHORT trades**: Actual outcomes (profit/loss)
+- **HOLD recommendations**: Missed opportunities when price moved significantly
+
+**Missed Opportunity Detection:**
+A HOLD is flagged as a missed opportunity when:
+1. Price moved > 0.5% in one direction (OPPORTUNITY_THRESHOLD)
+2. Confidence was ≥ 0.5 (MIN_CONFIDENCE_FOR_EVALUATION)
+3. A LONG or SHORT trade would have been profitable
+
+**Synthetic Outcomes:**
+Missed opportunities create synthetic negative outcomes:
+- `isWinner: false` (penalty applied)
+- `pnlPercent: -[best_move] * 1.0` (HOLD_PENALTY_WEIGHT)
+
+**Example:**
+```
+HOLD recommendation with 0.7 confidence
+Price moves +1.5% (missed LONG opportunity)
+→ Synthetic outcome: {confidence: 0.7, isWinner: false, pnlPercent: -1.5}
+→ Calibration learns: 0.7 confidence HOLD often misses moves
+→ Next time: 0.7 raw confidence → lower calibrated confidence
+→ System becomes more aggressive at similar confidence levels
+```
+
+**Configuration Parameters:**
+- **OPPORTUNITY_THRESHOLD**: 0.5% (minimum price movement to flag)
+- **MIN_CONFIDENCE_FOR_EVALUATION**: 0.5 (only evaluate HOLDs above this)
+- **HOLD_PENALTY_WEIGHT**: 1.0 (how strongly to penalize missed opportunities)
+
+**Benefits:**
+- System learns from **both** actions taken AND actions missed
+- Encourages opening positions when opportunities exist
+- Prevents over-conservative HOLDs during trending markets
+- Maintains appropriate caution for low-confidence situations
+
 #### Monitoring Calibration Health
 
 Check the health status of calibrations across markets to know when recalibration is needed.

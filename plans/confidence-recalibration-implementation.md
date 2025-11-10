@@ -1,6 +1,7 @@
 # Confidence Recalibration Implementation Plan
 
 **Created**: 2025-10-26  
+**Updated**: 2025-11-10 (Added HOLD evaluation)
 **Status**: 🚧 In Progress  
 **Current Phase**: Phase 11 Complete - Ready for Phase 12 (Documentation and Final Testing)
 
@@ -118,7 +119,7 @@ Set up database infrastructure to store calibration parameters.
 **Completed**: 2025-10-26
 
 ### Objective
-Create service class that computes and stores calibration mappings using isotonic regression.
+Create service class that computes and stores calibration mappings using isotonic regression. Includes evaluation of HOLD recommendations as missed opportunities to learn when to be more aggressive.
 
 ### Tasks
 - [x] Create `src/db/confidenceCalibrationService.ts` (451 lines)
@@ -169,6 +170,37 @@ Create service class that computes and stores calibration mappings using isotoni
 5. Repeat until monotonic
 6. Output smoothed [confidence → win_rate] mapping
 ```
+
+### HOLD Evaluation (Added 2025-11-10)
+
+**Motivation**: The original implementation only evaluated LONG/SHORT predictions, completely ignoring HOLD recommendations. This created a blind spot where the system never learned when it should have been more aggressive instead of holding.
+
+**Implementation**:
+- Include HOLD recommendations in calibration dataset (lines 66)
+- Evaluate HOLDs as missed opportunities when price moves significantly (lines 87-130)
+- Add configurable parameters:
+  - `OPPORTUNITY_THRESHOLD = 0.5` (0.5% price movement to flag missed opportunity)
+  - `MIN_CONFIDENCE_FOR_EVALUATION = 0.5` (only evaluate HOLDs above this confidence)
+  - `HOLD_PENALTY_WEIGHT = 1.0` (treat missed opportunities equal to failed trades)
+
+**Synthetic Outcomes**:
+```typescript
+if (hold && price_moved > 0.5% && confidence >= 0.5) {
+  outcomes.push({
+    confidence: original_confidence,
+    isWinner: false,  // Penalty for missing opportunity
+    pnlPercent: -best_move * HOLD_PENALTY_WEIGHT
+  });
+}
+```
+
+**Benefits**:
+- System learns from both actions taken AND actions missed
+- Encourages position opening when opportunities exist
+- Prevents over-conservative HOLDs during trending markets
+- Maintains appropriate caution for low-confidence situations
+
+**Design Document**: See `plans/hold-evaluation-calibration.md` for full details
 
 ---
 
