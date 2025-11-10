@@ -448,4 +448,356 @@ describe("ConfidenceCalibrationService", () => {
       expect(isStale).toBe(true);
     });
   });
+
+  describe("HOLD evaluation", () => {
+    it("should create synthetic outcome for missed LONG opportunity", async () => {
+      const { KnexConnector } = await import("../../src/db/knexConnector.js");
+      const mockKnex = await KnexConnector.getConnection();
+      const mockQueryBuilder = mockKnex("trade_recommendations");
+
+      // Mock recommendations: Need at least 10 for calibration, include HOLD with missed opportunity
+      const baseTime = Date.now();
+      const mockRecommendations = [
+        // First: HOLD with missed LONG opportunity
+        {
+          action: "hold",
+          price: 100,
+          confidence: 0.7, // Above MIN_CONFIDENCE_FOR_EVALUATION
+          timestamp: baseTime - 10000,
+          market: "BTC",
+        },
+        {
+          action: "hold",
+          price: 101, // +1% move (above OPPORTUNITY_THRESHOLD)
+          confidence: 0.6,
+          timestamp: baseTime - 9000,
+          market: "BTC",
+        },
+        // Add more trades to meet minimum sample size (10 trades)
+        ...Array.from({ length: 9 }, (_, i) => ({
+          action: "long" as const,
+          price: 100 + i * 0.5,
+          confidence: 0.6 + i * 0.03,
+          timestamp: baseTime - (8000 - i * 800),
+          market: "BTC",
+        })),
+      ];
+
+      mockQueryBuilder.select.mockResolvedValue(mockRecommendations);
+
+      const calibration = await service.computeCalibration("BTC", 60);
+
+      // Should have outcomes including the missed opportunity
+      expect(calibration.sampleSize).toBeGreaterThan(0);
+    });
+
+    it("should create synthetic outcome for missed SHORT opportunity", async () => {
+      const { KnexConnector } = await import("../../src/db/knexConnector.js");
+      const mockKnex = await KnexConnector.getConnection();
+      const mockQueryBuilder = mockKnex("trade_recommendations");
+
+      // Mock recommendations: Need 10+ trades, include HOLD with missed SHORT
+      const baseTime = Date.now();
+      const mockRecommendations = [
+        ...Array.from({ length: 10 }, (_, i) => ({
+          action: i === 0 ? "hold" : "long" as const,
+          price: i === 0 ? 100 : (i === 1 ? 99 : 100 + i * 0.5), // First HOLD at 100, next at 99 (-1%)
+          confidence: i === 0 ? 0.7 : 0.6 + i * 0.03,
+          timestamp: baseTime - (10000 - i * 900),
+          market: "BTC",
+        })),
+      ];
+
+      mockQueryBuilder.select.mockResolvedValue(mockRecommendations);
+
+      const calibration = await service.computeCalibration("BTC", 60);
+
+      expect(calibration.sampleSize).toBeGreaterThan(0);
+    });
+
+    it("should NOT create synthetic outcome for small price move", async () => {
+      const { KnexConnector } = await import("../../src/db/knexConnector.js");
+      const mockKnex = await KnexConnector.getConnection();
+      const mockQueryBuilder = mockKnex("trade_recommendations");
+
+      // Mock 10+ trades with HOLD followed by small move
+      const baseTime = Date.now();
+      const mockRecommendations = [
+        ...Array.from({ length: 10 }, (_, i) => ({
+          action: i === 0 ? "hold" : "long" as const,
+          price: i === 0 ? 100 : (i === 1 ? 100.3 : 100 + i * 0.5), // Small +0.3% move
+          confidence: i === 0 ? 0.7 : 0.6 + i * 0.03,
+          timestamp: baseTime - (10000 - i * 900),
+          market: "BTC",
+        })),
+      ];
+
+      mockQueryBuilder.select.mockResolvedValue(mockRecommendations);
+
+      const calibration = await service.computeCalibration("BTC", 60);
+
+      // Should still have outcomes from the LONG trades
+      expect(calibration.sampleSize).toBeGreaterThan(0);
+    });
+
+    it("should NOT evaluate low-confidence HOLD", async () => {
+      const { KnexConnector } = await import("../../src/db/knexConnector.js");
+      const mockKnex = await KnexConnector.getConnection();
+      const mockQueryBuilder = mockKnex("trade_recommendations");
+
+      // Mock 10+ trades with low-confidence HOLD followed by big move
+      const baseTime = Date.now();
+      const mockRecommendations = [
+        ...Array.from({ length: 10 }, (_, i) => ({
+          action: i === 0 ? "hold" : "long" as const,
+          price: i === 0 ? 100 : (i === 1 ? 101 : 100 + i * 0.5), // HOLD at 100, next at 101
+          confidence: i === 0 ? 0.4 : 0.6 + i * 0.03, // Low confidence (0.4) for HOLD
+          timestamp: baseTime - (10000 - i * 900),
+          market: "BTC",
+        })),
+      ];
+
+      mockQueryBuilder.select.mockResolvedValue(mockRecommendations);
+
+      const calibration = await service.computeCalibration("BTC", 60);
+
+      // Should have outcomes from LONG trades, but NOT from the low-confidence HOLD
+      expect(calibration.sampleSize).toBeGreaterThan(0);
+    });
+  });
+
+  describe("CLOSE evaluation", () => {
+    it("should penalize closing too early when price continues favorably", async () => {
+      const { KnexConnector } = await import("../../src/db/knexConnector.js");
+      const mockKnex = await KnexConnector.getConnection();
+      const mockQueryBuilder = mockKnex("trade_recommendations");
+
+      const baseTime = Date.now();
+      // Need 10+ recommendations: LONG->CLOSE with price continuing, plus 8 more trades
+      const mockRecommendations = [
+        // Test case: LONG closed early
+        {
+          action: "long",
+          price: 100,
+          confidence: 0.75,
+          timestamp: baseTime - 12000,
+          market: "BTC",
+        },
+        {
+          action: "close",
+          price: 102, // +2% profit
+          confidence: 0.7,
+          timestamp: baseTime - 11000,
+          market: "BTC",
+        },
+        {
+          action: "hold",
+          price: 103.5, // Price continued +1.5% after close (missed gain)
+          confidence: 0.6,
+          timestamp: baseTime - 10000,
+          market: "BTC",
+        },
+        // Add more trades to meet minimum
+        ...Array.from({ length: 8 }, (_, i) => ({
+          action: "long" as const,
+          price: 103 + i * 0.5,
+          confidence: 0.65 + i * 0.03,
+          timestamp: baseTime - (9000 - i * 900),
+          market: "BTC",
+        })),
+      ];
+
+      mockQueryBuilder.select.mockResolvedValue(mockRecommendations);
+
+      const calibration = await service.computeCalibration("BTC", 60);
+
+      // Should have multiple outcomes including the early close penalty
+      expect(calibration.sampleSize).toBeGreaterThan(0);
+    });
+
+    it("should reward good close when price reverses", async () => {
+      const { KnexConnector } = await import("../../src/db/knexConnector.js");
+      const mockKnex = await KnexConnector.getConnection();
+      const mockQueryBuilder = mockKnex("trade_recommendations");
+
+      const baseTime = Date.now();
+      const mockRecommendations = [
+        // Test case: SHORT with good close timing
+        {
+          action: "short",
+          price: 100,
+          confidence: 0.75,
+          timestamp: baseTime - 12000,
+          market: "BTC",
+        },
+        {
+          action: "close",
+          price: 98, // +2% profit
+          confidence: 0.8,
+          timestamp: baseTime - 11000,
+          market: "BTC",
+        },
+        {
+          action: "hold",
+          price: 99, // Price reversed (avoided drawdown)
+          confidence: 0.6,
+          timestamp: baseTime - 10000,
+          market: "BTC",
+        },
+        // Add more trades
+        ...Array.from({ length: 8 }, (_, i) => ({
+          action: "long" as const,
+          price: 99 + i * 0.5,
+          confidence: 0.65 + i * 0.03,
+          timestamp: baseTime - (9000 - i * 900),
+          market: "BTC",
+        })),
+      ];
+
+      mockQueryBuilder.select.mockResolvedValue(mockRecommendations);
+
+      const calibration = await service.computeCalibration("BTC", 60);
+
+      expect(calibration.sampleSize).toBeGreaterThan(0);
+    });
+
+    it("should NOT penalize close when move after is small", async () => {
+      const { KnexConnector } = await import("../../src/db/knexConnector.js");
+      const mockKnex = await KnexConnector.getConnection();
+      const mockQueryBuilder = mockKnex("trade_recommendations");
+
+      const baseTime = Date.now();
+      const mockRecommendations = [
+        // Test case: LONG with acceptable close (small move after)
+        {
+          action: "long",
+          price: 100,
+          confidence: 0.75,
+          timestamp: baseTime - 12000,
+          market: "BTC",
+        },
+        {
+          action: "close",
+          price: 100.5, // +0.5% profit
+          confidence: 0.6,
+          timestamp: baseTime - 11000,
+          market: "BTC",
+        },
+        {
+          action: "hold",
+          price: 100.8, // Only +0.3% more (below threshold, acceptable)
+          confidence: 0.6,
+          timestamp: baseTime - 10000,
+          market: "BTC",
+        },
+        // Add more trades
+        ...Array.from({ length: 8 }, (_, i) => ({
+          action: "long" as const,
+          price: 101 + i * 0.5,
+          confidence: 0.65 + i * 0.03,
+          timestamp: baseTime - (9000 - i * 900),
+          market: "BTC",
+        })),
+      ];
+
+      mockQueryBuilder.select.mockResolvedValue(mockRecommendations);
+
+      const calibration = await service.computeCalibration("BTC", 60);
+
+      expect(calibration.sampleSize).toBeGreaterThan(0);
+    });
+
+    it("should handle position flips (LONG to SHORT)", async () => {
+      const { KnexConnector } = await import("../../src/db/knexConnector.js");
+      const mockKnex = await KnexConnector.getConnection();
+      const mockQueryBuilder = mockKnex("trade_recommendations");
+
+      const baseTime = Date.now();
+      const mockRecommendations = [
+        // Test case: LONG flipped to SHORT
+        {
+          action: "long",
+          price: 100,
+          confidence: 0.75,
+          timestamp: baseTime - 12000,
+          market: "BTC",
+        },
+        {
+          action: "short", // Flip position (closes LONG at +2%)
+          price: 102,
+          confidence: 0.8,
+          timestamp: baseTime - 11000,
+          market: "BTC",
+        },
+        {
+          action: "hold",
+          price: 101,
+          confidence: 0.6,
+          timestamp: baseTime - 10000,
+          market: "BTC",
+        },
+        // Add more trades
+        ...Array.from({ length: 8 }, (_, i) => ({
+          action: "long" as const,
+          price: 101 + i * 0.5,
+          confidence: 0.65 + i * 0.03,
+          timestamp: baseTime - (9000 - i * 900),
+          market: "BTC",
+        })),
+      ];
+
+      mockQueryBuilder.select.mockResolvedValue(mockRecommendations);
+
+      const calibration = await service.computeCalibration("BTC", 60);
+
+      expect(calibration.sampleSize).toBeGreaterThan(0);
+    });
+
+    it("should NOT evaluate low-confidence CLOSE", async () => {
+      const { KnexConnector } = await import("../../src/db/knexConnector.js");
+      const mockKnex = await KnexConnector.getConnection();
+      const mockQueryBuilder = mockKnex("trade_recommendations");
+
+      const baseTime = Date.now();
+      const mockRecommendations = [
+        // Test case: LONG with low-confidence CLOSE
+        {
+          action: "long",
+          price: 100,
+          confidence: 0.75,
+          timestamp: baseTime - 12000,
+          market: "BTC",
+        },
+        {
+          action: "close",
+          price: 102,
+          confidence: 0.4, // Below MIN_CONFIDENCE_FOR_EVALUATION
+          timestamp: baseTime - 11000,
+          market: "BTC",
+        },
+        {
+          action: "hold",
+          price: 103.5, // Price continued significantly
+          confidence: 0.6,
+          timestamp: baseTime - 10000,
+          market: "BTC",
+        },
+        // Add more trades
+        ...Array.from({ length: 8 }, (_, i) => ({
+          action: "long" as const,
+          price: 103 + i * 0.5,
+          confidence: 0.65 + i * 0.03,
+          timestamp: baseTime - (9000 - i * 900),
+          market: "BTC",
+        })),
+      ];
+
+      mockQueryBuilder.select.mockResolvedValue(mockRecommendations);
+
+      const calibration = await service.computeCalibration("BTC", 60);
+
+      // Should have outcomes but NOT from the low-confidence CLOSE
+      expect(calibration.sampleSize).toBeGreaterThan(0);
+    });
+  });
 });

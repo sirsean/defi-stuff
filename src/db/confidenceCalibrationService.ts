@@ -20,8 +20,12 @@ export class ConfidenceCalibrationService {
 
   // HOLD evaluation configuration parameters
   private readonly OPPORTUNITY_THRESHOLD = 0.5; // 0.5% price movement required to flag missed opportunity
-  private readonly MIN_CONFIDENCE_FOR_EVALUATION = 0.5; // Only evaluate HOLDs above this confidence
+  private readonly MIN_CONFIDENCE_FOR_EVALUATION = 0.5; // Only evaluate HOLDs/CLOSEs above this confidence
   private readonly HOLD_PENALTY_WEIGHT = 1.0; // Weight for synthetic outcomes (1.0 = equal to real trades)
+  
+  // CLOSE evaluation configuration parameters  
+  private readonly CLOSE_TOO_EARLY_THRESHOLD = 0.5; // 0.5% continued movement = closed too early
+  private readonly CLOSE_PENALTY_WEIGHT = 1.0; // Weight for early close penalties
 
   constructor() {
     this.initDatabase();
@@ -63,7 +67,7 @@ export class ConfidenceCalibrationService {
     const recommendations = await this.db("trade_recommendations")
       .where("market", market)
       .where("timestamp", ">=", cutoffTimestamp)
-      .where("action", "in", ["long", "short", "hold"]) // Include HOLD for missed opportunity evaluation
+      .where("action", "in", ["long", "short", "hold", "close"]) // Include HOLD and CLOSE for evaluation
       .orderBy("timestamp", "asc")
       .select("*");
 
@@ -73,24 +77,31 @@ export class ConfidenceCalibrationService {
       );
     }
 
-    // Compute outcomes for each recommendation (compare with next price)
+    // Compute outcomes for each recommendation with position tracking
     const outcomes: TradeOutcome[] = [];
+    
+    // Track current position state to evaluate CLOSE decisions
+    let currentPosition: {
+      action: "long" | "short";
+      entryPrice: number;
+      entryIndex: number;
+    } | null = null;
 
     for (let i = 0; i < recommendations.length - 1; i++) {
       const current = recommendations[i];
       const next = recommendations[i + 1];
 
-      const entryPrice = Number(current.price);
-      const exitPrice = Number(next.price);
+      const currentPrice = Number(current.price);
+      const nextPrice = Number(next.price);
       const confidence = Number(current.confidence);
 
       if (current.action === "hold") {
         // Evaluate HOLD for missed opportunities
         // Compute hypothetical LONG outcome
-        const pnlLong = ((exitPrice - entryPrice) / entryPrice) * 100;
+        const pnlLong = ((nextPrice - currentPrice) / currentPrice) * 100;
 
         // Compute hypothetical SHORT outcome
-        const pnlShort = ((entryPrice - exitPrice) / entryPrice) * 100;
+        const pnlShort = ((currentPrice - nextPrice) / currentPrice) * 100;
 
         // Determine if this was a missed opportunity
         const missedLong =
@@ -111,22 +122,120 @@ export class ConfidenceCalibrationService {
         }
         // If not a missed opportunity, no outcome is added (correct HOLD)
       } else if (current.action === "long") {
-        // Evaluate actual LONG trade
-        const pnlPercent = ((exitPrice - entryPrice) / entryPrice) * 100;
-        outcomes.push({
-          confidence,
-          isWinner: pnlPercent > 0,
-          pnlPercent,
-        });
+        // Opening or maintaining LONG position
+        if (!currentPosition || currentPosition.action !== "long") {
+          // Opening new LONG position or flipping from SHORT
+          if (currentPosition && currentPosition.action === "short") {
+            // Closing SHORT, opening LONG - evaluate the SHORT close
+            const pnlPercent = ((currentPosition.entryPrice - currentPrice) / currentPosition.entryPrice) * 100;
+            const entryRec = recommendations[currentPosition.entryIndex];
+            outcomes.push({
+              confidence: Number(entryRec.confidence),
+              isWinner: pnlPercent > 0,
+              pnlPercent,
+            });
+          }
+          currentPosition = {
+            action: "long",
+            entryPrice: currentPrice,
+            entryIndex: i,
+          };
+        }
+        // If already LONG, maintain (no additional outcome)
       } else if (current.action === "short") {
-        // Evaluate actual SHORT trade
-        const pnlPercent = ((entryPrice - exitPrice) / entryPrice) * 100;
-        outcomes.push({
-          confidence,
-          isWinner: pnlPercent > 0,
-          pnlPercent,
-        });
+        // Opening or maintaining SHORT position  
+        if (!currentPosition || currentPosition.action !== "short") {
+          // Opening new SHORT position or flipping from LONG
+          if (currentPosition && currentPosition.action === "long") {
+            // Closing LONG, opening SHORT - evaluate the LONG close
+            const pnlPercent = ((currentPrice - currentPosition.entryPrice) / currentPosition.entryPrice) * 100;
+            const entryRec = recommendations[currentPosition.entryIndex];
+            outcomes.push({
+              confidence: Number(entryRec.confidence),
+              isWinner: pnlPercent > 0,
+              pnlPercent,
+            });
+          }
+          currentPosition = {
+            action: "short",
+            entryPrice: currentPrice,
+            entryIndex: i,
+          };
+        }
+        // If already SHORT, maintain (no additional outcome)
+      } else if (current.action === "close") {
+        // Evaluate CLOSE decision
+        if (currentPosition && confidence >= this.MIN_CONFIDENCE_FOR_EVALUATION) {
+          // Calculate P/L at close
+          let pnlAtClose: number;
+          if (currentPosition.action === "long") {
+            pnlAtClose = ((currentPrice - currentPosition.entryPrice) / currentPosition.entryPrice) * 100;
+          } else {
+            pnlAtClose = ((currentPosition.entryPrice - currentPrice) / currentPosition.entryPrice) * 100;
+          }
+
+          // Calculate what would have happened if we held until next price
+          let pnlIfHeld: number;
+          if (currentPosition.action === "long") {
+            pnlIfHeld = ((nextPrice - currentPosition.entryPrice) / currentPosition.entryPrice) * 100;
+          } else {
+            pnlIfHeld = ((currentPosition.entryPrice - nextPrice) / currentPosition.entryPrice) * 100;
+          }
+
+          // Check if we closed too early (price continued favorably)
+          const missedGain = pnlIfHeld - pnlAtClose;
+          const closedTooEarly = missedGain > this.CLOSE_TOO_EARLY_THRESHOLD;
+
+          if (closedTooEarly) {
+            // Penalize for closing too early
+            outcomes.push({
+              confidence,
+              isWinner: false,
+              pnlPercent: -Math.abs(missedGain) * this.CLOSE_PENALTY_WEIGHT,
+            });
+          } else {
+            // Good close (price reversed or didn't move much)
+            // Reward based on how much drawdown we avoided
+            const drawdownAvoided = Math.abs(Math.min(0, missedGain));
+            outcomes.push({
+              confidence,
+              isWinner: true,
+              pnlPercent: drawdownAvoided,
+            });
+          }
+
+          // Record the original P/L from the position entry
+          const entryRec = recommendations[currentPosition.entryIndex];
+          outcomes.push({
+            confidence: Number(entryRec.confidence),
+            isWinner: pnlAtClose > 0,
+            pnlPercent: pnlAtClose,
+          });
+        }
+        
+        // Position is now closed
+        currentPosition = null;
       }
+    }
+
+    // Close any remaining position at last price
+    if (currentPosition) {
+      const lastRec = recommendations[recommendations.length - 1];
+      const lastPrice = Number(lastRec.price);
+      let pnlPercent: number;
+      
+      if (currentPosition.action === "long") {
+        pnlPercent = ((lastPrice - currentPosition.entryPrice) / currentPosition.entryPrice) * 100;
+      } else {
+        pnlPercent = ((currentPosition.entryPrice - lastPrice) / currentPosition.entryPrice) * 100;
+      }
+      
+      const entryRec = recommendations[currentPosition.entryIndex];
+      outcomes.push({
+        confidence: Number(entryRec.confidence),
+        isWinner: pnlPercent > 0,
+        pnlPercent,
+      });
     }
 
     // Group outcomes into confidence buckets

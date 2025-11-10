@@ -774,6 +774,59 @@ Price moves +1.5% (missed LONG opportunity)
 - Prevents over-conservative HOLDs during trending markets
 - Maintains appropriate caution for low-confidence situations
 
+#### CLOSE Evaluation and Early Exit Detection
+
+Calibration also evaluates **CLOSE recommendations** to determine if positions were closed too early or at the right time:
+
+**What Gets Evaluated:**
+- **LONG/SHORT trades**: Actual outcomes (profit/loss at close)
+- **CLOSE decisions**: Whether closing was premature or well-timed
+
+**Early Close Detection:**
+A CLOSE is flagged as premature when:
+1. Price continued favorably by > 0.5% after close (CLOSE_TOO_EARLY_THRESHOLD)
+2. Confidence was ≥ 0.5 (MIN_CONFIDENCE_FOR_EVALUATION)
+3. Holding longer would have captured more profit
+
+**Synthetic Outcomes for CLOSE:**
+- **Closed too early**: `isWinner: false`, `pnlPercent: -[missed_gain]`
+- **Good close**: `isWinner: true`, `pnlPercent: [drawdown_avoided]`
+
+**Example - Premature Close:**
+```
+LONG position entered at $100
+CLOSE at $102 (+2%) with 0.7 confidence
+Price continues to $103.50 (+3.5%)
+→ Missed gain: 1.5%
+→ Synthetic outcome: {confidence: 0.7, isWinner: false, pnlPercent: -1.5}
+→ Calibration learns: 0.7 confidence CLOSE often exits too early
+→ Next time: 0.7 raw confidence → lower calibrated confidence for CLOSE
+→ System holds positions longer when appropriate
+```
+
+**Example - Well-Timed Close:**
+```
+SHORT position entered at $100
+CLOSE at $98 (+2%) with 0.8 confidence
+Price reverses to $99 (would be +1%)
+→ Avoided drawdown: 1%
+→ Synthetic outcome: {confidence: 0.8, isWinner: true, pnlPercent: 1.0}
+→ Calibration learns: 0.8 confidence CLOSE often exits at good times
+→ Next time: 0.8 raw confidence → higher calibrated confidence for CLOSE
+→ System trusts high-confidence exit signals
+```
+
+**Configuration Parameters:**
+- **CLOSE_TOO_EARLY_THRESHOLD**: 0.5% (minimum continued movement to flag early exit)
+- **MIN_CONFIDENCE_FOR_EVALUATION**: 0.5 (only evaluate CLOSEs above this)
+- **CLOSE_PENALTY_WEIGHT**: 1.0 (how strongly to penalize premature exits)
+
+**Benefits:**
+- System learns optimal exit timing
+- Prevents closing winners too early
+- Rewards protecting gains when price reverses
+- Encourages letting profitable trades run when conditions remain favorable
+
 #### Monitoring Calibration Health
 
 Check the health status of calibrations across markets to know when recalibration is needed.
