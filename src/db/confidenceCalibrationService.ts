@@ -22,8 +22,8 @@ export class ConfidenceCalibrationService {
   private readonly OPPORTUNITY_THRESHOLD = 0.5; // 0.5% price movement required to flag missed opportunity
   private readonly MIN_CONFIDENCE_FOR_EVALUATION = 0.5; // Only evaluate HOLDs/CLOSEs above this confidence
   private readonly HOLD_PENALTY_WEIGHT = 1.0; // Weight for synthetic outcomes (1.0 = equal to real trades)
-  
-  // CLOSE evaluation configuration parameters  
+
+  // CLOSE evaluation configuration parameters
   private readonly CLOSE_TOO_EARLY_THRESHOLD = 0.5; // 0.5% continued movement = closed too early
   private readonly CLOSE_PENALTY_WEIGHT = 1.0; // Weight for early close penalties
 
@@ -79,7 +79,7 @@ export class ConfidenceCalibrationService {
 
     // Compute outcomes for each recommendation with position tracking
     const outcomes: TradeOutcome[] = [];
-    
+
     // Track current position state to evaluate CLOSE decisions
     let currentPosition: {
       action: "long" | "short";
@@ -127,7 +127,10 @@ export class ConfidenceCalibrationService {
           // Opening new LONG position or flipping from SHORT
           if (currentPosition && currentPosition.action === "short") {
             // Closing SHORT, opening LONG - evaluate the SHORT close
-            const pnlPercent = ((currentPosition.entryPrice - currentPrice) / currentPosition.entryPrice) * 100;
+            const pnlPercent =
+              ((currentPosition.entryPrice - currentPrice) /
+                currentPosition.entryPrice) *
+              100;
             const entryRec = recommendations[currentPosition.entryIndex];
             outcomes.push({
               confidence: Number(entryRec.confidence),
@@ -143,12 +146,15 @@ export class ConfidenceCalibrationService {
         }
         // If already LONG, maintain (no additional outcome)
       } else if (current.action === "short") {
-        // Opening or maintaining SHORT position  
+        // Opening or maintaining SHORT position
         if (!currentPosition || currentPosition.action !== "short") {
           // Opening new SHORT position or flipping from LONG
           if (currentPosition && currentPosition.action === "long") {
             // Closing LONG, opening SHORT - evaluate the LONG close
-            const pnlPercent = ((currentPrice - currentPosition.entryPrice) / currentPosition.entryPrice) * 100;
+            const pnlPercent =
+              ((currentPrice - currentPosition.entryPrice) /
+                currentPosition.entryPrice) *
+              100;
             const entryRec = recommendations[currentPosition.entryIndex];
             outcomes.push({
               confidence: Number(entryRec.confidence),
@@ -165,21 +171,36 @@ export class ConfidenceCalibrationService {
         // If already SHORT, maintain (no additional outcome)
       } else if (current.action === "close") {
         // Evaluate CLOSE decision
-        if (currentPosition && confidence >= this.MIN_CONFIDENCE_FOR_EVALUATION) {
+        if (
+          currentPosition &&
+          confidence >= this.MIN_CONFIDENCE_FOR_EVALUATION
+        ) {
           // Calculate P/L at close
           let pnlAtClose: number;
           if (currentPosition.action === "long") {
-            pnlAtClose = ((currentPrice - currentPosition.entryPrice) / currentPosition.entryPrice) * 100;
+            pnlAtClose =
+              ((currentPrice - currentPosition.entryPrice) /
+                currentPosition.entryPrice) *
+              100;
           } else {
-            pnlAtClose = ((currentPosition.entryPrice - currentPrice) / currentPosition.entryPrice) * 100;
+            pnlAtClose =
+              ((currentPosition.entryPrice - currentPrice) /
+                currentPosition.entryPrice) *
+              100;
           }
 
           // Calculate what would have happened if we held until next price
           let pnlIfHeld: number;
           if (currentPosition.action === "long") {
-            pnlIfHeld = ((nextPrice - currentPosition.entryPrice) / currentPosition.entryPrice) * 100;
+            pnlIfHeld =
+              ((nextPrice - currentPosition.entryPrice) /
+                currentPosition.entryPrice) *
+              100;
           } else {
-            pnlIfHeld = ((currentPosition.entryPrice - nextPrice) / currentPosition.entryPrice) * 100;
+            pnlIfHeld =
+              ((currentPosition.entryPrice - nextPrice) /
+                currentPosition.entryPrice) *
+              100;
           }
 
           // Check if we closed too early (price continued favorably)
@@ -212,7 +233,7 @@ export class ConfidenceCalibrationService {
             pnlPercent: pnlAtClose,
           });
         }
-        
+
         // Position is now closed
         currentPosition = null;
       }
@@ -223,13 +244,19 @@ export class ConfidenceCalibrationService {
       const lastRec = recommendations[recommendations.length - 1];
       const lastPrice = Number(lastRec.price);
       let pnlPercent: number;
-      
+
       if (currentPosition.action === "long") {
-        pnlPercent = ((lastPrice - currentPosition.entryPrice) / currentPosition.entryPrice) * 100;
+        pnlPercent =
+          ((lastPrice - currentPosition.entryPrice) /
+            currentPosition.entryPrice) *
+          100;
       } else {
-        pnlPercent = ((currentPosition.entryPrice - lastPrice) / currentPosition.entryPrice) * 100;
+        pnlPercent =
+          ((currentPosition.entryPrice - lastPrice) /
+            currentPosition.entryPrice) *
+          100;
       }
-      
+
       const entryRec = recommendations[currentPosition.entryIndex];
       outcomes.push({
         confidence: Number(entryRec.confidence),

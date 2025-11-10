@@ -500,8 +500,8 @@ describe("ConfidenceCalibrationService", () => {
       const baseTime = Date.now();
       const mockRecommendations = [
         ...Array.from({ length: 10 }, (_, i) => ({
-          action: i === 0 ? "hold" : "long" as const,
-          price: i === 0 ? 100 : (i === 1 ? 99 : 100 + i * 0.5), // First HOLD at 100, next at 99 (-1%)
+          action: i === 0 ? "hold" : ("long" as const),
+          price: i === 0 ? 100 : i === 1 ? 99 : 100 + i * 0.5, // First HOLD at 100, next at 99 (-1%)
           confidence: i === 0 ? 0.7 : 0.6 + i * 0.03,
           timestamp: baseTime - (10000 - i * 900),
           market: "BTC",
@@ -524,8 +524,8 @@ describe("ConfidenceCalibrationService", () => {
       const baseTime = Date.now();
       const mockRecommendations = [
         ...Array.from({ length: 10 }, (_, i) => ({
-          action: i === 0 ? "hold" : "long" as const,
-          price: i === 0 ? 100 : (i === 1 ? 100.3 : 100 + i * 0.5), // Small +0.3% move
+          action: i === 0 ? "hold" : ("long" as const),
+          price: i === 0 ? 100 : i === 1 ? 100.3 : 100 + i * 0.5, // Small +0.3% move
           confidence: i === 0 ? 0.7 : 0.6 + i * 0.03,
           timestamp: baseTime - (10000 - i * 900),
           market: "BTC",
@@ -549,8 +549,8 @@ describe("ConfidenceCalibrationService", () => {
       const baseTime = Date.now();
       const mockRecommendations = [
         ...Array.from({ length: 10 }, (_, i) => ({
-          action: i === 0 ? "hold" : "long" as const,
-          price: i === 0 ? 100 : (i === 1 ? 101 : 100 + i * 0.5), // HOLD at 100, next at 101
+          action: i === 0 ? "hold" : ("long" as const),
+          price: i === 0 ? 100 : i === 1 ? 101 : 100 + i * 0.5, // HOLD at 100, next at 101
           confidence: i === 0 ? 0.4 : 0.6 + i * 0.03, // Low confidence (0.4) for HOLD
           timestamp: baseTime - (10000 - i * 900),
           market: "BTC",
