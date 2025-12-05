@@ -283,6 +283,7 @@ export async function tradeRecommendation(
         const savedRecords =
           await tradeRecommendationService.saveRecommendations(
             recommendationsWithPrices,
+            analysis.context,
           );
 
         console.log(

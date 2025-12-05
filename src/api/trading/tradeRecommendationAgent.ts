@@ -725,6 +725,7 @@ Be conservative - it's better to miss a trade than to force a bad one.`;
 
       // Always use server timestamp (AI-generated timestamps can be incorrect)
       analysis.timestamp = new Date().toISOString();
+      analysis.context = context;
 
       // Apply confidence calibration to each recommendation
       console.log("");

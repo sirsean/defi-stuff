@@ -1,6 +1,9 @@
 import { Knex } from "knex";
 import { KnexConnector } from "./knexConnector.js";
-import type { TradeRecommendation } from "../types/tradeRecommendation.js";
+import type {
+  MarketContext,
+  TradeRecommendation,
+} from "../types/tradeRecommendation.js";
 
 /**
  * Interface for trade recommendation record in the database
@@ -17,6 +20,7 @@ export interface TradeRecommendationRecord {
   timeframe: "intraday" | "short" | "medium" | "long";
   reasoning: string;
   risk_factors: string[] | null;
+  inputs: string | null;
 }
 
 /**
@@ -58,11 +62,18 @@ export class TradeRecommendationService {
   private toRecord(
     recommendation: TradeRecommendation,
     currentPrice: number,
+    context?: MarketContext,
   ): Omit<TradeRecommendationRecord, "id"> {
     // Serialize risk_factors to JSON string if present
     let riskFactorsJson: string | null = null;
     if (recommendation.risk_factors && recommendation.risk_factors.length > 0) {
       riskFactorsJson = JSON.stringify(recommendation.risk_factors);
+    }
+
+    // Serialize context to JSON string if present
+    let inputsJson: string | null = null;
+    if (context) {
+      inputsJson = JSON.stringify(context);
     }
 
     return {
@@ -76,6 +87,7 @@ export class TradeRecommendationService {
       timeframe: recommendation.timeframe,
       reasoning: recommendation.reasoning,
       risk_factors: riskFactorsJson as any, // Store as JSON string
+      inputs: inputsJson,
     };
   }
 
@@ -109,6 +121,7 @@ export class TradeRecommendationService {
   async saveRecommendation(
     recommendation: TradeRecommendation,
     currentPrice: number,
+    context?: MarketContext,
   ): Promise<TradeRecommendationRecord> {
     try {
       // Make sure DB is initialized
@@ -121,7 +134,7 @@ export class TradeRecommendationService {
         throw new Error("Database connection could not be established");
       }
 
-      const record = this.toRecord(recommendation, currentPrice);
+      const record = this.toRecord(recommendation, currentPrice, context);
 
       // Insert the record
       const result = await this.db(this.tableName)
@@ -150,6 +163,7 @@ export class TradeRecommendationService {
       recommendation: TradeRecommendation;
       currentPrice: number;
     }>,
+    context?: MarketContext,
   ): Promise<TradeRecommendationRecord[]> {
     try {
       // Make sure DB is initialized
@@ -167,7 +181,7 @@ export class TradeRecommendationService {
         const results: TradeRecommendationRecord[] = [];
 
         for (const { recommendation, currentPrice } of recommendations) {
-          const record = this.toRecord(recommendation, currentPrice);
+          const record = this.toRecord(recommendation, currentPrice, context);
 
           const inserted = await trx(this.tableName)
             .insert(record)

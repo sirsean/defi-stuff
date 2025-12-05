@@ -128,6 +128,8 @@ export interface AgentAnalysis {
   recommendations: TradeRecommendation[];
   /** Overall market assessment */
   market_summary: string;
+  /** Market context used for analysis */
+  context: MarketContext;
   /** Timestamp of analysis */
   timestamp: string;
 }
