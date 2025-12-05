@@ -1,10 +1,10 @@
 import { TradeBacktestService } from "../db/tradeBacktestService.js";
-import type { BacktestResult, HoldMode } from "../types/backtest.js";
+import { FlexPublicService } from "../api/flex/flexPublicService.js";
+import type { BacktestResult } from "../types/backtest.js";
 
 interface TradeBacktestCLIOptions {
   market?: string;
   days?: number;
-  holdMode?: string;
   json?: boolean;
   verbose?: boolean;
 }
@@ -45,10 +45,10 @@ function formatDate(date: Date): string {
  * Print human-readable backtest result
  */
 function printResult(result: BacktestResult, verbose: boolean = false): void {
-  const { market, date_range, total_recommendations, hold_mode } = result;
+  const { market, date_range, total_recommendations, capital_base } = result;
   const {
     recommended_strategy,
-    perfect_strategy,
+    buy_and_hold_strategy,
     by_action,
     confidence_analysis,
     raw_confidence_analysis,
@@ -66,11 +66,14 @@ function printResult(result: BacktestResult, verbose: boolean = false): void {
     `Period: ${formatDate(date_range.start)} - ${formatDate(date_range.end)}`,
   );
   console.log(`Total Recommendations: ${total_recommendations}`);
+  if (capital_base > 0) {
+    console.log(`Capital Base:          ${toUsd(capital_base)}`);
+  }
   console.log("");
 
   // Recommended strategy
   console.log("─".repeat(80));
-  console.log(`📈 RECOMMENDED STRATEGY (hold=${hold_mode})`);
+  console.log("📈 RECOMMENDED STRATEGY");
   console.log("─".repeat(80));
   console.log("");
 
@@ -93,42 +96,38 @@ function printResult(result: BacktestResult, verbose: boolean = false): void {
   }
   console.log("");
 
-  // Perfect strategy
+  // Buy and Hold strategy
   console.log("─".repeat(80));
-  console.log("🎯 PERFECT STRATEGY (with hindsight)");
+  console.log("💰 BUY AND HOLD STRATEGY");
   console.log("─".repeat(80));
   console.log("");
 
-  if (perfect_strategy.num_trades === 0) {
-    console.log("  No trades possible (insufficient price movements)");
+  if (buy_and_hold_strategy.num_trades === 0) {
+    console.log("  No trades possible (insufficient data)");
   } else {
     console.log(
-      `  Total PnL:              ${toUsd(perfect_strategy.total_pnl_usd)}`,
+      `  Total PnL:              ${toUsd(buy_and_hold_strategy.total_pnl_usd)}`,
     );
     console.log(
-      `  Total Return:           ${toPct(perfect_strategy.total_return_percent)}`,
+      `  Total Return:           ${toPct(buy_and_hold_strategy.total_return_percent)}`,
     );
-    console.log(
-      `  Win Rate:               ${perfect_strategy.win_rate.toFixed(2)}%`,
-    );
-    console.log(
-      `  Avg Trade Return:       ${toUsd(perfect_strategy.avg_trade_return_usd)} (${toPct(perfect_strategy.avg_trade_return_percent)})`,
-    );
-    console.log(`  Number of Trades:       ${perfect_strategy.num_trades}`);
     console.log("");
 
     // Performance gap
     if (
       recommended_strategy.num_trades > 0 &&
-      perfect_strategy.total_pnl_usd > 0
+      buy_and_hold_strategy.total_pnl_usd > 0
     ) {
       const gapPercent =
-        ((perfect_strategy.total_pnl_usd - recommended_strategy.total_pnl_usd) /
-          perfect_strategy.total_pnl_usd) *
+        ((buy_and_hold_strategy.total_pnl_usd -
+          recommended_strategy.total_pnl_usd) /
+          buy_and_hold_strategy.total_pnl_usd) *
         100;
-      console.log(
-        `  Performance Gap:        ${gapPercent.toFixed(2)}% below perfect`,
-      );
+      const performanceStr =
+        gapPercent > 0
+          ? `${gapPercent.toFixed(2)}% below Buy & Hold`
+          : `${Math.abs(gapPercent).toFixed(2)}% above Buy & Hold`;
+      console.log(`  Performance Gap:        ${performanceStr}`);
     }
   }
   console.log("");
@@ -341,19 +340,34 @@ export async function tradeBacktest(
     // Parse options
     const market = options.market?.toUpperCase();
     const days = options.days;
-    const holdModeInput = (options.holdMode || "maintain").toLowerCase();
     const jsonOutput = options.json || false;
     const verbose = options.verbose || false;
 
-    // Validate hold mode
-    if (!["maintain", "close", "both"].includes(holdModeInput)) {
-      console.error(
-        "❌ Invalid hold mode. Must be 'maintain', 'close', or 'both'.",
-      );
-      process.exit(1);
+    // Fetch current capital base (margin) if possible
+    let capitalBase = 0;
+    try {
+      const flex = new FlexPublicService();
+      const address = process.env.WALLET_ADDRESS;
+      if (address) {
+        const collateral = await flex.getCollateral(address);
+        capitalBase = collateral.balance;
+        if (verbose && !jsonOutput) {
+          console.log(
+            `ℹ️  Using current collateral as capital base: ${toUsd(capitalBase)}`,
+          );
+        }
+      } else if (verbose && !jsonOutput) {
+        console.log(
+          "ℹ️  No wallet address found, using max trade size as capital base",
+        );
+      }
+    } catch (error: any) {
+      if (verbose && !jsonOutput) {
+        console.warn(
+          `⚠️  Failed to fetch collateral balance: ${error.message}. Using max trade size as capital base.`,
+        );
+      }
     }
-
-    const holdMode = holdModeInput as HoldMode | "both";
 
     // Create backtest service
     const service = new TradeBacktestService();
@@ -363,68 +377,17 @@ export async function tradeBacktest(
       const result = await service.run({
         market,
         days,
-        holdMode,
+        capitalBase,
       });
 
       // JSON output
       if (jsonOutput) {
-        if (Array.isArray(result)) {
-          console.log(
-            JSON.stringify({ mode: "both", results: result }, null, 2),
-          );
-        } else {
-          console.log(JSON.stringify(result, null, 2));
-        }
+        console.log(JSON.stringify(result, null, 2));
         return;
       }
 
       // Human-readable output
-      if (Array.isArray(result)) {
-        // Both modes
-        result.forEach((r, i) => {
-          if (i > 0) console.log("\n\n");
-          printResult(r, verbose);
-        });
-
-        // Comparison summary if both modes
-        if (result.length === 2) {
-          const [maintain, close] = result;
-          const maintainReturn =
-            maintain.recommended_strategy.total_return_percent;
-          const closeReturn = close.recommended_strategy.total_return_percent;
-          const diff = maintainReturn - closeReturn;
-
-          console.log("");
-          console.log("═".repeat(80));
-          console.log("  📊 HOLD MODE COMPARISON");
-          console.log("═".repeat(80));
-          console.log("");
-          console.log(`  Maintain-on-Hold:  ${toPct(maintainReturn)} return`);
-          console.log(`  Close-on-Hold:     ${toPct(closeReturn)} return`);
-          console.log(
-            `  Difference:        ${toPct(Math.abs(diff))} ${diff >= 0 ? "(maintain wins)" : "(close wins)"}`,
-          );
-          console.log("");
-
-          if (Math.abs(diff) > 5) {
-            const winner = diff >= 0 ? "maintain-on-hold" : "close-on-hold";
-            console.log(
-              `  💡 Recommendation: Use ${winner} policy (${toPct(Math.abs(diff))} better return)`,
-            );
-            console.log("");
-          } else {
-            console.log(
-              "  💡 Recommendation: Performance is similar; choose based on risk preference",
-            );
-            console.log("");
-          }
-          console.log("═".repeat(80));
-          console.log("");
-        }
-      } else {
-        // Single mode
-        printResult(result, verbose);
-      }
+      printResult(result, verbose);
     } finally {
       await service.close();
     }

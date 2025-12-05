@@ -49,10 +49,8 @@ export class TradeBacktestService {
   /**
    * Run backtest analysis
    */
-  async run(
-    options: BacktestOptions,
-  ): Promise<BacktestResult | BacktestResult[]> {
-    const { holdMode, market, days } = options;
+  async run(options: BacktestOptions): Promise<BacktestResult> {
+    const { market, days, capitalBase = 0 } = options;
 
     // Fetch and preprocess recommendations
     const recs = await this.fetchRecommendations({ market, days });
@@ -61,35 +59,21 @@ export class TradeBacktestService {
       throw new Error("No recommendations found for the specified criteria");
     }
 
-    // If hold mode is "both", run twice
-    if (holdMode === "both") {
-      const maintainResult = await this.runSingle(recs, "maintain");
-      const closeResult = await this.runSingle(recs, "close");
-      return [maintainResult, closeResult];
-    }
-
-    return this.runSingle(recs, holdMode);
-  }
-
-  /**
-   * Run backtest for a single hold mode
-   */
-  private async runSingle(
-    recs: TradeRecommendationRecord[],
-    holdMode: HoldMode,
-  ): Promise<BacktestResult> {
     // Get market from recommendations
-    const market = recs[0].market;
+    const recMarket = recs[0].market;
 
     // Simulate recommended strategy
-    const recommendedTrades = this.simulateRecommendedStrategy(recs, holdMode);
+    const recommendedTrades = this.simulateRecommendedStrategy(recs);
 
-    // Simulate perfect strategy
-    const perfectTrades = this.simulatePerfectStrategy(recs);
+    // Simulate buy and hold strategy
+    const buyAndHoldTrades = this.simulateBuyAndHold(recs, capitalBase);
 
     // Compute performance metrics
-    const recommendedPerf = this.computePerformance(recommendedTrades);
-    const perfectPerf = this.computePerformance(perfectTrades);
+    const recommendedPerf = this.computePerformance(
+      recommendedTrades,
+      capitalBase,
+    );
+    const buyAndHoldPerf = this.computePerformance(buyAndHoldTrades, capitalBase);
 
     // Compute action breakdown
     const byAction = this.computeActionBreakdown(recs, recommendedTrades);
@@ -105,24 +89,23 @@ export class TradeBacktestService {
     // Generate improvement suggestions
     const improvementSuggestions = this.generateSuggestions(
       recommendedPerf,
-      perfectPerf,
+      buyAndHoldPerf,
       byAction,
       confidenceAnalysis,
       rawConfidenceAnalysis,
-      holdMode,
     );
 
     // Build result
     return {
-      market,
+      market: recMarket,
       date_range: {
         start: new Date(recs[0].timestamp),
         end: new Date(recs[recs.length - 1].timestamp),
       },
       total_recommendations: recs.length,
-      hold_mode: holdMode,
+      capital_base: capitalBase,
       recommended_strategy: recommendedPerf,
-      perfect_strategy: perfectPerf,
+      buy_and_hold_strategy: buyAndHoldPerf,
       by_action: byAction,
       confidence_analysis: confidenceAnalysis,
       raw_confidence_analysis: rawConfidenceAnalysis,
@@ -174,18 +157,9 @@ export class TradeBacktestService {
 
   /**
    * Simulate recommended strategy with position tracking
-   *
-   * Position-aware semantics (holdMode parameter is deprecated and ignored):
-   * - LONG: Enter or maintain long position; flip to long if currently short
-   * - SHORT: Enter or maintain short position; flip to short if currently long
-   * - HOLD: Maintain current state (flat stays flat, long stays long, short stays short)
-   * - CLOSE: Exit to flat; no-op if already flat (invalid action when flat)
-   *
-   * @deprecated holdMode parameter is deprecated and has no effect
    */
   private simulateRecommendedStrategy(
     recs: TradeRecommendationRecord[],
-    holdMode: HoldMode,
   ): TradeResult[] {
     const trades: TradeResult[] = [];
     let currentPosition: {
@@ -310,60 +284,51 @@ export class TradeBacktestService {
   }
 
   /**
-   * Simulate perfect strategy using one-step lookahead
+   * Simulate Buy and Hold strategy
+   * Enters long at start, exits at end.
    */
-  private simulatePerfectStrategy(
+  private simulateBuyAndHold(
     recs: TradeRecommendationRecord[],
+    capitalBase: number,
   ): TradeResult[] {
-    const trades: TradeResult[] = [];
+    if (recs.length < 2) return [];
 
-    for (let i = 0; i < recs.length - 1; i++) {
-      const current = recs[i];
-      const next = recs[i + 1];
+    const startRec = recs[0];
+    const endRec = recs[recs.length - 1];
 
-      const p0 = Number(current.price);
-      const p1 = Number(next.price);
+    const startPrice = Number(startRec.price);
+    const endPrice = Number(endRec.price);
 
-      // Skip if prices are equal
-      if (p0 === p1) continue;
+    // Use capitalBase if available, otherwise defaultSizeUsd
+    const sizeUsd = capitalBase > 0 ? capitalBase : this.defaultSizeUsd;
 
-      const action: "long" | "short" = p1 > p0 ? "long" : "short";
-      const sizeUsd = current.size_usd
-        ? Number(current.size_usd)
-        : this.defaultSizeUsd;
+    // Calculate PnL
+    const pnlPercent = (endPrice / startPrice - 1) * 100;
+    const pnlUsd = sizeUsd * (endPrice / startPrice - 1);
 
-      let pnlUsd: number;
-      let pnlPercent: number;
-
-      if (action === "long") {
-        pnlPercent = (p1 / p0 - 1) * 100;
-        pnlUsd = sizeUsd * (p1 / p0 - 1);
-      } else {
-        pnlPercent = (1 - p1 / p0) * 100;
-        pnlUsd = sizeUsd * (1 - p1 / p0);
-      }
-
-      trades.push({
-        market: current.market,
-        entry_time: new Date(current.timestamp),
-        exit_time: new Date(next.timestamp),
-        action,
-        entry_price: p0,
-        exit_price: p1,
+    return [
+      {
+        market: startRec.market,
+        entry_time: new Date(startRec.timestamp),
+        exit_time: new Date(endRec.timestamp),
+        action: "long",
+        entry_price: startPrice,
+        exit_price: endPrice,
         size_usd: sizeUsd,
-        confidence: 1.0, // Perfect has 100% confidence
+        confidence: 1.0, // N/A
         pnl_usd: pnlUsd,
         pnl_percent: pnlPercent,
-      });
-    }
-
-    return trades;
+      },
+    ];
   }
 
   /**
    * Compute performance metrics from trades
    */
-  private computePerformance(trades: TradeResult[]): StrategyPerformance {
+  private computePerformance(
+    trades: TradeResult[],
+    capitalBase: number,
+  ): StrategyPerformance {
     if (trades.length === 0) {
       return {
         total_pnl_usd: 0,
@@ -378,8 +343,17 @@ export class TradeBacktestService {
 
     const totalPnl = this.sum(trades.map((t) => t.pnl_usd));
     const totalSizeUsd = this.sum(trades.map((t) => t.size_usd));
-    const totalReturnPercent =
-      totalSizeUsd > 0 ? (totalPnl / totalSizeUsd) * 100 : 0;
+
+    // Determine denominator for return calculation
+    // If capitalBase is provided (>0), use it.
+    // Otherwise, fall back to the maximum position size used in any single trade.
+    // This assumes a sequential trading strategy where capital is reused.
+    const denominator =
+      capitalBase > 0
+        ? capitalBase
+        : Math.max(...trades.map((t) => t.size_usd), 1); // Avoid div by zero
+
+    const totalReturnPercent = (totalPnl / denominator) * 100;
 
     const winningTrades = trades.filter((t) => t.pnl_usd > 0);
     const winRate = (winningTrades.length / trades.length) * 100;
@@ -543,7 +517,7 @@ export class TradeBacktestService {
    */
   private generateSuggestions(
     recommended: StrategyPerformance,
-    perfect: StrategyPerformance,
+    buyAndHold: StrategyPerformance,
     byAction: {
       long: ActionStats;
       short: ActionStats;
@@ -552,7 +526,6 @@ export class TradeBacktestService {
     },
     confidence: ConfidenceAnalysis,
     rawConfidence: ConfidenceAnalysis | undefined,
-    holdMode: HoldMode,
   ): string[] {
     const suggestions: string[] = [];
 
@@ -618,34 +591,27 @@ export class TradeBacktestService {
       );
     }
 
-    // 3. Performance gap to perfect
-    if (perfect.total_pnl_usd > 0) {
+    // 3. Performance vs Buy and Hold
+    if (buyAndHold.total_pnl_usd > 0) {
       const gap =
-        ((perfect.total_pnl_usd - recommended.total_pnl_usd) /
-          perfect.total_pnl_usd) *
+        ((buyAndHold.total_pnl_usd - recommended.total_pnl_usd) /
+          buyAndHold.total_pnl_usd) *
         100;
-      if (gap > 70) {
+      if (gap > 20) {
         suggestions.push(
-          `Large gap to perfect (${gap.toFixed(1)}%); react faster to direction changes.`,
+          `Strategy underperforming Buy & Hold by ${gap.toFixed(1)}%. Consider holding winners longer.`,
         );
       }
     }
 
-    // 4. Hold mode recommendation (can only suggest if we have comparison data)
-    if (holdMode === "maintain") {
-      suggestions.push(
-        "Run with --hold-mode both to compare maintain vs close-on-hold policies.",
-      );
-    }
-
-    // 5. Low win rate suggestion
+    // 4. Low win rate suggestion
     if (recommended.win_rate < 50) {
       suggestions.push(
         `Win rate below 50% (${recommended.win_rate.toFixed(1)}%); consider raising confidence threshold or filtering signals.`,
       );
     }
 
-    // 6. Position sizing if high variance in sizes
+    // 5. Position sizing if high variance in sizes
     const sizesVary =
       recommended.trades.length > 0 &&
       this.stdev(recommended.trades.map((t) => t.size_usd)) >

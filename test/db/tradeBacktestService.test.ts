@@ -60,7 +60,6 @@ describe("TradeBacktestService", () => {
 
       const trades = (service as any).simulateRecommendedStrategy(
         recs,
-        "maintain",
       );
 
       expect(trades).toHaveLength(1);
@@ -89,7 +88,6 @@ describe("TradeBacktestService", () => {
 
       const trades = (service as any).simulateRecommendedStrategy(
         recs,
-        "maintain",
       );
 
       expect(trades).toHaveLength(1);
@@ -115,7 +113,6 @@ describe("TradeBacktestService", () => {
 
       const trades = (service as any).simulateRecommendedStrategy(
         recs,
-        "maintain",
       );
 
       expect(trades).toHaveLength(1);
@@ -142,7 +139,6 @@ describe("TradeBacktestService", () => {
 
       const trades = (service as any).simulateRecommendedStrategy(
         recs,
-        "maintain",
       );
 
       expect(trades).toHaveLength(1);
@@ -175,7 +171,6 @@ describe("TradeBacktestService", () => {
 
       const trades = (service as any).simulateRecommendedStrategy(
         recs,
-        "maintain",
       );
 
       expect(trades).toHaveLength(2);
@@ -216,7 +211,6 @@ describe("TradeBacktestService", () => {
 
       const trades = (service as any).simulateRecommendedStrategy(
         recs,
-        "maintain",
       );
 
       expect(trades).toHaveLength(2);
@@ -256,7 +250,6 @@ describe("TradeBacktestService", () => {
       // Mode parameter is deprecated but still accepted for backward compat
       const trades = (service as any).simulateRecommendedStrategy(
         recs,
-        "maintain",
       );
 
       expect(trades).toHaveLength(1);
@@ -288,7 +281,6 @@ describe("TradeBacktestService", () => {
 
       const trades = (service as any).simulateRecommendedStrategy(
         recs,
-        "maintain",
       );
 
       expect(trades).toHaveLength(1);
@@ -316,7 +308,6 @@ describe("TradeBacktestService", () => {
 
       const trades = (service as any).simulateRecommendedStrategy(
         recs,
-        "maintain",
       );
 
       expect(trades).toHaveLength(0);
@@ -346,11 +337,9 @@ describe("TradeBacktestService", () => {
       // Mode=close should behave same as mode=maintain now (deprecated)
       const tradesClose = (service as any).simulateRecommendedStrategy(
         recs,
-        "close",
       );
       const tradesMaintain = (service as any).simulateRecommendedStrategy(
         recs,
-        "maintain",
       );
 
       // Both should maintain on hold and close on close action
@@ -385,7 +374,6 @@ describe("TradeBacktestService", () => {
 
       const trades = (service as any).simulateRecommendedStrategy(
         recs,
-        "maintain",
       );
 
       expect(trades).toHaveLength(1);
@@ -407,81 +395,78 @@ describe("TradeBacktestService", () => {
 
       const trades = (service as any).simulateRecommendedStrategy(
         recs,
-        "maintain",
       );
 
       expect(trades).toHaveLength(0);
     });
   });
 
-  describe("Perfect Strategy", () => {
-    it("should create long trade when price increases", () => {
+  describe("Buy and Hold Strategy", () => {
+    it("should create single long trade from start to end", () => {
       const service = new TradeBacktestService(undefined, 1000);
 
       const recs = [
-        createMockRecommendation({ price: 100000 }),
-        createMockRecommendation({ price: 101000 }),
+        createMockRecommendation({
+          price: 100000,
+          timestamp: new Date("2025-10-10T12:00:00Z"),
+        }),
+        createMockRecommendation({
+          price: 105000,
+          timestamp: new Date("2025-10-10T13:00:00Z"),
+        }),
+        createMockRecommendation({
+          price: 110000,
+          timestamp: new Date("2025-10-10T14:00:00Z"),
+        }),
       ];
 
-      const trades = (service as any).simulatePerfectStrategy(recs);
+      const trades = (service as any).simulateBuyAndHold(recs, 1000);
 
       expect(trades).toHaveLength(1);
       expect(trades[0].action).toBe("long");
       expect(trades[0].entry_price).toBe(100000);
-      expect(trades[0].exit_price).toBe(101000);
-      expect(trades[0].pnl_usd).toBeCloseTo(10, 2);
-      expect(trades[0].confidence).toBe(1.0);
+      expect(trades[0].exit_price).toBe(110000);
+      expect(trades[0].pnl_usd).toBeCloseTo(100, 2); // 1000 * (110000/100000 - 1) = 100
+      expect(trades[0].pnl_percent).toBeCloseTo(10, 2);
     });
 
-    it("should create short trade when price decreases", () => {
+    it("should use capitalBase for size if provided", () => {
       const service = new TradeBacktestService(undefined, 1000);
 
       const recs = [
         createMockRecommendation({ price: 100000 }),
-        createMockRecommendation({ price: 99000 }),
+        createMockRecommendation({ price: 110000 }),
       ];
 
-      const trades = (service as any).simulatePerfectStrategy(recs);
+      const trades = (service as any).simulateBuyAndHold(recs, 5000);
 
-      expect(trades).toHaveLength(1);
-      expect(trades[0].action).toBe("short");
-      expect(trades[0].entry_price).toBe(100000);
-      expect(trades[0].exit_price).toBe(99000);
-      expect(trades[0].pnl_usd).toBeCloseTo(10, 2);
+      expect(trades[0].size_usd).toBe(5000);
+      expect(trades[0].pnl_usd).toBeCloseTo(500, 2);
     });
 
-    it("should skip when price is unchanged", () => {
+    it("should fall back to defaultSizeUsd if capitalBase is 0", () => {
       const service = new TradeBacktestService(undefined, 1000);
 
       const recs = [
         createMockRecommendation({ price: 100000 }),
-        createMockRecommendation({ price: 100000 }),
-        createMockRecommendation({ price: 101000 }),
+        createMockRecommendation({ price: 110000 }),
       ];
 
-      const trades = (service as any).simulatePerfectStrategy(recs);
+      const trades = (service as any).simulateBuyAndHold(recs, 0);
 
-      expect(trades).toHaveLength(1); // Only one trade (skipped middle)
-      expect(trades[0].entry_price).toBe(100000);
-      expect(trades[0].exit_price).toBe(101000);
+      expect(trades[0].size_usd).toBe(1000);
     });
 
-    it("should create multiple trades for price changes", () => {
+    it("should handle empty or single recommendation list", () => {
       const service = new TradeBacktestService(undefined, 1000);
+      const trades = (service as any).simulateBuyAndHold([], 1000);
+      expect(trades).toHaveLength(0);
 
-      const recs = [
-        createMockRecommendation({ price: 100000 }),
-        createMockRecommendation({ price: 101000 }),
-        createMockRecommendation({ price: 100500 }),
-        createMockRecommendation({ price: 101500 }),
-      ];
-
-      const trades = (service as any).simulatePerfectStrategy(recs);
-
-      expect(trades).toHaveLength(3);
-      expect(trades[0].action).toBe("long"); // 100k -> 101k
-      expect(trades[1].action).toBe("short"); // 101k -> 100.5k
-      expect(trades[2].action).toBe("long"); // 100.5k -> 101.5k
+      const tradesSingle = (service as any).simulateBuyAndHold(
+        [createMockRecommendation()],
+        1000,
+      );
+      expect(tradesSingle).toHaveLength(0);
     });
   });
 
@@ -528,7 +513,7 @@ describe("TradeBacktestService", () => {
         },
       ];
 
-      const perf = (service as any).computePerformance(trades);
+      const perf = (service as any).computePerformance(trades, 0);
 
       expect(perf.win_rate).toBeCloseTo(66.67, 2); // 2 out of 3
       expect(perf.num_trades).toBe(3);
@@ -539,7 +524,7 @@ describe("TradeBacktestService", () => {
     it("should handle zero trades", () => {
       const service = new TradeBacktestService(undefined, 1000);
 
-      const perf = (service as any).computePerformance([]);
+      const perf = (service as any).computePerformance([], 0);
 
       expect(perf.win_rate).toBe(0);
       expect(perf.num_trades).toBe(0);
@@ -547,7 +532,7 @@ describe("TradeBacktestService", () => {
       expect(perf.total_return_percent).toBe(0);
     });
 
-    it("should compute total return percent correctly", () => {
+    it("should compute total return percent correctly (using max position size as default capital base)", () => {
       const service = new TradeBacktestService(undefined, 1000);
 
       const trades: TradeResult[] = [
@@ -577,10 +562,38 @@ describe("TradeBacktestService", () => {
         },
       ];
 
-      const perf = (service as any).computePerformance(trades);
+      const perf = (service as any).computePerformance(trades, 0);
 
-      // Total PnL = 50, Total Size = 3000, Return = 50/3000 * 100 = 1.67%
-      expect(perf.total_return_percent).toBeCloseTo(1.67, 2);
+      // Total PnL = 50
+      // Capital Base (fallback) = Max Size = 2000
+      // Return = 50/2000 * 100 = 2.5%
+      expect(perf.total_return_percent).toBeCloseTo(2.5, 2);
+    });
+
+    it("should compute total return percent using provided capital base", () => {
+      const service = new TradeBacktestService(undefined, 1000);
+
+      const trades: TradeResult[] = [
+        {
+          market: "BTC",
+          entry_time: new Date(),
+          exit_time: new Date(),
+          action: "long",
+          entry_price: 100000,
+          exit_price: 101000,
+          size_usd: 1000,
+          confidence: 0.7,
+          pnl_usd: 10,
+          pnl_percent: 1,
+        },
+      ];
+
+      // Capital base = 5000
+      const perf = (service as any).computePerformance(trades, 5000);
+
+      // Total PnL = 10
+      // Return = 10/5000 * 100 = 0.2%
+      expect(perf.total_return_percent).toBeCloseTo(0.2, 2);
     });
   });
 
@@ -810,7 +823,6 @@ describe("TradeBacktestService", () => {
 
       const trades = (service as any).simulateRecommendedStrategy(
         recs,
-        "maintain",
       );
 
       expect(trades).toHaveLength(0);
@@ -826,7 +838,6 @@ describe("TradeBacktestService", () => {
 
       const trades = (service as any).simulateRecommendedStrategy(
         recs,
-        "maintain",
       );
 
       expect(trades).toHaveLength(0);
@@ -855,7 +866,6 @@ describe("TradeBacktestService", () => {
 
       const trades = (service as any).simulateRecommendedStrategy(
         recs,
-        "maintain",
       );
 
       // Should only create one trade (second long is ignored)
@@ -883,7 +893,6 @@ describe("TradeBacktestService", () => {
 
       const trades = (service as any).simulateRecommendedStrategy(
         recs,
-        "maintain",
       );
 
       expect(trades).toHaveLength(1);
@@ -933,13 +942,13 @@ describe("TradeBacktestService", () => {
         trades: [],
       };
 
-      const perfect = {
+      const buyAndHold = {
         total_pnl_usd: 200,
         total_return_percent: 20,
-        win_rate: 80,
-        avg_trade_return_usd: 20,
-        avg_trade_return_percent: 2,
-        num_trades: 10,
+        win_rate: 100,
+        avg_trade_return_usd: 200,
+        avg_trade_return_percent: 20,
+        num_trades: 1,
         trades: [],
       };
 
@@ -958,11 +967,10 @@ describe("TradeBacktestService", () => {
 
       const suggestions = (service as any).generateSuggestions(
         recommended,
-        perfect,
+        buyAndHold,
         byAction,
         confidence,
         undefined, // rawConfidence
-        "maintain",
       );
 
       expect(
@@ -985,13 +993,13 @@ describe("TradeBacktestService", () => {
         trades: [],
       };
 
-      const perfect = {
+      const buyAndHold = {
         total_pnl_usd: 200,
         total_return_percent: 20,
-        win_rate: 80,
-        avg_trade_return_usd: 20,
-        avg_trade_return_percent: 2,
-        num_trades: 10,
+        win_rate: 100,
+        avg_trade_return_usd: 200,
+        avg_trade_return_percent: 20,
+        num_trades: 1,
         trades: [],
       };
 
@@ -1010,11 +1018,10 @@ describe("TradeBacktestService", () => {
 
       const suggestions = (service as any).generateSuggestions(
         recommended,
-        perfect,
+        buyAndHold,
         byAction,
         confidence,
         undefined, // rawConfidence
-        "maintain",
       );
 
       expect(
@@ -1037,13 +1044,13 @@ describe("TradeBacktestService", () => {
         trades: [],
       };
 
-      const perfect = {
+      const buyAndHold = {
         total_pnl_usd: 200,
         total_return_percent: 20,
-        win_rate: 80,
-        avg_trade_return_usd: 20,
-        avg_trade_return_percent: 2,
-        num_trades: 10,
+        win_rate: 100,
+        avg_trade_return_usd: 200,
+        avg_trade_return_percent: 20,
+        num_trades: 1,
         trades: [],
       };
 
@@ -1062,11 +1069,10 @@ describe("TradeBacktestService", () => {
 
       const suggestions = (service as any).generateSuggestions(
         recommended,
-        perfect,
+        buyAndHold,
         byAction,
         confidence,
         undefined, // rawConfidence
-        "maintain",
       );
 
       expect(
@@ -1074,7 +1080,7 @@ describe("TradeBacktestService", () => {
       ).toBe(true);
     });
 
-    it("should suggest reacting faster when gap to perfect is large", () => {
+    it("should suggest improving when buy and hold outperforms significantly", () => {
       const service = new TradeBacktestService(undefined, 1000);
 
       const recommended = {
@@ -1087,13 +1093,13 @@ describe("TradeBacktestService", () => {
         trades: [],
       };
 
-      const perfect = {
+      const buyAndHold = {
         total_pnl_usd: 100,
         total_return_percent: 10,
-        win_rate: 90,
-        avg_trade_return_usd: 10,
-        avg_trade_return_percent: 1,
-        num_trades: 10,
+        win_rate: 100,
+        avg_trade_return_usd: 100,
+        avg_trade_return_percent: 10,
+        num_trades: 1,
         trades: [],
       };
 
@@ -1112,17 +1118,17 @@ describe("TradeBacktestService", () => {
 
       const suggestions = (service as any).generateSuggestions(
         recommended,
-        perfect,
+        buyAndHold,
         byAction,
         confidence,
         undefined, // rawConfidence
-        "maintain",
       );
 
       expect(
         suggestions.some(
           (s: string) =>
-            s.includes("Large gap to perfect") || s.includes("react faster"),
+            s.includes("Strategy underperforming Buy & Hold") &&
+            s.includes("holding winners longer"),
         ),
       ).toBe(true);
     });
@@ -1140,13 +1146,13 @@ describe("TradeBacktestService", () => {
         trades: [],
       };
 
-      const perfect = {
+      const buyAndHold = {
         total_pnl_usd: 200,
         total_return_percent: 20,
-        win_rate: 80,
-        avg_trade_return_usd: 20,
-        avg_trade_return_percent: 2,
-        num_trades: 10,
+        win_rate: 100,
+        avg_trade_return_usd: 200,
+        avg_trade_return_percent: 20,
+        num_trades: 1,
         trades: [],
       };
 
@@ -1171,11 +1177,10 @@ describe("TradeBacktestService", () => {
 
       const suggestions = (service as any).generateSuggestions(
         recommended,
-        perfect,
+        buyAndHold,
         byAction,
         confidence,
         rawConfidence,
-        "maintain",
       );
 
       // Should praise the improvement (0.55 - 0.25 = 0.30 > 0.1)
@@ -1201,13 +1206,13 @@ describe("TradeBacktestService", () => {
         trades: [],
       };
 
-      const perfect = {
+      const buyAndHold = {
         total_pnl_usd: 200,
         total_return_percent: 20,
-        win_rate: 80,
-        avg_trade_return_usd: 20,
-        avg_trade_return_percent: 2,
-        num_trades: 10,
+        win_rate: 100,
+        avg_trade_return_usd: 200,
+        avg_trade_return_percent: 20,
+        num_trades: 1,
         trades: [],
       };
 
@@ -1232,11 +1237,10 @@ describe("TradeBacktestService", () => {
 
       const suggestions = (service as any).generateSuggestions(
         recommended,
-        perfect,
+        buyAndHold,
         byAction,
         confidence,
         rawConfidence,
-        "maintain",
       );
 
       // Should warn about degradation (0.15 - 0.45 = -0.30 < -0.1)
@@ -1262,13 +1266,13 @@ describe("TradeBacktestService", () => {
         trades: [{ market: "BTC" }] as any,
       };
 
-      const perfect = {
+      const buyAndHold = {
         total_pnl_usd: 200,
         total_return_percent: 20,
-        win_rate: 80,
-        avg_trade_return_usd: 20,
-        avg_trade_return_percent: 2,
-        num_trades: 10,
+        win_rate: 100,
+        avg_trade_return_usd: 200,
+        avg_trade_return_percent: 20,
+        num_trades: 1,
         trades: [],
       };
 
@@ -1293,11 +1297,10 @@ describe("TradeBacktestService", () => {
 
       const suggestions = (service as any).generateSuggestions(
         recommended,
-        perfect,
+        buyAndHold,
         byAction,
         confidence,
         rawConfidence,
-        "maintain",
       );
 
       // Should suggest running calibration (raw < 0.3 and improvement < 0.05)
