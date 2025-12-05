@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { AgentAnalysis } from "../../src/types/tradeRecommendation.js";
+import type {
+  AgentAnalysis,
+  MarketContext,
+} from "../../src/types/tradeRecommendation.js";
 
 // Store originals
 const originalConsoleLog = console.log;
@@ -77,6 +80,15 @@ const mockETHMarketData = {
   short_oi: 52000000,
 };
 
+const mockContext: MarketContext = {
+  fear_greed: mockFearGreedAnalysis,
+  polymarket_prediction: mockPolymarketPrediction,
+  economic_indicators: mockEconomicIndicators,
+  markets: [mockBTCMarketData, mockETHMarketData],
+  open_positions: [],
+  portfolio_value_usd: 150000,
+};
+
 const mockAnalysisBullish: AgentAnalysis = {
   recommendations: [
     {
@@ -109,6 +121,7 @@ const mockAnalysisBullish: AgentAnalysis = {
   ],
   market_summary:
     "Market sentiment showing signs of bottoming with Fear & Greed at 35 (Fear) and improving trend. Economic indicators support risk-on positioning with Fed rate cut expectations and low recession probability. BTC presents better risk/reward than ETH currently.",
+  context: mockContext,
   timestamp: "2025-10-05T14:00:00.000Z",
 };
 
@@ -145,6 +158,7 @@ const mockAnalysisBearish: AgentAnalysis = {
   ],
   market_summary:
     "Market showing classic topping signals with Extreme Greed and deteriorating economic indicators. Rising recession probability and emergency cut expectations point to macro stress. High funding rates and lopsided positioning favor shorts on any weakness.",
+  context: mockContext,
   timestamp: "2025-10-05T14:00:00.000Z",
 };
 
@@ -180,6 +194,7 @@ const mockAnalysisNeutral: AgentAnalysis = {
   ],
   market_summary:
     "Neutral market environment with conflicting signals. Fear & Greed neutral, economic indicators mixed, and positioning not extreme. No clear directional edge. Best action is to wait for better setup with higher conviction.",
+  context: mockContext,
   timestamp: "2025-10-05T14:00:00.000Z",
 };
 
@@ -651,6 +666,7 @@ describe("tradeRecommendation command", () => {
           },
         ],
         market_summary: "Mixed market conditions",
+        context: mockContext,
         timestamp: "2025-10-05T14:00:00.000Z",
       };
 
@@ -675,6 +691,7 @@ describe("tradeRecommendation command", () => {
             recommendation: expect.objectContaining({ action: "short" }),
           }),
         ]),
+        150000,
         expect.any(Map),
       );
 
@@ -762,6 +779,7 @@ describe("tradeRecommendation command", () => {
             timeframe: "short",
           },
         ],
+        context: mockContext,
       };
 
       mockGenerateRecommendation.mockResolvedValue(customAnalysis);

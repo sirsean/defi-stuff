@@ -69,22 +69,6 @@ export class TradeRecommendationDiscordFormatter {
     })}`;
   }
 
-  /**
-   * Format timeframe for display
-   */
-  private formatTimeframe(timeframe: string): string {
-    const timeframeMap: Record<string, string> = {
-      intraday: "Intraday (today)",
-      short: "Short-term (1 day)",
-      medium: "Short-term (1 day)",
-      long: "Long-term",
-    };
-    return timeframeMap[timeframe] || timeframe;
-  }
-
-  /**
-   * Get position state emoji
-   */
   private getPositionEmoji(state: PositionState): string {
     const map: Record<PositionState, string> = {
       long: "📈",
@@ -95,50 +79,30 @@ export class TradeRecommendationDiscordFormatter {
   }
 
   /**
-   * Format position state with arrow to recommendation
-   */
-  private formatPositionFlow(
-    currentState: PositionState,
-    recommendedAction: string,
-  ): string {
-    const currentEmoji = this.getPositionEmoji(currentState);
-    const actionEmoji = this.getActionEmoji(recommendedAction);
-    return `${currentEmoji} ${currentState.toUpperCase()} → ${actionEmoji} ${recommendedAction.toUpperCase()}`;
-  }
-
-  /**
    * Format trade recommendation as Discord embed message
    */
   formatRecommendation(
     recommendation: TradeRecommendation,
     currentPrice: number,
+    portfolioValue: number,
     currentState?: PositionState,
   ) {
     const actionEmoji = this.getActionEmoji(recommendation.action);
     const color = this.getActionColor(recommendation.action);
 
+    // Construct title based on flow or simple action
+    let title = "";
+    if (currentState) {
+      const currentEmoji = this.getPositionEmoji(currentState);
+      title = `${recommendation.market}: ${currentEmoji} ${currentState.toUpperCase()} → ${actionEmoji} ${recommendation.action.toUpperCase()}`;
+    } else {
+      title = `${recommendation.market}: ${actionEmoji} ${recommendation.action.toUpperCase()}`;
+    }
+
     const message = discordService
       .createEmbedMessage()
-      .addTitle(
-        `${recommendation.market} ${actionEmoji} ${recommendation.action.toUpperCase()}`,
-      )
+      .addTitle(title)
       .setColor(color);
-
-    // Position flow field (if position state is provided)
-    if (currentState) {
-      message.addField(
-        "📊 Position Flow",
-        this.formatPositionFlow(currentState, recommendation.action),
-        false,
-      );
-    } else {
-      // Fallback to simple action field if no state provided
-      message.addField(
-        `${actionEmoji} Action`,
-        recommendation.action.toUpperCase(),
-        true,
-      );
-    }
 
     // Current price
     message.addField("💰 Current Price", this.formatPrice(currentPrice), true);
@@ -150,18 +114,12 @@ export class TradeRecommendationDiscordFormatter {
       false,
     );
 
-    // Timeframe
-    message.addField(
-      "⏱️ Timeframe",
-      this.formatTimeframe(recommendation.timeframe),
-      true,
-    );
-
     // Suggested size (if applicable)
     if (recommendation.size_usd !== null) {
+      const leverage = recommendation.size_usd / portfolioValue;
       message.addField(
         "💵 Suggested Size",
-        this.formatPrice(recommendation.size_usd),
+        `${this.formatPrice(recommendation.size_usd)} : ${leverage.toFixed(1)}x leverage`,
         true,
       );
     }
@@ -181,6 +139,7 @@ export class TradeRecommendationDiscordFormatter {
       recommendation: TradeRecommendation;
       currentPrice: number;
     }>,
+    portfolioValue: number,
     positionStates?: Map<string, PositionState>,
   ): Promise<void> {
     for (const { recommendation, currentPrice } of recommendations) {
@@ -188,6 +147,7 @@ export class TradeRecommendationDiscordFormatter {
       const message = this.formatRecommendation(
         recommendation,
         currentPrice,
+        portfolioValue,
         currentState,
       );
       await discordService.sendMessage(message);

@@ -380,6 +380,7 @@ export async function tradeRecommendation(
 
             await tradeRecommendationDiscordFormatter.sendRecommendations(
               recommendationsToSend,
+              analysis.context.portfolio_value_usd,
               positionStatesForDiscord || undefined,
             );
 
