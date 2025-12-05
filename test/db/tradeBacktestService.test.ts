@@ -58,9 +58,7 @@ describe("TradeBacktestService", () => {
         }),
       ];
 
-      const trades = (service as any).simulateRecommendedStrategy(
-        recs,
-      );
+      const trades = (service as any).simulateRecommendedStrategy(recs);
 
       expect(trades).toHaveLength(1);
       expect(trades[0].action).toBe("long");
@@ -86,9 +84,7 @@ describe("TradeBacktestService", () => {
         }),
       ];
 
-      const trades = (service as any).simulateRecommendedStrategy(
-        recs,
-      );
+      const trades = (service as any).simulateRecommendedStrategy(recs);
 
       expect(trades).toHaveLength(1);
       expect(trades[0].pnl_usd).toBeCloseTo(-10, 2); // 1000 * (99000/100000 - 1) = -10
@@ -111,9 +107,7 @@ describe("TradeBacktestService", () => {
         }),
       ];
 
-      const trades = (service as any).simulateRecommendedStrategy(
-        recs,
-      );
+      const trades = (service as any).simulateRecommendedStrategy(recs);
 
       expect(trades).toHaveLength(1);
       expect(trades[0].action).toBe("short");
@@ -137,9 +131,7 @@ describe("TradeBacktestService", () => {
         }),
       ];
 
-      const trades = (service as any).simulateRecommendedStrategy(
-        recs,
-      );
+      const trades = (service as any).simulateRecommendedStrategy(recs);
 
       expect(trades).toHaveLength(1);
       expect(trades[0].pnl_usd).toBeCloseTo(-10, 2); // 1000 * (1 - 101000/100000) = -10
@@ -169,9 +161,7 @@ describe("TradeBacktestService", () => {
         }),
       ];
 
-      const trades = (service as any).simulateRecommendedStrategy(
-        recs,
-      );
+      const trades = (service as any).simulateRecommendedStrategy(recs);
 
       expect(trades).toHaveLength(2);
 
@@ -209,9 +199,7 @@ describe("TradeBacktestService", () => {
         }),
       ];
 
-      const trades = (service as any).simulateRecommendedStrategy(
-        recs,
-      );
+      const trades = (service as any).simulateRecommendedStrategy(recs);
 
       expect(trades).toHaveLength(2);
 
@@ -248,9 +236,7 @@ describe("TradeBacktestService", () => {
       ];
 
       // Mode parameter is deprecated but still accepted for backward compat
-      const trades = (service as any).simulateRecommendedStrategy(
-        recs,
-      );
+      const trades = (service as any).simulateRecommendedStrategy(recs);
 
       expect(trades).toHaveLength(1);
       expect(trades[0].entry_price).toBe(100000);
@@ -279,9 +265,7 @@ describe("TradeBacktestService", () => {
         }),
       ];
 
-      const trades = (service as any).simulateRecommendedStrategy(
-        recs,
-      );
+      const trades = (service as any).simulateRecommendedStrategy(recs);
 
       expect(trades).toHaveLength(1);
       expect(trades[0].action).toBe("short");
@@ -306,9 +290,7 @@ describe("TradeBacktestService", () => {
         }),
       ];
 
-      const trades = (service as any).simulateRecommendedStrategy(
-        recs,
-      );
+      const trades = (service as any).simulateRecommendedStrategy(recs);
 
       expect(trades).toHaveLength(0);
     });
@@ -335,12 +317,8 @@ describe("TradeBacktestService", () => {
       ];
 
       // Mode=close should behave same as mode=maintain now (deprecated)
-      const tradesClose = (service as any).simulateRecommendedStrategy(
-        recs,
-      );
-      const tradesMaintain = (service as any).simulateRecommendedStrategy(
-        recs,
-      );
+      const tradesClose = (service as any).simulateRecommendedStrategy(recs);
+      const tradesMaintain = (service as any).simulateRecommendedStrategy(recs);
 
       // Both should maintain on hold and close on close action
       expect(tradesClose).toHaveLength(1);
@@ -372,9 +350,7 @@ describe("TradeBacktestService", () => {
         }),
       ];
 
-      const trades = (service as any).simulateRecommendedStrategy(
-        recs,
-      );
+      const trades = (service as any).simulateRecommendedStrategy(recs);
 
       expect(trades).toHaveLength(1);
       expect(trades[0].entry_price).toBe(100000);
@@ -393,9 +369,7 @@ describe("TradeBacktestService", () => {
         }),
       ];
 
-      const trades = (service as any).simulateRecommendedStrategy(
-        recs,
-      );
+      const trades = (service as any).simulateRecommendedStrategy(recs);
 
       expect(trades).toHaveLength(0);
     });
@@ -821,9 +795,7 @@ describe("TradeBacktestService", () => {
         createMockRecommendation({ action: "hold" }),
       ];
 
-      const trades = (service as any).simulateRecommendedStrategy(
-        recs,
-      );
+      const trades = (service as any).simulateRecommendedStrategy(recs);
 
       expect(trades).toHaveLength(0);
     });
@@ -836,9 +808,7 @@ describe("TradeBacktestService", () => {
         createMockRecommendation({ action: "close" }),
       ];
 
-      const trades = (service as any).simulateRecommendedStrategy(
-        recs,
-      );
+      const trades = (service as any).simulateRecommendedStrategy(recs);
 
       expect(trades).toHaveLength(0);
     });
@@ -864,9 +834,7 @@ describe("TradeBacktestService", () => {
         }),
       ];
 
-      const trades = (service as any).simulateRecommendedStrategy(
-        recs,
-      );
+      const trades = (service as any).simulateRecommendedStrategy(recs);
 
       // Should only create one trade (second long is ignored)
       expect(trades).toHaveLength(1);
@@ -891,9 +859,7 @@ describe("TradeBacktestService", () => {
         }),
       ];
 
-      const trades = (service as any).simulateRecommendedStrategy(
-        recs,
-      );
+      const trades = (service as any).simulateRecommendedStrategy(recs);
 
       expect(trades).toHaveLength(1);
       expect(trades[0].size_usd).toBe(5000);

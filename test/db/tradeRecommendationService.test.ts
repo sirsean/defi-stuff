@@ -337,7 +337,7 @@ describe("TradeRecommendationService", () => {
       // @ts-ignore - accessing private db property
       const qb = service.db("trade_recommendations");
       const insertSpy = qb.insert;
-      
+
       // Clear previous calls
       insertSpy.mockClear();
 
@@ -355,7 +355,7 @@ describe("TradeRecommendationService", () => {
     it("saveRecommendations should persist MarketContext for all items", async () => {
       // Spy on toRecord to ensure it's called with context
       const toRecordSpy = vi.spyOn(service as any, "toRecord");
-      
+
       const recommendations = [
         { recommendation: mockTradeRecommendation, currentPrice: 64000 },
       ];

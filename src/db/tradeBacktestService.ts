@@ -73,7 +73,10 @@ export class TradeBacktestService {
       recommendedTrades,
       capitalBase,
     );
-    const buyAndHoldPerf = this.computePerformance(buyAndHoldTrades, capitalBase);
+    const buyAndHoldPerf = this.computePerformance(
+      buyAndHoldTrades,
+      capitalBase,
+    );
 
     // Compute action breakdown
     const byAction = this.computeActionBreakdown(recs, recommendedTrades);
