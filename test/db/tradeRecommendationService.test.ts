@@ -4,14 +4,18 @@ import {
   TradeRecommendationRecord,
 } from "../../src/db/tradeRecommendationService.js";
 import { KnexConnector } from "../../src/db/knexConnector.js";
-import type { TradeRecommendation } from "../../src/types/tradeRecommendation.js";
+import type {
+  TradeRecommendation,
+  AgentAnalysis,
+  MarketContext,
+} from "../../src/types/tradeRecommendation.js";
 
 // Mock the KnexConnector module
 vi.mock("../../src/db/knexConnector.js", () => {
   // Create mock transaction function
   const mockTransaction = vi.fn().mockImplementation((callback) => {
-    // Create transaction object with the same methods as the query builder
-    const trx = {
+    // Create transaction object that acts as a function (like knex(table))
+    const trx = vi.fn().mockReturnValue({
       insert: vi.fn().mockReturnThis(),
       returning: vi.fn().mockResolvedValue([
         {
@@ -31,7 +35,7 @@ vi.mock("../../src/db/knexConnector.js", () => {
       whereBetween: vi.fn().mockReturnThis(),
       orderBy: vi.fn().mockReturnThis(),
       limit: vi.fn().mockReturnThis(),
-    };
+    });
 
     // Call the transaction callback with the transaction object
     return Promise.resolve(callback(trx));
@@ -115,6 +119,36 @@ const mockTradeRecommendation: TradeRecommendation = {
   reasoning: "Strong bullish momentum with positive funding rates",
   risk_factors: ["Market volatility", "Potential reversal at resistance"],
   timeframe: "short",
+};
+
+const mockMarketContext: MarketContext = {
+  fear_greed: {
+    value: 50,
+    value_classification: "Neutral",
+    timestamp: "2025-10-05T10:00:00Z",
+    time_until_update: "3600",
+  },
+  polymarket_prediction: {
+    price: 65000,
+    probability: 0.6,
+    volume: 1000000,
+    timestamp: "2025-10-05T10:00:00Z",
+  },
+  economic_indicators: {
+    cpi: { value: 3.2, previous: 3.1, timestamp: "2025-09-01" },
+    interest_rate: { value: 5.5, previous: 5.5, timestamp: "2025-09-01" },
+  },
+  markets: [
+    {
+      symbol: "BTC",
+      price: 64000,
+      funding_rate: 0.0001,
+      long_oi: 1000000,
+      short_oi: 900000,
+    },
+  ],
+  open_positions: [],
+  portfolio_value_usd: 10000,
 };
 
 describe("TradeRecommendationService", () => {
@@ -270,6 +304,79 @@ describe("TradeRecommendationService", () => {
         const result = await service.getRecommendationsByAction(action);
         expect(result).toBeDefined();
       }
+    });
+  });
+
+  describe("MarketContext handling", () => {
+    it("should include MarketContext in AgentAnalysis", () => {
+      const analysis: AgentAnalysis = {
+        recommendations: [mockTradeRecommendation],
+        market_summary: "Summary",
+        context: mockMarketContext,
+        timestamp: "2025-10-05T10:00:00Z",
+      };
+      expect(analysis.context).toEqual(mockMarketContext);
+    });
+
+    it("toRecord should serialize MarketContext to JSON string", () => {
+      // Access private method
+      const toRecord = (service as any).toRecord.bind(service);
+      const record = toRecord(
+        mockTradeRecommendation,
+        64000,
+        mockMarketContext,
+      );
+
+      expect(record.inputs).toBeDefined();
+      expect(typeof record.inputs).toBe("string");
+      expect(JSON.parse(record.inputs!)).toEqual(mockMarketContext);
+    });
+
+    it("saveRecommendation should persist MarketContext", async () => {
+      // Get the query builder to access the insert spy
+      // @ts-ignore - accessing private db property
+      const qb = service.db("trade_recommendations");
+      const insertSpy = qb.insert;
+      
+      // Clear previous calls
+      insertSpy.mockClear();
+
+      await service.saveRecommendation(
+        mockTradeRecommendation,
+        64000,
+        mockMarketContext,
+      );
+
+      expect(insertSpy).toHaveBeenCalled();
+      const insertedRecord = insertSpy.mock.calls[0][0];
+      expect(insertedRecord.inputs).toBe(JSON.stringify(mockMarketContext));
+    });
+
+    it("saveRecommendations should persist MarketContext for all items", async () => {
+      // Spy on toRecord to ensure it's called with context
+      const toRecordSpy = vi.spyOn(service as any, "toRecord");
+      
+      const recommendations = [
+        { recommendation: mockTradeRecommendation, currentPrice: 64000 },
+      ];
+
+      await service.saveRecommendations(recommendations, mockMarketContext);
+
+      expect(toRecordSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        mockMarketContext,
+      );
+    });
+
+    it("should handle null or undefined MarketContext", () => {
+      const toRecord = (service as any).toRecord.bind(service);
+
+      const record1 = toRecord(mockTradeRecommendation, 64000, undefined);
+      expect(record1.inputs).toBeNull();
+
+      const record2 = toRecord(mockTradeRecommendation, 64000, null);
+      expect(record2.inputs).toBeNull();
     });
   });
 });
